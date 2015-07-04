@@ -67,14 +67,14 @@ int main(int argc, char *argv[])
     if (!file)
         usage(argv[0]);
 
-#if 0
+#if 1
     /* initialize the loader */
     if ((sts = xbeeLoader.init(ipaddr)) != 0) {
         printf("error: loader initialization failed: %d\n", sts);
         return 1;
     }
     loader = &xbeeLoader;
-#endif
+#else
     
     /* initialize the loader */
     if ((sts = serialLoader.init("/dev/cu.usbserial-PAYMDDM", baudrate)) != 0) {
@@ -82,6 +82,7 @@ int main(int argc, char *argv[])
         return 1;
     }
     loader = &serialLoader;
+#endif
         
     /* load the file */
     if ((sts = loader->loadFile(file)) != 0) {
