@@ -97,13 +97,10 @@ int Xbee::getItem(xbCommand cmd, int *pValue)
     tx->frameID = 0x01;
     tx->configOptions = 0x02;
     strncpy(tx->atCommand, atCmd[cmd], 2);
-    printf("Sending\n");
     if (SendSocketData(m_appService, tx, sizeof(txPacket)) != sizeof(txPacket))
         return -1;
-    printf("Receiving\n");
     if ((cnt = ReceiveSocketData(m_appService, buf, sizeof(buf))) < sizeof(rxPacket))
         return -1;
-    printf("Done\n");
     if ((rx->hdr.number1 ^ rx->hdr.number2) != 0x4242 || rx->status != 0x00)
         return -1;
     *pValue = 0;
