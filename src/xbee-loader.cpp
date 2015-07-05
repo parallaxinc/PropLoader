@@ -96,7 +96,6 @@ int XbeeLoader::receiveData(uint8_t *buf, int len)
     return m_xbee.receiveSerialData(buf, len);
 }
 
-
 int XbeeLoader::receiveDataExact(uint8_t *buf, int len, int timeout)
 {
     return m_xbee.receiveSerialData(buf, len);

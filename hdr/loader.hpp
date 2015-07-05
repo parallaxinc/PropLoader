@@ -21,7 +21,8 @@ protected:
     virtual int receiveDataExact(uint8_t *buf, int len, int timeout) = 0;
     int m_baudrate;
 private:
-    uint8_t *GenerateInitialLoaderPacket(int packetID, int *pLength);
+    uint8_t *generateInitialLoaderPacket(int *pLength, int *pPacketID, int *pChecksum);
+    int transmitPacket(int id, void *payload, int payloadSize);
 };
 
 #endif

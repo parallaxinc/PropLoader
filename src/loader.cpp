@@ -13,6 +13,7 @@
 #define DEFAULT_MAX_DATA_SIZE   1392        /* The default maximum size for a single UDP packet. */
 #define FINAL_BAUD              921600		/* Final XBee-to-Propeller baud rate. */
 #define MAX_RX_SENSE_ERROR      23			/* Maximum number of cycles by which the detection of a start bit could be off (as affected by the Loader code) */
+#define LENGTH_FIELD_SIZE       11          /* number of bytes in the length field */
 
 // Offset (in bytes) from end of Loader Image pointing to where most host-initialized values exist.
 // Host-Initialized values are: Initial Bit Time, Final Bit Time, 1.5x Bit Time, Failsafe timeout,
@@ -199,6 +200,12 @@ static void setLong(uint8_t *buf, uint32_t value)
      buf[0] = value;
 }
 
+// Raw loader image.  This is a memory image of a Propeller Application written in PASM that fits into our initial
+// download packet.  Once started, it assists with the remainder of the download (at a faster speed and with more
+// relaxed interstitial timing conducive of Internet Protocol delivery. This memory image isn't used as-is; before
+// download, it is first adjusted to contain special values assigned by this host (communication timing and
+// synchronization values) and then is translated into an optimized Propeller Download Stream understandable by the
+// Propeller ROM-based boot loader.
 static uint8_t rawLoaderImage[] = {
     0x00,0xB4,0xC4,0x04,0x6F,0xC3,0x10,0x00,0x5C,0x01,0x64,0x01,0x54,0x01,0x68,0x01,
     0x4C,0x01,0x02,0x00,0x44,0x01,0x00,0x00,0x48,0xE8,0xBF,0xA0,0x48,0xEC,0xBF,0xA0,
@@ -223,9 +230,24 @@ static uint8_t rawLoaderImage[] = {
     0x5B,0x01,0x00,0x00,0x08,0x02,0x00,0x00,0x55,0x73,0xCB,0x00,0x50,0x45,0x01,0x00,
     0x00,0x00,0x00,0x00,0x35,0xC7,0x08,0x35,0x2C,0x32,0x00,0x00};
     
-static uint8_t initCallFrame[] = {0xFF, 0xFF, 0xF9, 0xFF, 0xFF, 0xFF, 0xF9, 0xFF};
+// Loader VerifyRAM snippet; use with ltVerifyRAM, ltProgramEEPROM.
+static uint8_t verifyRAM[] = {
+    0x44,0xA4,0xBC,0xA0,0x40,0xA4,0xBC,0x84,0x02,0xA4,0xFC,0x2A,0x40,0x82,0x14,0x08,
+    0x04,0x80,0xD4,0x80,0x58,0xA4,0xD4,0xE4,0x0A,0xA4,0xFC,0x04,0x04,0xA4,0xFC,0x84,
+    0x52,0x8A,0x3C,0x08,0x04,0xA4,0xFC,0x84,0x52,0x8A,0x3C,0x08,0x01,0x80,0xFC,0x84,
+    0x40,0xA4,0xBC,0x00,0x52,0x82,0xBC,0x80,0x60,0x80,0x7C,0xE8,0x41,0x9C,0xBC,0xA4,
+    0x09,0x00,0x7C,0x5C};
 
-#define LENGTH_FIELD_SIZE   11
+// Loader LaunchStart snippet; use with ltLaunchStart.
+static uint8_t launchStart[] = {
+    0xB8,0x68,0xFC,0x58,0x58,0x68,0xFC,0x50,0x09,0x00,0x7C,0x5C,0x06,0x80,0xFC,0x04,
+    0x10,0x80,0x7C,0x86,0x00,0x84,0x54,0x0C,0x02,0x8C,0x7C,0x0C};
+
+// Loader LaunchFinal snippet; use with ltLaunchFinal.
+static uint8_t launchFinal[] = {
+    0x06,0x80,0xFC,0x04,0x10,0x80,0x7C,0x86,0x00,0x84,0x54,0x0C,0x02,0x8C,0x7C,0x0C};
+
+static uint8_t initCallFrame[] = {0xFF, 0xFF, 0xF9, 0xFF, 0xFF, 0xFF, 0xF9, 0xFF};
 
 static uint8_t *GenerateLoaderPacket(const uint8_t *image, int imageSize, int *pLength)
 {
@@ -264,12 +286,15 @@ static uint8_t *GenerateLoaderPacket(const uint8_t *image, int imageSize, int *p
     return packet;
 }
 
-uint8_t *Loader::GenerateInitialLoaderPacket(int packetID, int *pLength)
+uint8_t *Loader::generateInitialLoaderPacket(int *pLength, int *pPacketID, int *pChecksum)
 {
     int initAreaOffset = sizeof(rawLoaderImage) + RAW_LOADER_INIT_OFFSET_FROM_END;
     uint8_t loaderImage[sizeof(rawLoaderImage)];
-    int checksum, i;
+    int i;
 
+    // compute the packet id
+    *pPacketID = (sizeof(rawLoaderImage) + 3) / 4;
+    
     // Make a copy of the loader template
     memcpy(loaderImage, rawLoaderImage, sizeof(rawLoaderImage));
     
@@ -289,19 +314,48 @@ uint8_t *Loader::GenerateInitialLoaderPacket(int packetID, int *pLength)
     SetHostInitializedValue(loaderImage, initAreaOffset + 16, (int)trunc((2.0 * 80000000.0 / FINAL_BAUD) * (10.0 / 12.0) + 0.5));
     
     // First Expected Packet ID; total packet count.
-    SetHostInitializedValue(loaderImage, initAreaOffset + 20, packetID);
+    SetHostInitializedValue(loaderImage, initAreaOffset + 20, *pPacketID);
 
     // Recalculate and update checksum so low byte of checksum calculates to 0.
-    checksum = 0;
+    *pChecksum = 0;
     loaderImage[5] = 0; // start with a zero checksum
     for (i = 0; i < sizeof(rawLoaderImage); ++i)
-        checksum += loaderImage[i];
+        *pChecksum += loaderImage[i];
     for (i = 0; i < sizeof(initCallFrame); ++i)
-        checksum += initCallFrame[i];
-    loaderImage[5] = 256 - (checksum & 0xFF);
+        *pChecksum += initCallFrame[i];
+    loaderImage[5] = 256 - (*pChecksum & 0xFF);
     
     /* encode the image and form a packet */
     return GenerateLoaderPacket(loaderImage, sizeof(rawLoaderImage), pLength);
+}
+
+int Loader::transmitPacket(int id, void *payload, int payloadSize)
+{
+    int packetSize = 4 + payloadSize;
+    uint8_t *packet, response[4];
+    int cnt;
+    
+    /* build the packet to transmit */
+    if (!(packet = (uint8_t *)malloc(packetSize)))
+        return -1;
+    setLong(&packet[0], id);
+    memcpy(&packet[4], payload, payloadSize);
+    
+    /* send the packet */
+    sendData(packet, packetSize);
+    
+    /* receive the response */
+    cnt = receiveDataExact(response, sizeof(response), 2000);
+    if (cnt != 4 || getLong(&response[0]) != getLong(&response[0])) {
+        free(packet);
+        return -1;
+    }
+    
+    /* free the packet */
+    free(packet);
+    
+    /* return successfully */
+    return 0;
 }
 
 static void msleep(int ms)
@@ -357,14 +411,14 @@ int Loader::loadFile(const char *file)
 int Loader::loadImage(const uint8_t *image, int imageSize)
 {
     uint8_t *packet, packet2[DEFAULT_MAX_DATA_SIZE];
-    int packetSize, version, cnt, sts, i;
+    int packetSize, packetID, version, cnt, sts, i;
 
     /* generate a loader packet */
     packet = GenerateLoaderPacket(image, imageSize, &packetSize);
     if (!packet)
         return -1;
 
-    /* connect to the xbee */
+    /* connect to the target */
     if ((sts = connect()) != 0) {
         free(packet);
         return sts;
@@ -387,14 +441,16 @@ int Loader::loadImage(const uint8_t *image, int imageSize)
        valid time window in the communication sequence */
     msleep((sizeof(packet2) * 10 * 1000) / m_baudrate);
     
+    /* receive the handshake response and the hardware version */
     cnt = receiveDataExact(packet2, sizeof(rxHandshake) + 4, 2000);
     
+    /* verify the handshake response */
     if (cnt != sizeof(rxHandshake) + 4 || memcmp(packet2, rxHandshake, sizeof(rxHandshake)) != 0) {
         printf("error: handshake failed\n");
         return -1;
     }
     
-    /* Parse hardware version */
+    /* verify the hardware version */
     version = 0;
     for (i = sizeof(rxHandshake); i < cnt; ++i)
         version = ((version >> 2) & 0x3F) | ((packet2[i] & 0x01) << 6) | ((packet2[i] & 0x20) << 2);
@@ -415,9 +471,11 @@ int Loader::loadImage(const uint8_t *image, int imageSize)
         printf("error: loader checksum failed\n");
         return 1;
     }
+    
+    transmitPacket(0, verifyRAM, sizeof(verifyRAM));
 #endif
     
-    /* disconnect from the xbee */
+    /* disconnect from the target */
     disconnect();
     
     /* return successfully */
