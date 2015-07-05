@@ -258,8 +258,8 @@ int SetSerialBaud(SERIAL *serial, int baud)
         tbaud = B9600;
         break;
     default:
-        printf("Unsupported baudrate. Use ");
         tbaud = baud; break;
+        printf("Unsupported baudrate. Use ");
 #ifdef B921600
         printf("921600, ");
 #endif

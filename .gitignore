@@ -1,4 +1,5 @@
 *.o
+*.binary
+*.elf
 obj/
 bin/
-blink.binary

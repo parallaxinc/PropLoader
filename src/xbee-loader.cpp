@@ -51,6 +51,11 @@ void XbeeLoader::disconnect()
     m_xbee.disconnect();
 }
 
+int XbeeLoader::setBaudRate(int baudrate)
+{
+    return m_xbee.setItem(xbSerialBaud, baudrate);
+}
+
 int XbeeLoader::generateResetSignal()
 {
     if (enforceXbeeConfiguration(m_xbee) != 0)
@@ -104,9 +109,11 @@ int XbeeLoader::receiveDataExact(uint8_t *buf, int len, int timeout)
 static int validate(Xbee &xbee, xbCommand cmd, int value, bool readOnly)
 {
     int currentValue;
+    printf("Getting %d\n", cmd);
     if (xbee.getItem(cmd, &currentValue) != 0)
         return -1;
     if (currentValue != value && !readOnly) {
+        printf("Setting %d to %d\n", cmd, value);
         if (xbee.setItem(cmd, value) != 0)
             return -1;
     }

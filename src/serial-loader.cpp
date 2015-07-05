@@ -50,6 +50,11 @@ void SerialLoader::disconnect()
     }
 }
 
+int SerialLoader::setBaudRate(int baudrate)
+{
+    return m_serial ? SetSerialBaud(m_serial, baudrate) : -1;
+}
+
 int SerialLoader::generateResetSignal()
 {
     return m_serial ? SerialGenerateResetSignal(m_serial) : -1;

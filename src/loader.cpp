@@ -10,7 +10,7 @@
 #include <unistd.h>
 #include "loader.hpp"
 
-#define DEFAULT_MAX_DATA_SIZE   1392        /* The default maximum size for a single UDP packet. */
+#define MAX_BUFFER_SIZE         4096        /* The maximum buffer size. (BUG: git rid of this magic number) */
 #define FINAL_BAUD              921600		/* Final XBee-to-Propeller baud rate. */
 #define MAX_RX_SENSE_ERROR      23			/* Maximum number of cycles by which the detection of a start bit could be off (as affected by the Loader code) */
 #define LENGTH_FIELD_SIZE       11          /* number of bytes in the length field */
@@ -187,7 +187,7 @@ static void SetHostInitializedValue(uint8_t *bytes, int offset, int value)
         bytes[offset + i] = (value >> (i * 8)) & 0xFF;
 }
 
-static uint32_t getLong(uint8_t *buf)
+static uint32_t getLong(const uint8_t *buf)
 {
      return (buf[3] << 24) | (buf[2] << 16) | (buf[1] << 8) | buf[0];
 }
@@ -252,7 +252,7 @@ static uint8_t initCallFrame[] = {0xFF, 0xFF, 0xF9, 0xFF, 0xFF, 0xFF, 0xF9, 0xFF
 static uint8_t *GenerateLoaderPacket(const uint8_t *image, int imageSize, int *pLength)
 {
     int imageSizeInLongs = (imageSize + 3) / 4;
-    uint8_t encodedImage[DEFAULT_MAX_DATA_SIZE * 8]; // worst case assuming one byte per bit encoding
+    uint8_t encodedImage[MAX_BUFFER_SIZE * 8]; // worst case assuming one byte per bit encoding
     int encodedImageSize, packetSize, checksum, tmp, i;
     uint8_t *packet, *p;
     
@@ -286,15 +286,12 @@ static uint8_t *GenerateLoaderPacket(const uint8_t *image, int imageSize, int *p
     return packet;
 }
 
-uint8_t *Loader::generateInitialLoaderPacket(int *pLength, int *pPacketID, int *pChecksum)
+uint8_t *Loader::generateInitialLoaderPacket(int packetID, int *pLength)
 {
     int initAreaOffset = sizeof(rawLoaderImage) + RAW_LOADER_INIT_OFFSET_FROM_END;
     uint8_t loaderImage[sizeof(rawLoaderImage)];
-    int i;
+    int checksum, i;
 
-    // compute the packet id
-    *pPacketID = (sizeof(rawLoaderImage) + 3) / 4;
-    
     // Make a copy of the loader template
     memcpy(loaderImage, rawLoaderImage, sizeof(rawLoaderImage));
     
@@ -314,26 +311,26 @@ uint8_t *Loader::generateInitialLoaderPacket(int *pLength, int *pPacketID, int *
     SetHostInitializedValue(loaderImage, initAreaOffset + 16, (int)trunc((2.0 * 80000000.0 / FINAL_BAUD) * (10.0 / 12.0) + 0.5));
     
     // First Expected Packet ID; total packet count.
-    SetHostInitializedValue(loaderImage, initAreaOffset + 20, *pPacketID);
+    SetHostInitializedValue(loaderImage, initAreaOffset + 20, packetID);
 
     // Recalculate and update checksum so low byte of checksum calculates to 0.
-    *pChecksum = 0;
+    checksum = 0;
     loaderImage[5] = 0; // start with a zero checksum
     for (i = 0; i < sizeof(rawLoaderImage); ++i)
-        *pChecksum += loaderImage[i];
+        checksum += loaderImage[i];
     for (i = 0; i < sizeof(initCallFrame); ++i)
-        *pChecksum += initCallFrame[i];
-    loaderImage[5] = 256 - (*pChecksum & 0xFF);
+        checksum += initCallFrame[i];
+    loaderImage[5] = 256 - (checksum & 0xFF);
     
     /* encode the image and form a packet */
     return GenerateLoaderPacket(loaderImage, sizeof(rawLoaderImage), pLength);
 }
 
-int Loader::transmitPacket(int id, void *payload, int payloadSize)
+int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int *pResult)
 {
     int packetSize = 4 + payloadSize;
     uint8_t *packet, response[4];
-    int cnt;
+    int result, cnt;
     
     /* build the packet to transmit */
     if (!(packet = (uint8_t *)malloc(packetSize)))
@@ -342,19 +339,24 @@ int Loader::transmitPacket(int id, void *payload, int payloadSize)
     memcpy(&packet[4], payload, payloadSize);
     
     /* send the packet */
+    printf("Sending %d, %d bytes -- ", id, packetSize); fflush(stdout);
     sendData(packet, packetSize);
     
     /* receive the response */
     cnt = receiveDataExact(response, sizeof(response), 2000);
-    if (cnt != 4 || getLong(&response[0]) != getLong(&response[0])) {
+    result = getLong(&response[0]);
+    if (cnt != 4 || result == id) {
+        printf("failed %d\n", result);
         free(packet);
         return -1;
     }
+    printf("result %d\n", result);
     
     /* free the packet */
     free(packet);
     
     /* return successfully */
+    *pResult = result;
     return 0;
 }
 
@@ -369,15 +371,15 @@ int Loader::init(int baudrate)
     return 0;
 }
 
-int Loader::loadFile(const char *file)
+uint8_t *Loader::readEntireFile(const char *file, int *pLength)
 {
-    int imageSize, sts;
     uint8_t *image;
+    int imageSize;
     FILE *fp;
     
     /* open the file to load */
     if ((fp = fopen(file, "rb")) == NULL)
-        return -1;
+        return NULL;
     
     /* get the size of the binary file */
     fseek(fp, 0, SEEK_END);
@@ -387,18 +389,32 @@ int Loader::loadFile(const char *file)
     /* allocate space for the file */
     if (!(image = (uint8_t *)malloc(imageSize))) {
         fclose(fp);
-        return -1;
+        return NULL;
     }
     
     /* read the entire image into memory */
     if (fread(image, 1, imageSize, fp) != imageSize) {
         free(image);
         fclose(fp);
-        return -1;
+        return NULL;
     }
     
     /* close the image file */
     fclose(fp);
+    
+    /* return the buffer containing the file contents */
+    *pLength = imageSize;
+    return image;
+}
+
+int Loader::loadFile(const char *file)
+{
+    int imageSize, sts;
+    uint8_t *image;
+    
+    /* read the entire file into a buffer */
+    if (!(image = readEntireFile(file, &imageSize)))
+        return -1;
     
     /* load the image */
     sts = loadImage(image, imageSize);
@@ -408,10 +424,27 @@ int Loader::loadFile(const char *file)
     return sts;
 }
     
+int Loader::loadFile2(const char *file)
+{
+    int imageSize, sts;
+    uint8_t *image;
+    
+    /* read the entire file into a buffer */
+    if (!(image = readEntireFile(file, &imageSize)))
+        return -1;
+    
+    /* load the image */
+    sts = loadImage2(image, imageSize);
+    free(image);
+    
+    /* return load status */
+    return sts;
+}
+    
 int Loader::loadImage(const uint8_t *image, int imageSize)
 {
-    uint8_t *packet, packet2[DEFAULT_MAX_DATA_SIZE];
-    int packetSize, packetID, version, cnt, sts, i;
+    uint8_t *packet, packet2[MAX_BUFFER_SIZE];
+    int packetSize, version, cnt, sts, i;
 
     /* generate a loader packet */
     packet = GenerateLoaderPacket(image, imageSize, &packetSize);
@@ -465,15 +498,119 @@ int Loader::loadImage(const uint8_t *image, int imageSize)
         return -1;
     }
     
-#if 0
+    /* disconnect from the target */
+    disconnect();
+    
+    /* return successfully */
+    return 0;
+}
+
+int Loader::loadImage2(const uint8_t *image, int imageSize)
+{
+    uint8_t *packet, packet2[MAX_BUFFER_SIZE];
+    int packetSize, version, cnt, sts, i;
+    int32_t packetID, checksum;
+    
+    /* compute the packet ID (number of packets to be sent) */
+    packetID = (imageSize + maxDataSize() - 1) / maxDataSize();
+
+    /* generate a loader packet */
+    packet = generateInitialLoaderPacket(packetID, &packetSize);
+    if (!packet)
+        return -1;
+        
+    /* compute the image checksum */
+    checksum = 0;
+    for (i = 0; i < imageSize; ++i)
+        checksum += image[i];
+    for (i = 0; i < sizeof(initCallFrame); ++i)
+        checksum += initCallFrame[i];
+
+    /* connect to the target */
+    if ((sts = connect()) != 0) {
+        free(packet);
+        return sts;
+    }
+    
+    /* reset the Propeller */
+    printf("Generating reset signal\n");
+    generateResetSignal();
+    
+    /* send the second-stage loader */
+    printf("Sending handshake and second-stage loader\n");
+    sendData(packet, packetSize);
+    
+    /* Reset period 200 ms + first packet’s serial transfer time + 20 ms */
+    msleep(200 + (packetSize * 10 * 1000) / m_baudrate + 20);
+    
+    /* send the verification packet (all timing templates) */
+    printf("Sending verification packet\n");
+    memset(packet2, 0xF9, sizeof(packet2));
+    sendData(packet2, sizeof(packet2));
+    
+    /* this delay helps apply the majority of the next step’s receive timeout to a
+       valid time window in the communication sequence */
+    msleep((sizeof(packet2) * 10 * 1000) / m_baudrate);
+    
+    /* receive the handshake response and the hardware version */
+    cnt = receiveDataExact(packet2, sizeof(rxHandshake) + 4, 2000);
+    
+    /* verify the handshake response */
+    printf("Verifying handshake response\n");
+    if (cnt != sizeof(rxHandshake) + 4 || memcmp(packet2, rxHandshake, sizeof(rxHandshake)) != 0) {
+        printf("error: handshake failed\n");
+        return -1;
+    }
+    
+    /* verify the hardware version */
+    printf("Verifying hardware version\n");
+    version = 0;
+    for (i = sizeof(rxHandshake); i < cnt; ++i)
+        version = ((version >> 2) & 0x3F) | ((packet2[i] & 0x01) << 6) | ((packet2[i] & 0x20) << 2);
+    if (version != 1) {
+        printf("error: wrong propeller version\n");
+        return -1;
+    }
+    
+    printf("Checking checksum\n");
+    cnt = receiveDataExact(packet2, 1, 2000);
+    if (cnt != 1 || packet2[0] != 0xFE) {
+        printf("error: loader checksum failed\n");
+        return -1;
+    }
+    
+    printf("Waiting for second-stage loader initial response\n");
     cnt = receiveData(packet2, sizeof(packet2));
     if (cnt != 4 || getLong(packet2) != packetID) {
-        printf("error: loader checksum failed\n");
+        printf("error: second-stage loader failed to start\n");
         return 1;
     }
     
-    transmitPacket(0, verifyRAM, sizeof(verifyRAM));
-#endif
+    printf("Got initial second-stage loader response\n");
+    setBaudRate(FINAL_BAUD);
+    
+    /* transmit the image */
+    int result;
+    printf("Sending image: %d\n", packetID);
+    while (imageSize > 0) {
+        int size, sts;
+        if ((size = imageSize) > maxDataSize())
+            size = maxDataSize();
+        sts = transmitPacket(packetID, image, size, &result);
+        if (result != packetID - 1)
+            printf("Unexpected result\n");
+        imageSize -= size;
+        image += size;
+        --packetID;
+    }
+    
+    transmitPacket(0, verifyRAM, sizeof(verifyRAM), &result);
+    if (result != -checksum)
+        printf("Checksum error\n");
+    transmitPacket(-checksum, launchStart, sizeof(launchStart), &result);
+    if (result != -checksum - 1)
+        printf("Failed\n");
+    sendData(launchFinal, sizeof(launchFinal));
     
     /* disconnect from the target */
     disconnect();

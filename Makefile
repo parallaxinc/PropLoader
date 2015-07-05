@@ -8,6 +8,40 @@ CPP=c++
 MKDIR=mkdir -p
 RM=rm -r -f
 
+ifeq ($(OS),linux)
+CFLAGS+=-DLINUX
+EXT=
+OSINT=$(OBJDIR)/sock_posix.o $(OBJDIR)/serial_posix.o
+LIBS=
+endif
+
+ifeq ($(OS),raspberrypi)
+OS=linux
+CFLAGS+=-DLINUX -DRASPBERRY_PI
+EXT=
+OSINT=$(OBJDIR)/sock_posix.o $(OBJDIR)/serial_posix.o
+LIBS=
+OSINT+=gpio_sysfs.o
+endif
+
+ifeq ($(OS),msys)
+CFLAGS+=-DMINGW
+EXT=.exe
+OSINT=$(OBJDIR)/sock_posix.o $(OBJDIR)/serial_mingw.o
+LIBS=-lsetupapi
+endif
+
+ifeq ($(OS),macosx)
+CFLAGS+=-DMACOSX
+EXT=
+OSINT=$(OBJDIR)/sock_posix.o $(OBJDIR)/serial_posix.o
+LIBS=
+endif
+
+ifeq ($(OS),)
+$(error OS not set)
+endif
+
 HDRS=\
 $(HDRDIR)/loader.hpp \
 $(HDRDIR)/serial-loader.hpp \
@@ -22,26 +56,34 @@ $(OBJDIR)/loader.o \
 $(OBJDIR)/xbee-loader.o \
 $(OBJDIR)/serial-loader.o \
 $(OBJDIR)/xbee.o \
-$(OBJDIR)/sock_posix.o \
-$(OBJDIR)/serial_posix.o
+$(OSINT)
 
 DIRS=$(OBJDIR) $(BINDIR)
 
 CFLAGS=-DMACOSX -I$(HDRDIR)
 CPPFLAGS=$(CFLAGS)
 
-all:	 $(BINDIR)/proploader 
+all:	 $(BINDIR)/proploader$(EXT)
 
 $(OBJS):	$(OBJDIR) $(HDRS) Makefile
 
-$(BINDIR)/proploader:	$(BINDIR) $(OBJS)
-	$(CPP) -o $@ $(OBJS) -lstdc++
+$(BINDIR)/proploader$(EXT):	$(BINDIR) $(OBJS)
+	$(CPP) -o $@ $(OBJS) $(LIBS) -lstdc++
 
-blink.binary:	blink.spin
+%.binary:	%.elf
+	propeller-load -s $<
+    
+%.elf:	%.c
+	propeller-elf-gcc -Os -mlmm -o $@ $<
+    
+%.binary:	%.spin
 	openspin $<
 
-run:	$(BINDIR)/proploader blink.binary
-	$(BINDIR)/proploader blink.binary
+run:	$(BINDIR)/proploader$(EXT) blink.binary
+	$(BINDIR)/proploader$(EXT) blink.binary
+
+runbig:	$(BINDIR)/proploader$(EXT) toggle.binary
+	$(BINDIR)/proploader$(EXT) toggle.binary
 
 $(OBJDIR)/%.o:	$(SRCDIR)/%.c $(OBJDIR) $(HDRS)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -53,4 +95,4 @@ $(DIRS):
 	$(MKDIR) $@
 
 clean:
-	$(RM) $(OBJDIR) $(BINDIR) blink.binary
+	$(RM) $(OBJDIR) $(BINDIR) *.binary *.elf
