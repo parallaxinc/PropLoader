@@ -585,8 +585,9 @@ int Loader::loadImage2(const uint8_t *image, int imageSize)
         printf("error: second-stage loader failed to start\n");
         return 1;
     }
-    
     printf("Got initial second-stage loader response\n");
+    
+    /* switch to the final baud rate */
     setBaudRate(FINAL_BAUD);
     
     /* transmit the image */
@@ -604,12 +605,15 @@ int Loader::loadImage2(const uint8_t *image, int imageSize)
         --packetID;
     }
     
+    /* transmit the RAM verify packet and verify the checksum */
     transmitPacket(0, verifyRAM, sizeof(verifyRAM), &result);
     if (result != -checksum)
         printf("Checksum error\n");
+    
+    /* transmit the final launch packets */
     transmitPacket(-checksum, launchStart, sizeof(launchStart), &result);
     if (result != -checksum - 1)
-        printf("Failed\n");
+        printf("Launch failed\n");
     sendData(launchFinal, sizeof(launchFinal));
     
     /* disconnect from the target */

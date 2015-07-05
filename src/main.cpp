@@ -28,8 +28,9 @@ printf("\
 usage: %s\n\
          [ -b <baudrate> ]  set the initial baud rate (default is %d)\n\
          [ -i <ip-addr> ]   set the IP address of the Xbee Wi-Fi module (default is %s)\n\
-         [ -p port ]        serial port (default is %s)\n\
+         [ -p <port> ]      serial port (default is %s)\n\
          [ -s ]             do a serial download\n\
+         [ -x ]             use the single stage loader (for testing)\n\
          [ -? ]             display a usage message and exit\n\
          <file>             spin binary file to load\n", progname, DEFAULT_BAUDRATE, DEF_IPADDR, DEF_PORT);
     exit(1);
@@ -41,6 +42,7 @@ int main(int argc, char *argv[])
     const char *port = DEF_PORT;
     int baudrate = DEFAULT_BAUDRATE;
     bool useSerial = false;
+    bool useSingleStageLoader = false;
     char *file = NULL;
     XbeeLoader xbeeLoader;
     SerialLoader serialLoader;
@@ -101,6 +103,9 @@ int main(int argc, char *argv[])
             case 's':
                 useSerial = true;
                 break;
+            case 'x':
+                useSingleStageLoader = true;
+                break;
             default:
                 usage(argv[0]);
                 break;
@@ -138,7 +143,7 @@ int main(int argc, char *argv[])
     }
     
     /* load the file */
-    if ((sts = loader->loadFile2(file)) != 0) {
+    if ((sts = useSingleStageLoader ? loader->loadFile(file) : loader->loadFile2(file)) != 0) {
         printf("error: load failed: %d\n", sts);
         return 1;
     }
