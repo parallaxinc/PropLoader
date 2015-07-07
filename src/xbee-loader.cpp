@@ -13,11 +13,10 @@
 #include "xbee-loader.hpp"
 
 // 10.0.1.85
-int HostIPAddr = (10 << 24) | (0 << 16) | (1 << 8) | 85;
+//int HostIPAddr = (10 << 24) | (0 << 16) | (1 << 8) | 85;
 
-/* local function prototypes */
-static int validate(Xbee &xbee, xbCommand cmd, int value, int readOnly);
-static int enforceXbeeConfiguration(Xbee &xbee);
+// 10.0.1.2
+int HostIPAddr = (10 << 24) | (0 << 16) | (1 << 8) | 2;
 
 XbeeLoader::XbeeLoader() : m_ipaddr(NULL)
 {
@@ -31,8 +30,7 @@ XbeeLoader::~XbeeLoader()
 
 int XbeeLoader::init(const char *ipaddr, int baudrate)
 {
-    if (Loader::init(baudrate) != 0)
-        return -1;
+    setBaudrate(baudrate);
     if (!(m_ipaddr = (char *)malloc(strlen(ipaddr) + 1)))
         return -1;
     strcpy(m_ipaddr, ipaddr);

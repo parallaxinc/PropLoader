@@ -9,7 +9,7 @@ class Loader {
 public:
     Loader() : m_baudrate(DEFAULT_BAUDRATE) {}
     ~Loader() {}
-    virtual int init(int baudrate = DEFAULT_BAUDRATE);
+    void setBaudrate(int baudrate);
     int loadFile(const char *file);
     int loadFile2(const char *file);
     int loadImage(const uint8_t *image, int imageSize);
@@ -27,6 +27,7 @@ protected:
 private:
     uint8_t *readEntireFile(const char *file, int *pLength);
     uint8_t *generateInitialLoaderPacket(int packetID, int *pLength);
+    int loadSecondStageLoader(uint8_t *packet, int packetSize);
     int transmitPacket(int id, const uint8_t *payload, int payloadSize, int *pResult);
 };
 

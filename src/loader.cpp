@@ -253,7 +253,7 @@ static uint8_t *GenerateLoaderPacket(const uint8_t *image, int imageSize, int *p
 {
     int imageSizeInLongs = (imageSize + 3) / 4;
     uint8_t encodedImage[MAX_BUFFER_SIZE * 8]; // worst case assuming one byte per bit encoding
-    int encodedImageSize, packetSize, checksum, tmp, i;
+    int encodedImageSize, packetSize, tmp, i;
     uint8_t *packet, *p;
     
     /* encode the patched image */
@@ -365,10 +365,9 @@ static void msleep(int ms)
     usleep(ms * 1000);
 }
 
-int Loader::init(int baudrate)
+void Loader::setBaudrate(int baudrate)
 {
     m_baudrate = baudrate;
-    return 0;
 }
 
 uint8_t *Loader::readEntireFile(const char *file, int *pLength)
@@ -443,8 +442,8 @@ int Loader::loadFile2(const char *file)
     
 int Loader::loadImage(const uint8_t *image, int imageSize)
 {
-    uint8_t *packet, packet2[MAX_BUFFER_SIZE];
-    int packetSize, version, cnt, sts, i;
+    int packetSize, sts;
+    uint8_t *packet;
 
     /* generate a loader packet */
     packet = GenerateLoaderPacket(image, imageSize, &packetSize);
@@ -457,47 +456,10 @@ int Loader::loadImage(const uint8_t *image, int imageSize)
         return sts;
     }
     
-    /* reset the Propeller */
-    generateResetSignal();
-    
-    /* send the second-stage loader */
-    sendData(packet, packetSize);
-    
-    /* Reset period 200 ms + first packet’s serial transfer time + 20 ms */
-    msleep(200 + (packetSize * 10 * 1000) / m_baudrate + 20);
-    
-    /* send the verification packet (all timing templates) */
-    memset(packet2, 0xF9, sizeof(packet2));
-    sendData(packet2, sizeof(packet2));
-    
-    /* this delay helps apply the majority of the next step’s receive timeout to a
-       valid time window in the communication sequence */
-    msleep((sizeof(packet2) * 10 * 1000) / m_baudrate);
-    
-    /* receive the handshake response and the hardware version */
-    cnt = receiveDataExact(packet2, sizeof(rxHandshake) + 4, 2000);
-    
-    /* verify the handshake response */
-    if (cnt != sizeof(rxHandshake) + 4 || memcmp(packet2, rxHandshake, sizeof(rxHandshake)) != 0) {
-        printf("error: handshake failed\n");
+    /* load the program using the propeller ROM protocol */
+    if (loadSecondStageLoader(packet, packetSize) != 0)
         return -1;
-    }
-    
-    /* verify the hardware version */
-    version = 0;
-    for (i = sizeof(rxHandshake); i < cnt; ++i)
-        version = ((version >> 2) & 0x3F) | ((packet2[i] & 0x01) << 6) | ((packet2[i] & 0x20) << 2);
-    if (version != 1) {
-        printf("error: wrong propeller version\n");
-        return -1;
-    }
-    
-    cnt = receiveDataExact(packet2, 1, 2000);
-    if (cnt != 1 || packet2[0] != 0xFE) {
-        printf("error: loader checksum failed\n");
-        return -1;
-    }
-    
+        
     /* disconnect from the target */
     disconnect();
     
@@ -508,7 +470,7 @@ int Loader::loadImage(const uint8_t *image, int imageSize)
 int Loader::loadImage2(const uint8_t *image, int imageSize)
 {
     uint8_t *packet, packet2[MAX_BUFFER_SIZE];
-    int packetSize, version, cnt, sts, i;
+    int packetSize, cnt, sts, i;
     int32_t packetID, checksum;
     
     /* compute the packet ID (number of packets to be sent) */
@@ -532,53 +494,10 @@ int Loader::loadImage2(const uint8_t *image, int imageSize)
         return sts;
     }
     
-    /* reset the Propeller */
-    printf("Generating reset signal\n");
-    generateResetSignal();
-    
-    /* send the second-stage loader */
-    printf("Sending handshake and second-stage loader\n");
-    sendData(packet, packetSize);
-    
-    /* Reset period 200 ms + first packet’s serial transfer time + 20 ms */
-    msleep(200 + (packetSize * 10 * 1000) / m_baudrate + 20);
-    
-    /* send the verification packet (all timing templates) */
-    printf("Sending verification packet\n");
-    memset(packet2, 0xF9, sizeof(packet2));
-    sendData(packet2, sizeof(packet2));
-    
-    /* this delay helps apply the majority of the next step’s receive timeout to a
-       valid time window in the communication sequence */
-    msleep((sizeof(packet2) * 10 * 1000) / m_baudrate);
-    
-    /* receive the handshake response and the hardware version */
-    cnt = receiveDataExact(packet2, sizeof(rxHandshake) + 4, 2000);
-    
-    /* verify the handshake response */
-    printf("Verifying handshake response\n");
-    if (cnt != sizeof(rxHandshake) + 4 || memcmp(packet2, rxHandshake, sizeof(rxHandshake)) != 0) {
-        printf("error: handshake failed\n");
+    /* load the second-stage loader using the propeller ROM protocol */
+    if (loadSecondStageLoader(packet, packetSize) != 0)
         return -1;
-    }
-    
-    /* verify the hardware version */
-    printf("Verifying hardware version\n");
-    version = 0;
-    for (i = sizeof(rxHandshake); i < cnt; ++i)
-        version = ((version >> 2) & 0x3F) | ((packet2[i] & 0x01) << 6) | ((packet2[i] & 0x20) << 2);
-    if (version != 1) {
-        printf("error: wrong propeller version\n");
-        return -1;
-    }
-    
-    printf("Checking checksum\n");
-    cnt = receiveDataExact(packet2, 1, 2000);
-    if (cnt != 1 || packet2[0] != 0xFE) {
-        printf("error: loader checksum failed\n");
-        return -1;
-    }
-    
+            
     printf("Waiting for second-stage loader initial response\n");
     cnt = receiveData(packet2, sizeof(packet2));
     if (cnt != 4 || getLong(packet2) != packetID) {
@@ -618,6 +537,62 @@ int Loader::loadImage2(const uint8_t *image, int imageSize)
     
     /* disconnect from the target */
     disconnect();
+    
+    /* return successfully */
+    return 0;
+}
+
+int Loader::loadSecondStageLoader(uint8_t *packet, int packetSize)
+{
+    uint8_t packet2[MAX_BUFFER_SIZE];
+    int version, cnt, i;
+    
+    /* reset the Propeller */
+    generateResetSignal();
+    
+    /* send the second-stage loader */
+    printf("Send second-stage loader image\n");
+    sendData(packet, packetSize);
+    
+    /* Reset period 200 ms + first packet’s serial transfer time + 20 ms */
+    msleep(200 + (packetSize * 10 * 1000) / m_baudrate + 20);
+    
+    /* send the verification packet (all timing templates) */
+    printf("Send verification packet\n");
+    memset(packet2, 0xF9, sizeof(rxHandshake) + 4);
+    sendData(packet2, sizeof(rxHandshake) + 4);
+    
+    /* this delay helps apply the majority of the next step’s receive timeout to a
+       valid time window in the communication sequence */
+    msleep((sizeof(packet2) * 10 * 1000) / m_baudrate);
+    
+    /* receive the handshake response and the hardware version */
+    printf("Receive handshake response\n");
+    cnt = receiveDataExact(packet2, sizeof(rxHandshake) + 4, 2000);
+    
+    /* verify the handshake response */
+    if (cnt != sizeof(rxHandshake) + 4 || memcmp(packet2, rxHandshake, sizeof(rxHandshake)) != 0) {
+        printf("error: handshake failed\n");
+        return -1;
+    }
+    
+    /* verify the hardware version */
+    version = 0;
+    for (i = sizeof(rxHandshake); i < cnt; ++i)
+        version = ((version >> 2) & 0x3F) | ((packet2[i] & 0x01) << 6) | ((packet2[i] & 0x20) << 2);
+    if (version != 1) {
+        printf("error: wrong propeller version\n");
+        return -1;
+    }
+    
+    /* verify the checksum */
+    printf("Receive checksum\n");
+    cnt = receiveDataExact(packet2, 1, 2000);
+    if (cnt != 1 || packet2[0] != 0xFE) {
+        printf("error: loader checksum failed\n");
+        return -1;
+    }
+    printf("Success!!\n");
     
     /* return successfully */
     return 0;

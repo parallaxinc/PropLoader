@@ -8,6 +8,8 @@ CPP=c++
 MKDIR=mkdir -p
 RM=rm -r -f
 
+CFLAGS=-Wall
+
 ifeq ($(OS),linux)
 CFLAGS+=-DLINUX
 EXT=
@@ -58,10 +60,10 @@ $(OBJDIR)/serial-loader.o \
 $(OBJDIR)/xbee.o \
 $(OSINT)
 
-DIRS=$(OBJDIR) $(BINDIR)
-
-CFLAGS=-DMACOSX -I$(HDRDIR)
+CFLAGS+=-I$(HDRDIR)
 CPPFLAGS=$(CFLAGS)
+
+DIRS=$(OBJDIR) $(BINDIR)
 
 all:	 $(BINDIR)/proploader$(EXT)
 
@@ -72,12 +74,18 @@ $(BINDIR)/proploader$(EXT):	$(BINDIR) $(OBJS)
 
 %.binary:	%.elf
 	propeller-load -s $<
-    
+
 %.elf:	%.c
 	propeller-elf-gcc -Os -mlmm -o $@ $<
     
 %.binary:	%.spin
 	openspin $<
+
+%-slow.binary:	%.spin
+	openspin -DSLOW -o $@ $<
+
+setup:	blink-slow.binary
+	propeller-load -e blink-slow.binary
 
 run:	$(BINDIR)/proploader$(EXT) blink.binary
 	$(BINDIR)/proploader$(EXT) blink.binary

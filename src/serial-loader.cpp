@@ -24,8 +24,7 @@ SerialLoader::~SerialLoader()
 
 int SerialLoader::init(const char *port, int baudrate)
 {
-    if (Loader::init(baudrate) != 0)
-        return -1;
+    setBaudrate(baudrate);
     if (!(m_port = (char *)malloc(strlen(port) + 1)))
         return -1;
     strcpy(m_port, port);

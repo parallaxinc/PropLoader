@@ -97,6 +97,7 @@ int Xbee::getItem(xbCommand cmd, int *pValue)
     tx->frameID = 0x01;
     tx->configOptions = 0x02;
     strncpy(tx->atCommand, atCmd[cmd], 2);
+    printf("getItem %s --> ", atCmd[cmd]); fflush(stdout);
     if (SendSocketData(m_appService, tx, sizeof(txPacket)) != sizeof(txPacket))
         return -1;
     if ((cnt = ReceiveSocketData(m_appService, buf, sizeof(buf))) < sizeof(rxPacket))
@@ -106,6 +107,7 @@ int Xbee::getItem(xbCommand cmd, int *pValue)
     *pValue = 0;
     for (i = sizeof(rxPacket); i < cnt; ++i)
         *pValue = (*pValue << 8) + buf[i];
+    printf("%d (%08x)\n", *pValue, *pValue);
     return 0;
 }
 
@@ -127,17 +129,20 @@ int Xbee::setItem(xbCommand cmd, int value)
     strncpy(tx->atCommand, atCmd[cmd], 2);
     for (i = 0; i < sizeof(int); ++i)
         buf[sizeof(txPacket) + i] = value >> ((sizeof(int) - i - 1) * 8);
+    printf("setItem %s to %d (%08x) --> ", atCmd[cmd], value, value); fflush(stdout);
     if (SendSocketData(m_appService, tx, sizeof(txPacket) + sizeof(int)) != sizeof(txPacket) + sizeof(int))
         return -1;
     if ((cnt = ReceiveSocketData(m_appService, buf, sizeof(buf))) < sizeof(rxPacket))
         return -1;
     if ((rx->hdr.number1 ^ rx->hdr.number2) != 0x4242 || rx->status != 0x00)
         return -1;
+    printf("done\n");
     return 0;
 }
 
 int Xbee::sendAppData(void *buf, int len)
 {
+printf("sending %d bytes\n", len);
     return SendSocketData(m_appService, buf, len);
 }
 

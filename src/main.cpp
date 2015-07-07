@@ -4,8 +4,10 @@
 #include "serial-loader.hpp"
 
 /* defaults */
-#define DEF_IPADDR              "10.0.1.88"
-#define DEF_PORT                "/dev/cu.usbserial-PAYMDDM"
+//#define DEF_IPADDR              "10.0.1.88"
+#define DEF_IPADDR              "10.0.1.3"
+//#define DEF_PORT                "/dev/cu.usbserial-PAYMDDM"
+#define DEF_PORT                "/dev/cu.usbserial-PAYMDDN"
 
 /* port prefix */
 #if defined(CYGWIN) || defined(WIN32) || defined(MINGW)

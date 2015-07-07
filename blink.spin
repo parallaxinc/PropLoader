@@ -7,10 +7,16 @@ CON
   LED1 = 26
   LED2 = 27
 
+#ifdef SLOW
+  DIVISOR = 2
+#else
+  DIVISOR = 8
+#endif
+
 PUB main : mask
   mask := |< LED1 | |< LED2
   OUTA := |< LED1
   DIRA := mask
   repeat
     OUTA ^= mask
-    waitcnt(CNT + CLKFREQ / 8)
+    waitcnt(CNT + CLKFREQ / DIVISOR)
