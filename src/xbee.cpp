@@ -142,7 +142,6 @@ int Xbee::setItem(xbCommand cmd, int value)
 
 int Xbee::sendAppData(void *buf, int len)
 {
-printf("sending %d bytes\n", len);
     return SendSocketData(m_appService, buf, len);
 }
 

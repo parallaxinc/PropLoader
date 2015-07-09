@@ -544,7 +544,7 @@ int Loader::loadImage2(const uint8_t *image, int imageSize)
 
 int Loader::loadSecondStageLoader(uint8_t *packet, int packetSize)
 {
-    uint8_t packet2[MAX_BUFFER_SIZE];
+    uint8_t packet2[MAX_BUFFER_SIZE]; // must be at least as big as maxDataSize()
     int version, cnt, i;
     
     /* reset the Propeller */
@@ -559,8 +559,8 @@ int Loader::loadSecondStageLoader(uint8_t *packet, int packetSize)
     
     /* send the verification packet (all timing templates) */
     printf("Send verification packet\n");
-    memset(packet2, 0xF9, sizeof(rxHandshake) + 4);
-    sendData(packet2, sizeof(rxHandshake) + 4);
+    memset(packet2, 0xF9, maxDataSize());
+    sendData(packet2, maxDataSize());
     
     /* this delay helps apply the majority of the next step’s receive timeout to a
        valid time window in the communication sequence */

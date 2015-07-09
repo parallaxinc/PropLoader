@@ -65,7 +65,7 @@ CPPFLAGS=$(CFLAGS)
 
 DIRS=$(OBJDIR) $(BINDIR)
 
-all:	 $(BINDIR)/proploader$(EXT)
+all:	 $(BINDIR)/proploader$(EXT) blink.binary blink-slow.binary toggle.binary
 
 $(OBJS):	$(OBJDIR) $(HDRS) Makefile
 
