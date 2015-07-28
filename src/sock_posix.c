@@ -1,7 +1,10 @@
+#include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 
 #ifdef __MINGW32__
+#include <ws2tcpip.h>
+#include <iphlpapi.h>
 #else
 #include <ifaddrs.h>
 #endif
@@ -219,6 +222,79 @@ int SendSocketDataTo(SOCKET sock, void *buf, int len, SOCKADDR_IN *addr)
 int GetInterfaceAddresses(IFADDR *addrs, int max)
 {
 #ifdef __MINGW32__
+#if 0
+DWORD GetIpAddrTable(
+  _Out_   PMIB_IPADDRTABLE pIpAddrTable,
+  _Inout_ PULONG           pdwSize,
+  _In_    BOOL             bOrder
+);
+typedef struct _MIB_IPADDRTABLE {
+  DWORD         dwNumEntries;
+  MIB_IPADDRROW table[ANY_SIZE];
+} MIB_IPADDRTABLE, *PMIB_IPADDRTABLE;
+typedef struct _MIB_IPADDRROW {
+  DWORD          dwAddr;
+  DWORD          dwIndex;
+  DWORD          dwMask;
+  DWORD          dwBCastAddr;
+  DWORD          dwReasmSize;
+  unsigned short unused1;
+  unsigned short wType;
+} MIB_IPADDRROW, *PMIB_IPADDRROW;
+#endif
+    /* Variables used by GetIpAddrTable */
+    PMIB_IPADDRTABLE pIPAddrTable;
+    DWORD dwSize = 0;
+    DWORD dwRetVal = 0;
+    IN_ADDR IPAddr;
+    int i;
+
+    /* Variables used to return error message */
+    LPVOID lpMsgBuf;
+
+    // Before calling AddIPAddress we use GetIpAddrTable to get
+    // an adapter to which we can add the IP.
+    pIPAddrTable = (MIB_IPADDRTABLE *)malloc(sizeof (MIB_IPADDRTABLE));
+
+    if (pIPAddrTable) {
+        // Make an initial call to GetIpAddrTable to get the
+        // necessary size into the dwSize variable
+        if (GetIpAddrTable(pIPAddrTable, &dwSize, 0) == ERROR_INSUFFICIENT_BUFFER) {
+            free(pIPAddrTable);
+            pIPAddrTable = (MIB_IPADDRTABLE *)malloc(dwSize);
+
+        }
+        if (pIPAddrTable == NULL) {
+            printf("Memory allocation failed for GetIpAddrTable\n");
+            exit(1);
+        }
+    }
+    // Make a second call to GetIpAddrTable to get the
+    // actual data we want
+    if ( (dwRetVal = GetIpAddrTable( pIPAddrTable, &dwSize, 0 )) != NO_ERROR ) { 
+        printf("GetIpAddrTable failed with error %d\n", dwRetVal);
+        if (FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, dwRetVal, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),       // Default language
+                          (LPTSTR) & lpMsgBuf, 0, NULL)) {
+            printf("\tError: %s", lpMsgBuf);
+            LocalFree(lpMsgBuf);
+        }
+        exit(1);
+    }
+    
+    printf("\tNum Entries: %ld\n", pIPAddrTable->dwNumEntries);
+    for (i=0; i < (int) pIPAddrTable->dwNumEntries; i++) {
+        printf("\n\tInterface Index[%d]:\t%ld\n", i, pIPAddrTable->table[i].dwIndex);
+        IPAddr.S_un.S_addr = (u_long) pIPAddrTable->table[i].dwAddr;
+        printf("\tIP Address[%d]:     \t%s\n", i, inet_ntoa(IPAddr) );
+        IPAddr.S_un.S_addr = (u_long) pIPAddrTable->table[i].dwMask;
+        printf("\tSubnet Mask[%d]:    \t%s\n", i, inet_ntoa(IPAddr) );
+        IPAddr.S_un.S_addr = (u_long) pIPAddrTable->table[i].dwBCastAddr;
+        printf("\tBroadCast[%d]:      \t%s (%ld)\n", i, inet_ntoa(IPAddr), pIPAddrTable->table[i].dwBCastAddr);
+    }
+
+    if (pIPAddrTable)
+        free(pIPAddrTable);
+
     return 0;
 #else
     struct ifaddrs *list, *entry;

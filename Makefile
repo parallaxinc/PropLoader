@@ -1,14 +1,11 @@
-HDRDIR=hdr
-SRCDIR=src
-OBJDIR=obj
-BINDIR=bin
-
 MKDIR=mkdir -p
 RM=rm -r -f
 
 ifeq ($(CROSS),)
+  BUILD=$(realpath ..)/proploader-build
   PREFIX=
 else
+  BUILD=$(realpath ..)/proploader-$(CROSS)-build
   ifeq ($(CROSS),win32)
     PREFIX=i586-mingw32msvc-
     OS=msys
@@ -21,6 +18,11 @@ else
     endif
   endif
 endif
+
+HDRDIR=hdr
+SRCDIR=src
+OBJDIR=$(BUILD)/obj
+BINDIR=$(BUILD)/bin
 
 CC=$(PREFIX)gcc
 CPP=$(PREFIX)g++
@@ -47,7 +49,7 @@ ifeq ($(OS),msys)
 CFLAGS+=-DMINGW
 EXT=.exe
 OSINT=$(OBJDIR)/serial_mingw.o $(OBJDIR)/sock_posix.o
-LIBS=-lws2_32
+LIBS=-lws2_32 -liphlpapi
 endif
 
 ifeq ($(OS),macosx)
@@ -82,33 +84,33 @@ CPPFLAGS=$(CFLAGS)
 
 DIRS=$(OBJDIR) $(BINDIR)
 
-all:	 $(BINDIR)/proploader$(EXT) blink.binary blink-slow.binary toggle.binary
+all:	 $(BINDIR)/proploader$(EXT) $(BUILD)/blink.binary $(BUILD)/blink-slow.binary $(BUILD)/toggle.binary
 
 $(OBJS):	$(OBJDIR) $(HDRS) Makefile
 
 $(BINDIR)/proploader$(EXT):	$(BINDIR) $(OBJS)
 	$(CPP) -o $@ $(OBJS) $(LIBS) -lstdc++
 
-%.binary:	%.elf
+$(BUILD)/%.binary:	$(BUILD)/%.elf
 	propeller-load -s $<
 
-%.elf:	%.c
+$(BUILD)/%.elf:	%.c
 	propeller-elf-gcc -Os -mlmm -o $@ $<
     
-%.binary:	%.spin
-	openspin $<
+$(BUILD)/%.binary:	%.spin
+	openspin -o $@ $<
 
-%-slow.binary:	%.spin
+$(BUILD)/%-slow.binary:	%.spin
 	openspin -DSLOW -o $@ $<
 
-setup:	blink-slow.binary
-	propeller-load -e blink-slow.binary
+setup:	$(BUILD)/blink-slow.binary
+	propeller-load -e $(BUILD)/blink-slow.binary
 
-run:	$(BINDIR)/proploader$(EXT) blink.binary
-	$(BINDIR)/proploader$(EXT) blink.binary
+run:	$(BINDIR)/proploader$(EXT) $(BUILD)/blink.binary
+	$(BINDIR)/proploader$(EXT) $(BUILD)/blink.binary
 
-runbig:	$(BINDIR)/proploader$(EXT) toggle.binary
-	$(BINDIR)/proploader$(EXT) toggle.binary
+runbig:	$(BINDIR)/proploader$(EXT) $(BUILD)/toggle.binary
+	$(BINDIR)/proploader$(EXT) $(BUILD)/toggle.binary
 
 $(OBJDIR)/%.o:	$(SRCDIR)/%.c $(OBJDIR) $(HDRS)
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -120,4 +122,4 @@ $(DIRS):
 	$(MKDIR) $@
 
 clean:
-	$(RM) $(OBJDIR) $(BINDIR) *.binary *.elf
+	$(RM) $(BUILD)

@@ -9,8 +9,7 @@ extern "C" {
 #ifdef __MINGW32__
 #include <stdint.h>
 #include <windows.h>
-#include <winsock.h>
-typedef unsigned int socklen_t;
+#include <winsock2.h>
 
 /* for linux and mac builds */
 #else
