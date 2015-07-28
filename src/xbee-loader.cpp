@@ -12,36 +12,24 @@
 #include <unistd.h>
 #include "xbee-loader.hpp"
 
-// 10.0.1.85
-//int HostIPAddr = (10 << 24) | (0 << 16) | (1 << 8) | 85;
-
-// 10.0.1.2
-int HostIPAddr = (10 << 24) | (0 << 16) | (1 << 8) | 2;
-
-XbeeLoader::XbeeLoader() : m_ipaddr(NULL)
+XbeeLoader::XbeeLoader()
 {
 }
 
 XbeeLoader::~XbeeLoader()
 {
-    if (m_ipaddr)
-        free(m_ipaddr);
 }
 
-int XbeeLoader::init(const char *ipaddr, int baudrate)
+int XbeeLoader::init(XBEE_ADDR *addr, int baudrate)
 {
     setBaudrate(baudrate);
-    if (!(m_ipaddr = (char *)malloc(strlen(ipaddr) + 1)))
-        return -1;
-    strcpy(m_ipaddr, ipaddr);
+    m_addr = *addr;
     return 0;
 }
 
 int XbeeLoader::connect()
 {
-    if (!m_ipaddr)
-        return -1;
-    return m_xbee.connect(m_ipaddr);
+    return m_xbee.connect(&m_addr);
 }
 
 void XbeeLoader::disconnect()
@@ -119,7 +107,7 @@ static int validate(Xbee &xbee, xbCommand cmd, int value, bool readOnly)
 int XbeeLoader::enforceXbeeConfiguration(Xbee &xbee)
 {
     if (validate(xbee, xbSerialIP, serialUDP, true) != 0                // Ensure XBee's Serial Service uses UDP packets [WRITE DISABLED DUE TO FIRMWARE BUG]
-    ||  validate(xbee, xbIPDestination, HostIPAddr, false) != 0         // Ensure Serial-to-IP destination is us (our IP)
+    ||  validate(xbee, xbIPDestination, m_addr.host, false) != 0        // Ensure Serial-to-IP destination is us (our IP)
     ||  validate(xbee, xbIPPort, DEF_SERIAL_SERVICE_PORT, false) != 0   // Ensure Serial-to-IP port is proper (default, in this case)
     ||  validate(xbee, xbOutputMask, 0x7FFF, false) != 0                // Ensure output mask is proper (default, in this case)
     ||  validate(xbee, xbRTSFlow, pinEnabled, false) != 0               // Ensure RTS flow pin is enabled (input)

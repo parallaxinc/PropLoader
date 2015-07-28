@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include "xbee-loader.hpp"
 #include "serial-loader.hpp"
 
@@ -40,7 +41,8 @@ usage: %s\n\
 
 int main(int argc, char *argv[])
 {
-    const char *ipaddr = DEF_IPADDR;
+    bool ipaddr = false;
+    XBEE_ADDR addr;
     const char *port = DEF_PORT;
     int baudrate = DEFAULT_BAUDRATE;
     bool useSerial = false;
@@ -50,7 +52,7 @@ int main(int argc, char *argv[])
     SerialLoader serialLoader;
     Loader *loader;
     int sts, i;
-        
+    
     /* get the arguments */
     for(i = 1; i < argc; ++i) {
 
@@ -66,12 +68,12 @@ int main(int argc, char *argv[])
                     usage(argv[0]);
                 break;
             case 'i':   // set the ip address
-                if (argv[i][2])
-                    ipaddr = &argv[i][2];
-                else if (++i < argc)
-                    ipaddr = argv[i];
-                else
-                    usage(argv[0]);
+                //if (argv[i][2])
+                //    ipaddr = &argv[i][2];
+                //else if (++i < argc)
+                //    ipaddr = argv[i];
+                //else
+                //    usage(argv[0]);
                 break;
             case 'p':
                 if (argv[i][2])
@@ -137,10 +139,30 @@ int main(int argc, char *argv[])
     
     /* do an xbee download */
     else {
-        if ((sts = xbeeLoader.init(ipaddr)) != 0) {
+        if (!ipaddr) {
+            XBEE_ADDR addrs[10];
+            int cnt;
+            cnt = Xbee::discover(addrs, 10, 100);
+            if (cnt < 0)
+                printf("Discover failed: %d\n", cnt);
+            else {
+                for (i = 0; i < cnt; ++i) {
+                    printf("host: %s\n", GetAddressStringX(addrs[i].host));
+                    printf("xbee: %s\n", GetAddressStringX(addrs[i].xbee));
+                }
+            }
+            if (cnt == 0) {
+                printf("error: no Xbee module found\n");
+                return 1;
+            }
+            addr = addrs[0];
+        }
+        
+        if ((sts = xbeeLoader.init(&addr)) != 0) {
             printf("error: loader initialization failed: %d\n", sts);
             return 1;
         }
+        
         loader = &xbeeLoader;
     }
     

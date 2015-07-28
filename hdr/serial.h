@@ -43,11 +43,11 @@ typedef enum {
 
 typedef struct SERIAL SERIAL;
 
-int OpenSerial(const char *port, int baudrate, SERIAL **pSerial);
+int SerialUseResetMethod(SERIAL *serial, char *method);
+int OpenSerial(const char *port, int baud, SERIAL **pSerial);
 void CloseSerial(SERIAL *serial);
 int SetSerialBaud(SERIAL *serial, int baud);
 int SerialGenerateResetSignal(SERIAL *serial);
-int SerialDataAvailableP(SERIAL *serial, int timeout);
 int SendSerialData(SERIAL *serial, const void *buf, int len);
 int ReceiveSerialData(SERIAL *serial, void *buf, int len);
 int ReceiveSerialDataExact(SERIAL *serial, void *buf, int len, int timeout);

@@ -11,8 +11,8 @@
 #include "loader.hpp"
 
 #define MAX_BUFFER_SIZE         4096        /* The maximum buffer size. (BUG: git rid of this magic number) */
-#define FINAL_BAUD              921600		/* Final XBee-to-Propeller baud rate. */
-#define MAX_RX_SENSE_ERROR      23			/* Maximum number of cycles by which the detection of a start bit could be off (as affected by the Loader code) */
+#define FINAL_BAUD              921600      /* Final XBee-to-Propeller baud rate. */
+#define MAX_RX_SENSE_ERROR      23          /* Maximum number of cycles by which the detection of a start bit could be off (as affected by the Loader code) */
 #define LENGTH_FIELD_SIZE       11          /* number of bytes in the length field */
 
 // Offset (in bytes) from end of Loader Image pointing to where most host-initialized values exist.
@@ -84,11 +84,11 @@ static struct {
 // (assuming FLFSR is pre-defined Byte variable that is set to ord('P') prior to the first call of IterateLFSR).  This is
 // the exact function that was used in previous versions of the Propeller Tool and Propellent software.
 //
-//		function IterateLFSR: Byte;
-//		begin //Iterate LFSR, return previous bit 0
-//		Result := FLFSR and 0x01;
-//		FLFSR := FLFSR shl 1 and 0xFE or (FLFSR shr 7 xor FLFSR shr 5 xor FLFSR shr 4 xor FLFSR shr 1) and 1;
-//		end;
+//      function IterateLFSR: Byte;
+//      begin //Iterate LFSR, return previous bit 0
+//      Result := FLFSR and 0x01;
+//      FLFSR := FLFSR shl 1 and 0xFE or (FLFSR shr 7 xor FLFSR shr 5 xor FLFSR shr 4 xor FLFSR shr 1) and 1;
+//      end;
 //
 // The handshake bit stream consists of the lowest bit value of each 8-bit result of the LFSR described above.  This LFSR
 // has a domain of 255 combinations, but the host only transmits the first 250 bits of the pattern, afterwards, the Propeller
@@ -183,11 +183,11 @@ static int EncodeBytes(const uint8_t *inBytes, int inCount, uint8_t *outBytes, i
 
 static void SetHostInitializedValue(uint8_t *bytes, int offset, int value)
 {
-	for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i)
         bytes[offset + i] = (value >> (i * 8)) & 0xFF;
 }
 
-static uint32_t getLong(const uint8_t *buf)
+static int32_t getLong(const uint8_t *buf)
 {
      return (buf[3] << 24) | (buf[2] << 16) | (buf[1] << 8) | buf[0];
 }
@@ -316,9 +316,9 @@ uint8_t *Loader::generateInitialLoaderPacket(int packetID, int *pLength)
     // Recalculate and update checksum so low byte of checksum calculates to 0.
     checksum = 0;
     loaderImage[5] = 0; // start with a zero checksum
-    for (i = 0; i < sizeof(rawLoaderImage); ++i)
+    for (i = 0; i < (int)sizeof(rawLoaderImage); ++i)
         checksum += loaderImage[i];
-    for (i = 0; i < sizeof(initCallFrame); ++i)
+    for (i = 0; i < (int)sizeof(initCallFrame); ++i)
         checksum += initCallFrame[i];
     loaderImage[5] = 256 - (checksum & 0xFF);
     
@@ -392,7 +392,7 @@ uint8_t *Loader::readEntireFile(const char *file, int *pLength)
     }
     
     /* read the entire image into memory */
-    if (fread(image, 1, imageSize, fp) != imageSize) {
+    if ((int)fread(image, 1, imageSize, fp) != imageSize) {
         free(image);
         fclose(fp);
         return NULL;
@@ -485,7 +485,7 @@ int Loader::loadImage2(const uint8_t *image, int imageSize)
     checksum = 0;
     for (i = 0; i < imageSize; ++i)
         checksum += image[i];
-    for (i = 0; i < sizeof(initCallFrame); ++i)
+    for (i = 0; i < (int)sizeof(initCallFrame); ++i)
         checksum += initCallFrame[i];
 
     /* connect to the target */

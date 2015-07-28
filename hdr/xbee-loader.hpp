@@ -10,7 +10,7 @@ class XbeeLoader : public Loader {
 public:
     XbeeLoader();
     ~XbeeLoader();
-    int init(const char *ipaddr, int baudrate = DEFAULT_BAUDRATE);
+    int init(XBEE_ADDR *addr, int baudrate = DEFAULT_BAUDRATE);
 protected:
     int connect();
     void disconnect();
@@ -22,7 +22,7 @@ protected:
     int maxDataSize() { return XBEE_MAX_DATA_SIZE; }
 private:
     int enforceXbeeConfiguration(Xbee &xbee);
-    char *m_ipaddr;
+    XBEE_ADDR m_addr;
     Xbee m_xbee;
 };
 

@@ -7,6 +7,11 @@
 #define DEF_APP_SERVICE_PORT    0xBEE
 #define DEF_SERIAL_SERVICE_PORT 0x2616
 
+typedef struct {
+    uint32_t host;
+    uint32_t xbee;
+} XBEE_ADDR;
+
 typedef enum {
     xbData,
     xbMacHigh,
@@ -96,7 +101,8 @@ class Xbee {
 public:
     Xbee();
     ~Xbee();
-    int connect(const char *ipaddr);
+    static int discover(XBEE_ADDR *addrs, int max, int timeout);
+    int connect(XBEE_ADDR *addr);
     void disconnect();
     int getItem(xbCommand cmd, int *pValue);
     int setItem(xbCommand cmd, int value);
@@ -104,6 +110,7 @@ public:
     int receiveAppData(void *buf, int len);
     int receiveSerialData(void *buf, int len);
 private:
+    static int discover1(IFADDR *ifaddr, XBEE_ADDR *addrs, int max, int timeout);
     SOCKET m_appService;
     SOCKET m_serialService;
 };

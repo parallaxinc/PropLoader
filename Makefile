@@ -3,10 +3,27 @@ SRCDIR=src
 OBJDIR=obj
 BINDIR=bin
 
-CC=cc
-CPP=c++
 MKDIR=mkdir -p
 RM=rm -r -f
+
+ifeq ($(CROSS),)
+  PREFIX=
+else
+  ifeq ($(CROSS),win32)
+    PREFIX=i586-mingw32msvc-
+    OS=msys
+  else
+    ifeq ($(CROSS),rpi)
+      PREFIX=arm-linux-gnueabihf-
+      OS=linux
+    else
+      echo "Unknown cross compilation selected"
+    endif
+  endif
+endif
+
+CC=$(PREFIX)gcc
+CPP=$(PREFIX)g++
 
 CFLAGS=-Wall
 
@@ -21,7 +38,7 @@ ifeq ($(OS),raspberrypi)
 OS=linux
 CFLAGS+=-DLINUX -DRASPBERRY_PI
 EXT=
-OSINT=$(OBJDIR)/sock_posix.o $(OBJDIR)/serial_posix.o
+OSINT=$(OBJDIR)/serial_posix.o $(OBJDIR)/sock_posix.o
 LIBS=
 OSINT+=gpio_sysfs.o
 endif
@@ -29,14 +46,14 @@ endif
 ifeq ($(OS),msys)
 CFLAGS+=-DMINGW
 EXT=.exe
-OSINT=$(OBJDIR)/sock_posix.o $(OBJDIR)/serial_mingw.o
-LIBS=-lsetupapi
+OSINT=$(OBJDIR)/serial_mingw.o $(OBJDIR)/sock_posix.o
+LIBS=-lws2_32
 endif
 
 ifeq ($(OS),macosx)
 CFLAGS+=-DMACOSX
 EXT=
-OSINT=$(OBJDIR)/sock_posix.o $(OBJDIR)/serial_posix.o
+OSINT=$(OBJDIR)/serial_posix.o $(OBJDIR)/sock_posix.o
 LIBS=
 endif
 

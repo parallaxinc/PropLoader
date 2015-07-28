@@ -1,10 +1,11 @@
 /**
  * @file osint_linux.c
  *
- * Serial I/O functions used by PLoadLib.c
+ * Based on: Serial I/O functions used by PLoadLib.c
  *
  * Copyright (c) 2009 by John Steven Denson
  * Modified in 2011 by David Michael Betz
+ * Modified in 2015 by David Michael Betz
  *
  * MIT License                                                           
  *
@@ -116,7 +117,7 @@ int SerialUseResetMethod(SERIAL *serial, char *method)
     return 0;
 }
 
-int OpenSerial(const char *port, int baudrate, SERIAL **pSerial)
+int OpenSerial(const char *port, int baud, SERIAL **pSerial)
 {
     struct termios sparams;
     SERIAL *serial;
@@ -162,7 +163,7 @@ int OpenSerial(const char *port, int baudrate, SERIAL **pSerial)
     fcntl(serial->fd, F_SETFL, 0);
     
     /* set the baud rate */
-    if ((sts = SetSerialBaud(serial, baudrate)) != 0) {
+    if ((sts = SetSerialBaud(serial, baud)) != 0) {
         close(serial->fd);
         free(serial);
         return sts;
@@ -348,11 +349,6 @@ int SerialGenerateResetSignal(SERIAL *serial)
     /* flush any pending input */
     tcflush(serial->fd, TCIFLUSH);
     
-    return 0;
-}
-
-int SerialDataAvailableP(SERIAL *serial, int timeout)
-{
     return 0;
 }
 

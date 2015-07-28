@@ -7,20 +7,49 @@ extern "C" {
 
 /* for windows builds */
 #ifdef __MINGW32__
+#include <stdint.h>
+#include <windows.h>
 #include <winsock.h>
+typedef unsigned int socklen_t;
 
 /* for linux and mac builds */
 #else
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/select.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <arpa/inet.h>
+#include <net/if.h>
+#include <netdb.h>
+#define IN_ADDR struct in_addr
+#define SOCKADDR_IN struct sockaddr_in
+#define SOCKADDR struct sockaddr
+#define HOSTENT struct hostent
+#define closesocket(x)  close(x)
 typedef int SOCKET;
 #define INVALID_SOCKET  -1
 #endif
 
-int ConnectSocket(const char *hostName, short port, SOCKET *pSocket);
+typedef struct {
+    SOCKADDR_IN addr;
+    SOCKADDR_IN mask;
+    SOCKADDR_IN bcast;
+} IFADDR;
+
+int GetInterfaceAddresses(IFADDR *addrs, int max);
+int GetInternetAddress(const char *hostName, short port, SOCKADDR_IN *addr);
+const char *GetAddressStringX(uint32_t addr);
+int OpenBroadcastSocket(SOCKET *pSocket);
+int ConnectSocket(uint32_t ipaddr, short port, SOCKET *pSocket);
 int BindSocket(short port, SOCKET *pSocket);
-void DisconnectSocket(SOCKET sock);
+void CloseSocket(SOCKET sock);
 int SocketDataAvailableP(SOCKET sock, int timeout);
 int SendSocketData(SOCKET sock, void *buf, int len);
 int ReceiveSocketData(SOCKET sock, void *buf, int len);
+int SendSocketDataTo(SOCKET sock, void *buf, int len, SOCKADDR_IN *addr);
+int ReceiveSocketDataFrom(SOCKET sock, void *buf, int len, SOCKADDR_IN *addr);
 
 #ifdef __cplusplus
 }
