@@ -43,10 +43,6 @@ struct SERIAL {
     COMMTIMEOUTS originalTimeouts;
     COMMTIMEOUTS timeouts;
     reset_method_t resetMethod;
-#ifdef RASPBERRY_PI
-    int propellerResetGpioPin;
-    int propellerResetGpioLevel;
-#endif
     HANDLE hSerial;
 };
 
