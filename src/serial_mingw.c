@@ -181,7 +181,7 @@ int SendSerialData(SERIAL *serial, const void *buf, int len)
     DWORD dwBytes = 0;
     if (!WriteFile(serial->hSerial, buf, len, &dwBytes, NULL)) {
         printf("Error writing port\n");
-        ShowLastError();
+        //ShowLastError(); // never returns!
         return -1;
     }
     return dwBytes;
@@ -241,5 +241,4 @@ static void ShowLastError(void)
         0, NULL);
     printf("    %s\n", (char *)lpMsgBuf);
     LocalFree(lpMsgBuf);
-    exit(1); // exit on error
 }
