@@ -2,10 +2,8 @@ MKDIR=mkdir -p
 RM=rm -r -f
 
 ifeq ($(CROSS),)
-  BUILD=$(realpath ..)/proploader-build
   PREFIX=
 else
-  BUILD=$(realpath ..)/proploader-$(CROSS)-build
   ifeq ($(CROSS),win32)
     PREFIX=i586-mingw32msvc-
     OS=msys
@@ -62,6 +60,9 @@ endif
 ifeq ($(OS),)
 $(error OS not set)
 endif
+
+
+BUILD=$(realpath ..)/proploader-$(OS)-build
 
 HDRS=\
 $(HDRDIR)/loader.hpp \

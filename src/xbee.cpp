@@ -60,6 +60,7 @@ int Xbee::discover(XBEE_ADDR *addrs, int max, int timeout)
     
     cnt = 0;
     for (i = 0; i < ifcnt; ++i) {
+        printf("checking: %s\n", inet_ntoa(ifaddrs[i].addr.sin_addr));
         if ((n = discover1(&ifaddrs[i], addrs, max, timeout)) >= 0) {
             addrs += n;
             max -= n;

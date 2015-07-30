@@ -502,7 +502,7 @@ int Loader::loadImage2(const uint8_t *image, int imageSize)
     cnt = receiveData(packet2, sizeof(packet2));
     if (cnt != 4 || getLong(packet2) != packetID) {
         printf("error: second-stage loader failed to start\n");
-        return 1;
+        return -1;
     }
     printf("Got initial second-stage loader response\n");
     
@@ -513,12 +513,15 @@ int Loader::loadImage2(const uint8_t *image, int imageSize)
     int result;
     printf("Sending image: %d\n", packetID);
     while (imageSize > 0) {
-        int size, sts;
+        int size;
         if ((size = imageSize) > maxDataSize())
             size = maxDataSize();
-        sts = transmitPacket(packetID, image, size, &result);
+        if (transmitPacket(packetID, image, size, &result) != 0) {
+            printf("error: transmitPacket failed\n");
+            return -1;
+        }
         if (result != packetID - 1)
-            printf("Unexpected result\n");
+            printf("Unexpected result: expected %d, received %d\n", packetID - 1, result);
         imageSize -= size;
         image += size;
         --packetID;
