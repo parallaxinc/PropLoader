@@ -142,7 +142,7 @@ int main(int argc, char *argv[])
         if (!ipaddr) {
             XBEE_ADDR addrs[10];
             int cnt;
-            cnt = Xbee::discover(addrs, 10, 100);
+            cnt = Xbee::discover(addrs, 10, 200);
             if (cnt < 0)
                 printf("Discover failed: %d\n", cnt);
             else {

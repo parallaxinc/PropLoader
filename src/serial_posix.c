@@ -57,9 +57,6 @@ struct SERIAL {
     int fd;
 };
 
-/* serial i/o definitions */
-#define SERIAL_TIMEOUT  -1
-
 static void msleep(int ms)
 {
     usleep(ms * 1000);
@@ -76,7 +73,7 @@ int SerialUseResetMethod(SERIAL *serial, char *method)
     if (strcasecmp(method, "dtr") == 0)
         serial->resetMethod = RESET_WITH_DTR;
     else if (strcasecmp(method, "rts") == 0)
-       serial->resetMethod = RESET_WITH_RTS;
+        serial->resetMethod = RESET_WITH_RTS;
 #ifdef RASPBERRY_PI
     else if (strncasecmp(method, "gpio", 4) == 0)
     {

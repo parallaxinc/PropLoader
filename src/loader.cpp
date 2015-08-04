@@ -528,15 +528,18 @@ int Loader::loadImage2(const uint8_t *image, int imageSize)
     }
     
     /* transmit the RAM verify packet and verify the checksum */
+    printf("Sending verify packet\n");
     transmitPacket(0, verifyRAM, sizeof(verifyRAM), &result);
     if (result != -checksum)
         printf("Checksum error\n");
     
     /* transmit the final launch packets */
+    printf("Sending launch start packet\n");
     transmitPacket(-checksum, launchStart, sizeof(launchStart), &result);
     if (result != -checksum - 1)
         printf("Launch failed\n");
-    sendData(launchFinal, sizeof(launchFinal));
+    printf("Sending launch final packet\n");
+    transmitPacket(0, launchFinal, sizeof(launchFinal), &result);
     
     /* disconnect from the target */
     disconnect();
