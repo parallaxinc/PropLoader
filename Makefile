@@ -78,6 +78,7 @@ $(OBJDIR)/loader.o \
 $(OBJDIR)/xbee-loader.o \
 $(OBJDIR)/serial-loader.o \
 $(OBJDIR)/xbee.o \
+$(OBJDIR)/loadelf.o \
 $(OSINT)
 
 CFLAGS+=-I$(HDRDIR)

@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <ctype.h>
+#include "loadelf.h"
 #include "xbee-loader.hpp"
 #include "serial-loader.hpp"
 
@@ -174,4 +176,53 @@ int main(int argc, char *argv[])
     
     /* return successfully */
     return 0;
+}
+
+void *LoadElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize)
+{
+    uint32_t start, imageSize, cogImagesSize;
+    uint8_t *imageBuf, *buf;
+    ElfContext *c;
+    ElfProgramHdr program;
+    int i;
+
+    /* open the elf file */
+    if (!(c = OpenElfFile(fp, hdr)))
+        return NULL;
+        
+    /* get the total size of the program */
+    if (!GetProgramSize(c, &start, &imageSize, &cogImagesSize)) {
+        CloseElfFile(c);
+        return NULL;
+    }
+        
+    /* check to see if cog images in eeprom are allowed */
+    if (cogImagesSize > 0) {
+        CloseElfFile(c);
+        return NULL;
+    }
+    
+    /* allocate a buffer big enough for the entire image */
+    if (!(imageBuf = (uint8_t *)malloc(imageSize)))
+        return NULL;
+    memset(imageBuf, 0, imageSize);
+        
+    /* load each program section */
+    for (i = 0; i < c->hdr.phnum; ++i) {
+        if (!LoadProgramTableEntry(c, i, &program)
+        ||  !(buf = LoadProgramSegment(c, &program))) {
+            CloseElfFile(c);
+            free(imageBuf);
+            return NULL;
+        }
+        if (program.paddr < COG_DRIVER_IMAGE_BASE)
+            memcpy(&imageBuf[program.paddr - start], buf, program.filesz);
+    }
+    
+    /* close the elf file */
+    CloseElfFile(c);
+    
+    /* return the image */
+    *pImageSize = imageSize;
+    return (void *)imageBuf;
 }
