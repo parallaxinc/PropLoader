@@ -101,7 +101,7 @@ void main (int argc,  char* argv[])
     /* every 2 seconds update the flashing frequency so the
        light blinks faster and faster */
     while(1) {
-      sleep(2);
+      waitcnt(CLKFREQ * 2);
       wait_time =  wait_time >> 1;
       if (wait_time < MIN_GAP)
 	wait_time = _clkfreq;
