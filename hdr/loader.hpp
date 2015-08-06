@@ -10,6 +10,7 @@ public:
     Loader() : m_baudrate(DEFAULT_BAUDRATE) {}
     ~Loader() {}
     void setBaudrate(int baudrate);
+    int identify(int *pVersion);
     int loadFile(const char *file);
     int loadFile2(const char *file);
     int loadImage(const uint8_t *image, int imageSize);

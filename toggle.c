@@ -12,14 +12,6 @@
 #include <propeller.h>
 #include <sys/thread.h>
 
-#ifdef __PROPELLER2__
-#define DIR DIRB
-#define OUT PINB
-#else
-#define DIR DIRA
-#define OUT OUTA
-#endif
-
 #if defined(__PROPELLER_XMM__)
 #define STACK_SIZE (1024+128+32) /* need room for XMM cache */
 #else
@@ -50,13 +42,13 @@ do_toggle(void *arg __attribute__((unused)) )
   unsigned tmppins = pins;
 
   /* figure out how long to wait the first time */
-  nextcnt = getcnt() + wait_time;
+  nextcnt = CNT + wait_time;
 
   /* loop forever, updating the wait time from the mailbox */
   for(;;) {
     tmppins = pins;
-    DIR = tmppins;
-    OUT ^= tmppins; /* update the pins */
+    DIRA = tmppins;
+    OUTA ^= tmppins; /* update the pins */
 
     /* sleep until _CNT == nextcnt, and return the new _CNT + wait_time */
     nextcnt = __builtin_propeller_waitcnt(nextcnt, wait_time);
@@ -88,11 +80,7 @@ void main (int argc,  char* argv[])
 #else
     pins = 0x3fffffff;
 #endif
-#if defined(__PROPELLER2__)
-    wait_time = 30000000;
-#else
     wait_time = _clkfreq;  /* start by waiting for 1 second */
-#endif
 
     /* start the new cog */
     n = _start_cog_thread(cog1_stack + STACK_SIZE, do_toggle, NULL, &thread_data);
@@ -101,7 +89,7 @@ void main (int argc,  char* argv[])
     /* every 2 seconds update the flashing frequency so the
        light blinks faster and faster */
     while(1) {
-      waitcnt(CLKFREQ * 2);
+      waitcnt(CNT + _clkfreq * 2);
       wait_time =  wait_time >> 1;
       if (wait_time < MIN_GAP)
 	wait_time = _clkfreq;

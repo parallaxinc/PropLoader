@@ -123,9 +123,22 @@ static uint8_t txHandshake[] = {
     0x29,0x29,0x29,0x29,0x29,0x29,0x29,0x29,0x29,0x29,0x29,0x29,0x29,0x29,0x29,0x29,
     0x29,0x29,0x29,0x29,0x29,0x29,0x29,0x29,0x29,0x29,0x29,0x29,0x29,
     // 8 timing templates ('1' and '0') to receive 8-bit Propeller version; two pairs per byte; 4 bytes.
-    0x29,0x29,0x29,0x29,
-    // Download command (1; program RAM and run); 11 bytes.
-    0x93,0x92,0x92,0x92,0x92,0x92,0x92,0x92,0x92,0x92,0xF2};
+    0x29,0x29,0x29,0x29};
+    
+// Shutdown command (0); 11 bytes.
+static uint8_t shutdownCmd[] = {0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0xf2};
+
+// Load RAM and Run command (1); 11 bytes.
+static uint8_t loadRunCmd[] = {0xc9, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0xf2};
+
+// Load RAM, Program EEPROM, and Shutdown command (2); 11 bytes.
+//static uint8_t programShutdownCmd[] = {0xca, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0xf2};
+
+// Load RAM, Program EEPROM, and Run command (3); 11 bytes.
+//static uint8_t programRunCmd[] = {0x25, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0xfe};
+
+//    // Download command (1; program RAM and run); 11 bytes.
+//    0x93,0x92,0x92,0x92,0x92,0x92,0x92,0x92,0x92,0x92,0xF2};
 
 // The RxHandshake array consists of 125 bytes encoded to represent the expected 250-bit (125-byte @ 2 bits/byte) response
 // of continuing-LFSR stream bits from the Propeller, prompted by the timing templates following the TxHandshake stream.
@@ -249,6 +262,28 @@ static uint8_t launchFinal[] = {
 
 static uint8_t initCallFrame[] = {0xFF, 0xFF, 0xF9, 0xFF, 0xFF, 0xFF, 0xF9, 0xFF};
 
+static uint8_t *GenerateIdentifyPacket(int *pLength)
+{
+    uint8_t *packet;
+    int packetSize;
+    
+    /* determine the size of the packet */
+    packetSize = sizeof(txHandshake) + sizeof(shutdownCmd);
+    
+    /* allocate space for the full packet */
+    packet = (uint8_t *)malloc(packetSize);
+    if (!packet)
+        return NULL;
+        
+    /* copy the handshake image and the command to the packet */
+    memcpy(packet, txHandshake, sizeof(txHandshake));
+    memcpy(packet + sizeof(txHandshake), shutdownCmd, sizeof(shutdownCmd));
+        
+    /* return the packet and its length */
+    *pLength = packetSize;
+    return packet;
+}
+
 static uint8_t *GenerateLoaderPacket(const uint8_t *image, int imageSize, int *pLength)
 {
     int imageSizeInLongs = (imageSize + 3) / 4;
@@ -256,24 +291,25 @@ static uint8_t *GenerateLoaderPacket(const uint8_t *image, int imageSize, int *p
     int encodedImageSize, packetSize, tmp, i;
     uint8_t *packet, *p;
     
-    /* encode the patched image */
+    /* encode the image */
     encodedImageSize = EncodeBytes(image, imageSize, encodedImage, sizeof(encodedImage));
     if (encodedImageSize < 0)
         return NULL;
     
     /* determine the size of the packet */
-    packetSize = sizeof(txHandshake) + LENGTH_FIELD_SIZE + encodedImageSize;
+    packetSize = sizeof(txHandshake) + sizeof(loadRunCmd) + LENGTH_FIELD_SIZE + encodedImageSize;
     
     /* allocate space for the full packet */
     packet = (uint8_t *)malloc(packetSize);
     if (!packet)
         return NULL;
         
-    /* copy the handshake image to the packet */
+    /* copy the handshake image and the command to the packet */
     memcpy(packet, txHandshake, sizeof(txHandshake));
+    memcpy(packet + sizeof(txHandshake), loadRunCmd, sizeof(loadRunCmd));
     
     /* build the packet from the handshake data, the image length and the encoded image */
-    p = packet + sizeof(txHandshake);
+    p = packet + sizeof(txHandshake) + sizeof(loadRunCmd);
     tmp = imageSizeInLongs;
     for (i = 0; i < LENGTH_FIELD_SIZE; ++i) {
         *p++ = 0x92 | (i == 10 ? 0x60 : 0x00) | (tmp & 1) | ((tmp & 2) << 2) | ((tmp & 4) << 4);
@@ -368,6 +404,59 @@ static void msleep(int ms)
 void Loader::setBaudrate(int baudrate)
 {
     m_baudrate = baudrate;
+}
+
+int Loader::identify(int *pVersion)
+{
+    uint8_t packet2[MAX_BUFFER_SIZE]; // must be at least as big as maxDataSize()
+    int version, cnt, i;
+    uint8_t *packet;
+    int packetSize;
+    
+    /* generate the identify packet */
+    if (!(packet = GenerateIdentifyPacket(&packetSize)))
+        return -1;
+
+    /* reset the Propeller */
+    generateResetSignal();
+    
+    /* send the identify packet */
+    printf("Send identify packet\n");
+    sendData(packet, packetSize);
+    
+    /* Reset period 200 ms + first packet’s serial transfer time + 20 ms */
+    msleep(200 + (packetSize * 10 * 1000) / m_baudrate + 20);
+    
+    /* send the verification packet (all timing templates) */
+    printf("Send verification packet\n");
+    memset(packet2, 0xF9, maxDataSize());
+    sendData(packet2, maxDataSize());
+    
+    /* this delay helps apply the majority of the next step’s receive timeout to a
+       valid time window in the communication sequence */
+    msleep((sizeof(packet2) * 10 * 1000) / m_baudrate);
+    
+    /* receive the handshake response and the hardware version */
+    printf("Receive handshake response\n");
+    cnt = receiveDataExact(packet2, sizeof(rxHandshake) + 4, 2000);
+    
+    /* verify the handshake response */
+    if (cnt != sizeof(rxHandshake) + 4 || memcmp(packet2, rxHandshake, sizeof(rxHandshake)) != 0) {
+        printf("error: handshake failed\n");
+        return -1;
+    }
+    
+    /* verify the hardware version */
+    version = 0;
+    for (i = sizeof(rxHandshake); i < cnt; ++i)
+        version = ((version >> 2) & 0x3F) | ((packet2[i] & 0x01) << 6) | ((packet2[i] & 0x20) << 2);
+    if (version != 1) {
+        printf("error: wrong propeller version\n");
+        return -1;
+    }
+    
+    /* return successfully */
+    return 0;
 }
 
 uint8_t *Loader::readEntireFile(const char *file, int *pLength)
