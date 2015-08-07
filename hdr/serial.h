@@ -51,6 +51,7 @@ int SerialGenerateResetSignal(SERIAL *serial);
 int SendSerialData(SERIAL *serial, const void *buf, int len);
 int ReceiveSerialData(SERIAL *serial, void *buf, int len);
 int ReceiveSerialDataExact(SERIAL *serial, void *buf, int len, int timeout);
+int SerialFind(const char *prefix, int (*check)(const char *port, void *data), void *data);
 
 #ifdef __cplusplus
 }

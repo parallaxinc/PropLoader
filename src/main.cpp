@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include <ctype.h>
 #include "loadelf.h"
 #include "xbee-loader.hpp"
@@ -40,6 +41,9 @@ usage: %s\n\
          <file>             spin binary file to load\n", progname, DEFAULT_BAUDRATE, DEF_IPADDR, DEF_PORT);
     exit(1);
 }
+
+void ShowPorts(const char *prefix);
+void ShowConnectedPorts(const char *prefix, int baudrate, int verbose);
 
 int main(int argc, char *argv[])
 {
@@ -125,6 +129,11 @@ int main(int argc, char *argv[])
             file = argv[i];
         }
     }
+    
+    printf("\nPorts:\n");
+    ShowPorts(PORT_PREFIX);
+    printf("\nConnected ports:\n");
+    ShowConnectedPorts(PORT_PREFIX, baudrate, true);
     
     /* make sure a file to load was specified */
     if (!file)
@@ -225,4 +234,55 @@ void *LoadElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize)
     /* return the image */
     *pImageSize = imageSize;
     return (void *)imageBuf;
+}
+
+typedef struct {
+    int baudrate;
+    int verbose;
+    char *actualport;
+} CheckPortInfo;
+
+static int ShowPort(const char *port, void *data)
+{
+    printf("%s\n", port);
+    return 1;
+}
+
+void ShowPorts(const char *prefix)
+{
+    SerialFind(prefix, ShowPort, NULL);
+}
+
+static int ShowConnectedPort(const char *port, void *data)
+{
+    CheckPortInfo* info = (CheckPortInfo *)data;
+    SerialLoader ldr;
+    int version;
+    
+    if (info->verbose) {
+        printf("Trying %s                    \r", port);
+        fflush(stdout);
+    }
+    
+    ldr.init(port, info->baudrate);
+    if (ldr.identify(&version) == 0) {
+        printf("%s, version %d\n", port, version);
+        if (info->actualport) {
+            strncpy(info->actualport, port, PATH_MAX - 1);
+            info->actualport[PATH_MAX - 1] = '\0';
+        }
+    }
+    
+    return 1;
+}
+
+void ShowConnectedPorts(const char *prefix, int baudrate, int verbose)
+{
+    CheckPortInfo info;
+
+    info.baudrate = baudrate;
+    info.verbose = verbose;
+    info.actualport = NULL;
+    
+    SerialFind(prefix, ShowConnectedPort, &info);
 }

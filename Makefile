@@ -46,7 +46,7 @@ endif
 ifeq ($(OS),msys)
 CFLAGS+=-DMINGW
 EXT=.exe
-OSINT=$(OBJDIR)/serial_mingw.o $(OBJDIR)/sock_posix.o
+OSINT=$(OBJDIR)/serial_mingw.o $(OBJDIR)/sock_posix.o $(OBJDIR)/enumcom.o
 LIBS=-lws2_32 -liphlpapi
 endif
 

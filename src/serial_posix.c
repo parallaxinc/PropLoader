@@ -409,9 +409,7 @@ int ReceiveSerialDataExact(SERIAL *serial, void *buf, int len, int timeout)
     return len;
 }
 
-#if 0
-
-int serial_find(const char* prefix, int (*check)(const char* port, void* data), void* data)
+int SerialFind(const char *prefix, int (*check)(const char *port, void *data), void *data)
 {
     char path[PATH_MAX];
     int prefixlen = strlen(prefix);
@@ -434,6 +432,8 @@ int serial_find(const char* prefix, int (*check)(const char* port, void* data), 
     closedir(dirp);
     return -1;
 }
+
+#if 0
 
 static void sigint_handler(int signum)
 {

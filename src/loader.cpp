@@ -413,9 +413,15 @@ int Loader::identify(int *pVersion)
     uint8_t *packet;
     int packetSize;
     
-    /* generate the identify packet */
-    if (!(packet = GenerateIdentifyPacket(&packetSize)))
+    /* connect to the propeller */
+    if (connect() != 0)
         return -1;
+
+    /* generate the identify packet */
+    if (!(packet = GenerateIdentifyPacket(&packetSize))) {
+        printf("error: generating identify packet\n");
+        goto fail;
+    }
 
     /* reset the Propeller */
     generateResetSignal();
@@ -443,20 +449,25 @@ int Loader::identify(int *pVersion)
     /* verify the handshake response */
     if (cnt != sizeof(rxHandshake) + 4 || memcmp(packet2, rxHandshake, sizeof(rxHandshake)) != 0) {
         printf("error: handshake failed\n");
-        return -1;
+        goto fail;
     }
     
     /* verify the hardware version */
     version = 0;
     for (i = sizeof(rxHandshake); i < cnt; ++i)
         version = ((version >> 2) & 0x3F) | ((packet2[i] & 0x01) << 6) | ((packet2[i] & 0x20) << 2);
-    if (version != 1) {
-        printf("error: wrong propeller version\n");
-        return -1;
-    }
+    
+    /* disconnect from the propeller */
+    disconnect();
     
     /* return successfully */
+    *pVersion = version;
     return 0;
+    
+    /* return failure */
+fail:
+    disconnect();
+    return -1;
 }
 
 uint8_t *Loader::readEntireFile(const char *file, int *pLength)

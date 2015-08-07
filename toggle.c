@@ -61,7 +61,7 @@ do_toggle(void *arg __attribute__((unused)) )
  * It launches another cog to actually run the 
  * toggling code
  */
-#define MIN_GAP 400000
+#define MIN_GAP 800000
 
 void main (int argc,  char* argv[])
 {
@@ -92,7 +92,7 @@ void main (int argc,  char* argv[])
       waitcnt(CNT + _clkfreq * 2);
       wait_time =  wait_time >> 1;
       if (wait_time < MIN_GAP)
-	wait_time = _clkfreq;
+        wait_time = _clkfreq;
       printf("time = %d cycles\n", wait_time);
     }
 }
