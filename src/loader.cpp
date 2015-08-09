@@ -427,14 +427,12 @@ int Loader::identify(int *pVersion)
     generateResetSignal();
     
     /* send the identify packet */
-    printf("Send identify packet\n");
     sendData(packet, packetSize);
     
     /* Reset period 200 ms + first packet’s serial transfer time + 20 ms */
     msleep(200 + (packetSize * 10 * 1000) / m_baudrate + 20);
     
     /* send the verification packet (all timing templates) */
-    printf("Send verification packet\n");
     memset(packet2, 0xF9, maxDataSize());
     sendData(packet2, maxDataSize());
     
@@ -443,7 +441,6 @@ int Loader::identify(int *pVersion)
     msleep((sizeof(packet2) * 10 * 1000) / m_baudrate);
     
     /* receive the handshake response and the hardware version */
-    printf("Receive handshake response\n");
     cnt = receiveDataExact(packet2, sizeof(rxHandshake) + 4, 2000);
     
     /* verify the handshake response */
@@ -470,76 +467,6 @@ fail:
     return -1;
 }
 
-uint8_t *Loader::readEntireFile(const char *file, int *pLength)
-{
-    uint8_t *image;
-    int imageSize;
-    FILE *fp;
-    
-    /* open the file to load */
-    if ((fp = fopen(file, "rb")) == NULL)
-        return NULL;
-    
-    /* get the size of the binary file */
-    fseek(fp, 0, SEEK_END);
-    imageSize = (int)ftell(fp);
-    fseek(fp, 0, SEEK_SET);
-    
-    /* allocate space for the file */
-    if (!(image = (uint8_t *)malloc(imageSize))) {
-        fclose(fp);
-        return NULL;
-    }
-    
-    /* read the entire image into memory */
-    if ((int)fread(image, 1, imageSize, fp) != imageSize) {
-        free(image);
-        fclose(fp);
-        return NULL;
-    }
-    
-    /* close the image file */
-    fclose(fp);
-    
-    /* return the buffer containing the file contents */
-    *pLength = imageSize;
-    return image;
-}
-
-int Loader::loadFile(const char *file)
-{
-    int imageSize, sts;
-    uint8_t *image;
-    
-    /* read the entire file into a buffer */
-    if (!(image = readEntireFile(file, &imageSize)))
-        return -1;
-    
-    /* load the image */
-    sts = loadImage(image, imageSize);
-    free(image);
-    
-    /* return load status */
-    return sts;
-}
-    
-int Loader::loadFile2(const char *file)
-{
-    int imageSize, sts;
-    uint8_t *image;
-    
-    /* read the entire file into a buffer */
-    if (!(image = readEntireFile(file, &imageSize)))
-        return -1;
-    
-    /* load the image */
-    sts = loadImage2(image, imageSize);
-    free(image);
-    
-    /* return load status */
-    return sts;
-}
-    
 int Loader::loadImage(const uint8_t *image, int imageSize)
 {
     int packetSize, sts;

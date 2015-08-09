@@ -2,15 +2,26 @@
 #define __XBEE_HPP__
 
 #include <stdint.h>
+
+#include <string>
+#include <list>
+
 #include "sock.h"
 
 #define DEF_APP_SERVICE_PORT    0xBEE
 #define DEF_SERIAL_SERVICE_PORT 0x2616
 
-typedef struct {
-    uint32_t host;
-    uint32_t xbee;
-} XBEE_ADDR;
+class XbeeAddr {
+public:
+    XbeeAddr(uint32_t hostAddr, uint32_t xbeeAddr) : m_hostAddr(hostAddr), m_xbeeAddr(xbeeAddr) {}
+    uint32_t hostAddr() { return m_hostAddr; }
+    uint32_t xbeeAddr() { return m_xbeeAddr; }
+private:
+    uint32_t m_hostAddr;
+    uint32_t m_xbeeAddr;
+};
+
+typedef std::list<XbeeAddr> XbeeAddrList;
 
 typedef enum {
     xbData,
@@ -101,16 +112,17 @@ class Xbee {
 public:
     Xbee();
     ~Xbee();
-    static int discover(XBEE_ADDR *addrs, int max, int timeout);
-    int connect(XBEE_ADDR *addr);
+    static int discover(int timeout, XbeeAddrList &addrs);
+    int connect(uint32_t addr);
     void disconnect();
     int getItem(xbCommand cmd, int *pValue);
+    int getItem(xbCommand cmd, std::string &value);
     int setItem(xbCommand cmd, int value);
     int sendAppData(void *buf, int len);
     int receiveAppData(void *buf, int len);
     int receiveSerialData(void *buf, int len);
 private:
-    static int discover1(IFADDR *ifaddr, XBEE_ADDR *addrs, int max, int timeout);
+    static int discover1(IFADDR *ifaddr, int timeout, XbeeAddrList &addrs);
     SOCKET m_appService;
     SOCKET m_serialService;
 };

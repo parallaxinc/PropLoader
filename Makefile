@@ -47,7 +47,7 @@ ifeq ($(OS),msys)
 CFLAGS+=-DMINGW
 EXT=.exe
 OSINT=$(OBJDIR)/serial_mingw.o $(OBJDIR)/sock_posix.o $(OBJDIR)/enumcom.o
-LIBS=-lws2_32 -liphlpapi
+LIBS=-lws2_32 -liphlpapi -lsetupapi
 endif
 
 ifeq ($(OS),macosx)
@@ -111,8 +111,8 @@ setup:	$(BUILD)/blink-slow.binary
 run:	$(BINDIR)/proploader$(EXT) $(BUILD)/blink.binary
 	$(BINDIR)/proploader$(EXT) $(BUILD)/blink.binary
 
-runbig:	$(BINDIR)/proploader$(EXT) $(BUILD)/toggle.binary
-	$(BINDIR)/proploader$(EXT) $(BUILD)/toggle.binary
+runbig:	$(BINDIR)/proploader$(EXT) $(BUILD)/toggle.elf
+	$(BINDIR)/proploader$(EXT) $(BUILD)/toggle.elf
 
 $(OBJDIR)/%.o:	$(SRCDIR)/%.c $(OBJDIR) $(HDRS)
 	$(CC) $(CFLAGS) -c $< -o $@

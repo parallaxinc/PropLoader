@@ -20,16 +20,16 @@ XbeeLoader::~XbeeLoader()
 {
 }
 
-int XbeeLoader::init(XBEE_ADDR *addr, int baudrate)
+int XbeeLoader::init(XbeeInfo &info, int baudrate)
 {
+    m_info = info;
     setBaudrate(baudrate);
-    m_addr = *addr;
     return 0;
 }
 
 int XbeeLoader::connect()
 {
-    return m_xbee.connect(&m_addr);
+    return m_xbee.connect(m_info.xbeeAddr());
 }
 
 void XbeeLoader::disconnect()
@@ -107,7 +107,7 @@ static int validate(Xbee &xbee, xbCommand cmd, int value, bool readOnly)
 int XbeeLoader::enforceXbeeConfiguration(Xbee &xbee)
 {
     if (validate(xbee, xbSerialIP, serialUDP, true) != 0                // Ensure XBee's Serial Service uses UDP packets [WRITE DISABLED DUE TO FIRMWARE BUG]
-    ||  validate(xbee, xbIPDestination, m_addr.host, false) != 0        // Ensure Serial-to-IP destination is us (our IP)
+    ||  validate(xbee, xbIPDestination, m_info.hostAddr(), false) != 0  // Ensure Serial-to-IP destination is us (our IP)
     ||  validate(xbee, xbIPPort, DEF_SERIAL_SERVICE_PORT, false) != 0   // Ensure Serial-to-IP port is proper (default, in this case)
     ||  validate(xbee, xbOutputMask, 0x7FFF, false) != 0                // Ensure output mask is proper (default, in this case)
     ||  validate(xbee, xbRTSFlow, pinEnabled, false) != 0               // Ensure RTS flow pin is enabled (input)
@@ -123,3 +123,73 @@ int XbeeLoader::enforceXbeeConfiguration(Xbee &xbee)
         return -1;
     return 0;
 }
+
+int XbeeLoader::discover(int timeout, bool check, XbeeInfoList &list)
+{
+    XbeeAddrList addrs;
+    if (m_xbee.discover(timeout, addrs) == 0) {
+        XbeeAddrList::iterator i = addrs.begin();
+        while (i != addrs.end()) {
+            std::string sValue;
+            int value;
+            XbeeInfo info(*i);
+            m_xbee.connect(i->xbeeAddr());
+            if (m_xbee.getItem(xbMacHigh, &value) == 0)
+                info.m_macAddrHigh = value;
+            if (m_xbee.getItem(xbMacLow, &value) == 0)
+                info.m_macAddrLow = value;
+            if (m_xbee.getItem(xbIPPort, &value) == 0)
+                info.m_xbeePort = value;
+            if (m_xbee.getItem(xbFirmwareVer, &value) == 0)
+                info.m_firmwareVersion = value;
+            if (m_xbee.getItem(xbChecksum, &value) == 0)
+                info.m_cfgChecksum = value;
+            if (m_xbee.getItem(xbNodeID, sValue) == 0)
+                info.m_nodeID = sValue;
+            m_xbee.disconnect();
+            if (check) {
+                int version;
+                init(info);
+                if (identify(&version) == 0 && version == 1)
+                    list.push_back(info);
+            }
+            else
+                list.push_back(info);
+            ++i;
+        }
+    }
+    return 0;
+}
+
+#if 0
+    uint32_t m_macAddrHigh;
+    uint32_t m_macAddrLow;
+    uint16_t m_xbeePort;
+    uint32_t m_firmwareVersion;
+    uint32_t m_cfgChecksum;
+    std::string m_nodeID;
+    std::string m_name;
+
+firmwareVersion
+cfgChecksum
+hostIPAddr
+IPAddr
+IPPort
+MACAddrHigh
+MACAddrLow
+nodeID
+PCPort
+          PXB.FirmwareVer := ValueUnknown;
+          PXB.CfgChecksum := ValueUnknown;
+          PXB.HostIPAddr := HostIP;
+          PXB.IPAddr := FormatIPAddr(Nums[Idx]);
+          XBee.RemoteIPAddr := PXB.IPAddr;
+          if XBee.GetItem(xbFirmwareVer, PXB.FirmwareVer) then
+            if XBee.GetItem(xbIPPort, PXB.IPPort) then
+              if XBee.GetItem(xbMacHigh, PXB.MacAddrHigh) then
+                if XBee.GetItem(xbMacLow, PXB.MacAddrLow) then
+                  if XBee.GetItem(xbNodeID, PXB.NodeID) then
+                    begin
+                    {Create pseudo-port name}
+                    PXB.PCPort := 'XB-' + ifthen(PXB.NodeID.Trim <> '', PXB.NodeID, inttohex(PXB.MacAddrHigh, 4) + inttohex(PXB.MacAddrLow, 8));
+#endif

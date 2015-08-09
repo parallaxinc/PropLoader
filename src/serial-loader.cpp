@@ -18,6 +18,7 @@ SerialLoader::SerialLoader() : m_port(NULL), m_serial(NULL)
 
 SerialLoader::~SerialLoader()
 {
+    disconnect();
     if (m_port)
         free(m_port);
 }
@@ -25,6 +26,10 @@ SerialLoader::~SerialLoader()
 int SerialLoader::init(const char *port, int baudrate)
 {
     setBaudrate(baudrate);
+    if (m_port) {
+        free(m_port);
+        m_port = NULL;
+    }
     if (!(m_port = (char *)malloc(strlen(port) + 1)))
         return -1;
     strcpy(m_port, port);
@@ -74,3 +79,36 @@ int SerialLoader::receiveDataExact(uint8_t *buf, int len, int timeout)
     return m_serial ? ReceiveSerialDataExact(m_serial, buf, len, timeout) : -1;
 }
 
+struct FindState {
+    SerialLoader *ldr;
+    bool check;
+    SerialInfoList *list;
+};
+
+int SerialLoader::addPort(const char *port, void *data)
+{
+    FindState *state = (FindState *)data;
+    
+    if (state->check) {
+        int version;
+        if (state->ldr->init(port) != 0)
+            return 1;
+        if (state->ldr->identify(&version) != 0 || version != 1)
+            return 1;
+    }
+    
+    SerialInfo info(port);
+    state->list->push_back(info);
+    
+    return 1;
+}
+
+int SerialLoader::findPorts(const char *prefix, bool check, SerialInfoList &list)
+{
+    FindState state;
+    state.ldr = this;
+    state.check = check;
+    state.list = &list;
+    SerialFind(prefix, addPort, &state);
+    return 0;
+}

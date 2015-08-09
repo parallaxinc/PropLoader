@@ -1,8 +1,23 @@
 #ifndef __SERIAL_LOADER_H__
 #define __SERIAL_LOADER_H__
 
+#include <string>
+#include <list>
+
 #include "loader.hpp"
 #include "serial.h"
+
+#define SERIAL_MAX_DATA_SIZE   1020
+
+class SerialInfo {
+public:
+    SerialInfo(std::string port) : m_port(port) {}
+    const char *port() { return m_port.c_str(); }
+private:
+    std::string m_port;
+};
+
+typedef std::list<SerialInfo> SerialInfoList;
 
 #define SERIAL_MAX_DATA_SIZE   1020
 
@@ -11,6 +26,7 @@ public:
     SerialLoader();
     ~SerialLoader();
     int init(const char *port, int baudrate = DEFAULT_BAUDRATE);
+    int findPorts(const char *prefix, bool check, SerialInfoList &list);
 protected:
     int connect();
     void disconnect();
@@ -20,6 +36,7 @@ protected:
     int receiveData(uint8_t *buf, int len);
     int receiveDataExact(uint8_t *buf, int len, int timeout);
     int maxDataSize() { return SERIAL_MAX_DATA_SIZE; }
+    static int addPort(const char *port, void *data);
 private:
     char *m_port;
     SERIAL *m_serial;

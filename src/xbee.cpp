@@ -41,7 +41,8 @@ static const char *atCmd[] = {
 };
 
 Xbee::Xbee()
-    : m_appService(INVALID_SOCKET), m_serialService(INVALID_SOCKET)
+    : m_appService(INVALID_SOCKET),
+      m_serialService(INVALID_SOCKET)
 {
 }
 
@@ -50,35 +51,28 @@ Xbee::~Xbee()
     disconnect();
 }
 
-int Xbee::discover(XBEE_ADDR *addrs, int max, int timeout)
+int Xbee::discover(int timeout, XbeeAddrList &addrs)
 {
     IFADDR ifaddrs[MAX_IF_ADDRS];
-    int ifcnt, cnt, i, n;
+    int cnt, i;
     
-    if ((ifcnt = GetInterfaceAddresses(ifaddrs, MAX_IF_ADDRS)) < 0)
+    if ((cnt = GetInterfaceAddresses(ifaddrs, MAX_IF_ADDRS)) < 0)
         return -1;
     
-    cnt = 0;
-    for (i = 0; i < ifcnt; ++i) {
-        printf("checking: %s\n", inet_ntoa(ifaddrs[i].addr.sin_addr));
-        if ((n = discover1(&ifaddrs[i], addrs, max, timeout)) >= 0) {
-            addrs += n;
-            max -= n;
-            cnt += n;
-        }
-    }
+    for (i = 0; i < cnt; ++i)
+        discover1(&ifaddrs[i], timeout, addrs);
     
-    return cnt;
+    return 0;
 }
 
-int Xbee::discover1(IFADDR *ifaddr, XBEE_ADDR *addrs, int max, int timeout)
+int Xbee::discover1(IFADDR *ifaddr, int timeout, XbeeAddrList &addrs)
 {
     uint8_t buf[2048]; // BUG: get rid of this magic number!
     txPacket *tx = (txPacket *)buf;
     rxPacket *rx = (rxPacket *)buf;
     SOCKADDR_IN bcastaddr;
-    int cnt, i, n;
     SOCKET sock;
+    int cnt, i;
         
     /* create a broadcast socket */
     if (OpenBroadcastSocket(&sock) != 0)
@@ -100,9 +94,9 @@ int Xbee::discover1(IFADDR *ifaddr, XBEE_ADDR *addrs, int max, int timeout)
         CloseSocket(sock);
         return -3;
     }
-        
+
     /* receive Xbee responses */
-    for (n = 0; n < max && SocketDataAvailableP(sock, timeout); ++n, ++addrs) {
+    while (SocketDataAvailableP(sock, timeout)) {
     
         /* get the next response */
         if ((cnt = ReceiveSocketData(sock, buf, sizeof(buf))) < (int)sizeof(rxPacket)) {
@@ -117,29 +111,31 @@ int Xbee::discover1(IFADDR *ifaddr, XBEE_ADDR *addrs, int max, int timeout)
         }
     
         /* store the IP addresses host and the Xbee module */
-        addrs->host = ntohl(((SOCKADDR_IN *)&ifaddr->addr)->sin_addr.s_addr);
-        addrs->xbee = 0;
+        uint32_t hostAddr = ntohl(((SOCKADDR_IN *)&ifaddr->addr)->sin_addr.s_addr);
+        uint32_t xbeeAddr = 0;
         for (i = sizeof(rxPacket); i < cnt; ++i)
-            addrs->xbee = (addrs->xbee << 8) + buf[i];
+            xbeeAddr = (xbeeAddr << 8) + buf[i];
+        XbeeAddr addr(hostAddr, xbeeAddr);
+        addrs.push_back(addr);
     }
     
     /* close the socket */
     CloseSocket(sock);
     
-    /* return the number of responses */
-    return n;
+    /* return successfully */
+    return 0;
 }
 
-int Xbee::connect(XBEE_ADDR *addr)
+int Xbee::connect(uint32_t addr)
 {
     int sts;
     
     if (m_appService != INVALID_SOCKET)
         return -1;
     
-    if ((sts = ConnectSocket(addr->xbee, DEF_APP_SERVICE_PORT, &m_appService)) != 0) {
+    if ((sts = ConnectSocket(addr, DEF_APP_SERVICE_PORT, &m_appService)) != 0) {
         IN_ADDR inaddr;
-        inaddr.s_addr = addr->xbee;
+        inaddr.s_addr = addr;
         printf("error: failed to connect to app service on %s:%d\n", inet_ntoa(inaddr), DEF_APP_SERVICE_PORT);
         return sts;
     }
@@ -181,17 +177,45 @@ int Xbee::getItem(xbCommand cmd, int *pValue)
     tx->frameID = 0x01;
     tx->configOptions = 0x02;
     strncpy(tx->atCommand, atCmd[cmd], 2);
-    printf("getItem %s --> ", atCmd[cmd]); fflush(stdout);
+    //printf("getItem %s --> ", atCmd[cmd]); fflush(stdout);
     if (SendSocketData(m_appService, tx, sizeof(txPacket)) != sizeof(txPacket))
         return -1;
     if ((cnt = ReceiveSocketData(m_appService, buf, sizeof(buf))) < (int)sizeof(rxPacket))
         return -1;
     if ((rx->hdr.number1 ^ rx->hdr.number2) != 0x4242 || rx->status != 0x00)
         return -1;
-    *pValue = 0;
     for (i = sizeof(rxPacket); i < cnt; ++i)
         *pValue = (*pValue << 8) + buf[i];
-    printf("%d (%08x)\n", *pValue, *pValue);
+    //printf("%d (%08x)\n", *pValue, *pValue);
+    return 0;
+}
+
+int Xbee::getItem(xbCommand cmd, std::string &value)
+{
+    uint8_t buf[2048]; // BUG: get rid of this magic number!
+    txPacket *tx = (txPacket *)buf;
+    rxPacket *rx = (rxPacket *)buf;
+    int cnt;
+    
+    tx->hdr.number1 = 0x0000;
+    tx->hdr.number2 = tx->hdr.number1 ^ 0x4242;
+    tx->hdr.packetID = 0;
+    tx->hdr.encryptionPad = 0;
+    tx->hdr.commandID = 0x02;
+    tx->hdr.commandOptions = 0x00;
+    tx->frameID = 0x01;
+    tx->configOptions = 0x02;
+    strncpy(tx->atCommand, atCmd[cmd], 2);
+    //printf("getItem %s --> ", atCmd[cmd]); fflush(stdout);
+    if (SendSocketData(m_appService, tx, sizeof(txPacket)) != sizeof(txPacket))
+        return -1;
+    if ((cnt = ReceiveSocketData(m_appService, buf, sizeof(buf))) < (int)sizeof(rxPacket))
+        return -1;
+    if ((rx->hdr.number1 ^ rx->hdr.number2) != 0x4242 || rx->status != 0x00)
+        return -1;
+    buf[cnt] = '\0'; // terminate the string
+    value = std::string((char *)&buf[sizeof(rxPacket)]);
+    //printf("'%s'\n", &buf[sizeof(rxPacket)]);
     return 0;
 }
 
@@ -213,14 +237,14 @@ int Xbee::setItem(xbCommand cmd, int value)
     strncpy(tx->atCommand, atCmd[cmd], 2);
     for (i = 0; i < (int)sizeof(int); ++i)
         buf[sizeof(txPacket) + i] = value >> ((sizeof(int) - i - 1) * 8);
-    printf("setItem %s to %d (%08x) --> ", atCmd[cmd], value, value); fflush(stdout);
+    //printf("setItem %s to %d (%08x) --> ", atCmd[cmd], value, value); fflush(stdout);
     if (SendSocketData(m_appService, tx, sizeof(txPacket) + sizeof(int)) != sizeof(txPacket) + sizeof(int))
         return -1;
     if ((cnt = ReceiveSocketData(m_appService, buf, sizeof(buf))) < (int)sizeof(rxPacket))
         return -1;
     if ((rx->hdr.number1 ^ rx->hdr.number2) != 0x4242 || rx->status != 0x00)
         return -1;
-    printf("done\n");
+    //printf("done\n");
     return 0;
 }
 

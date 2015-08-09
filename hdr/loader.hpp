@@ -11,8 +11,6 @@ public:
     ~Loader() {}
     void setBaudrate(int baudrate);
     int identify(int *pVersion);
-    int loadFile(const char *file);
-    int loadFile2(const char *file);
     int loadImage(const uint8_t *image, int imageSize);
     int loadImage2(const uint8_t *image, int imageSize);
 protected:
@@ -26,7 +24,6 @@ protected:
     virtual int maxDataSize() = 0;
     int m_baudrate;
 private:
-    uint8_t *readEntireFile(const char *file, int *pLength);
     uint8_t *generateInitialLoaderPacket(int packetID, int *pLength);
     int loadSecondStageLoader(uint8_t *packet, int packetSize);
     int transmitPacket(int id, const uint8_t *payload, int payloadSize, int *pResult);

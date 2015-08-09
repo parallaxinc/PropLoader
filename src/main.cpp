@@ -3,6 +3,9 @@
 #include <string.h>
 #include <limits.h>
 #include <ctype.h>
+
+#include <iostream>
+
 #include "loadelf.h"
 #include "xbee-loader.hpp"
 #include "serial-loader.hpp"
@@ -42,13 +45,14 @@ usage: %s\n\
     exit(1);
 }
 
-void ShowPorts(const char *prefix);
-void ShowConnectedPorts(const char *prefix, int baudrate, int verbose);
+void ShowPorts(const char *prefix, bool check);
+void ShowXbeeModules(bool check);
+uint8_t *LoadSpinBinaryFile(FILE *fp, int *pLength);
+uint8_t *LoadElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize);
 
 int main(int argc, char *argv[])
 {
     bool ipaddr = false;
-    XBEE_ADDR addr;
     const char *port = DEF_PORT;
     int baudrate = DEFAULT_BAUDRATE;
     bool useSerial = false;
@@ -130,10 +134,17 @@ int main(int argc, char *argv[])
         }
     }
     
+#if 0
     printf("\nPorts:\n");
-    ShowPorts(PORT_PREFIX);
+    ShowPorts(PORT_PREFIX, false);
     printf("\nConnected ports:\n");
-    ShowConnectedPorts(PORT_PREFIX, baudrate, true);
+    ShowPorts(PORT_PREFIX, true);
+    printf("\nXbee Modules:\n");
+    ShowXbeeModules(false);
+    printf("\nConnected Xbee Modules:\n");
+    ShowXbeeModules(true);
+    return 0;
+#endif
     
     /* make sure a file to load was specified */
     if (!file)
@@ -150,26 +161,34 @@ int main(int argc, char *argv[])
     
     /* do an xbee download */
     else {
-        if (!ipaddr) {
-            XBEE_ADDR addrs[10];
-            int cnt;
-            cnt = Xbee::discover(addrs, 10, 500);
-            if (cnt < 0)
-                printf("Discover failed: %d\n", cnt);
+        XbeeInfo addr;
+        if (ipaddr) {
+        }
+        else {
+            XbeeInfoList addrs;
+            if (xbeeLoader.discover(500, false, addrs) != 0)
+                printf("Discover failed\n");
             else {
-                for (i = 0; i < cnt; ++i) {
-                    printf("host: %s\n", GetAddressStringX(addrs[i].host));
-                    printf("xbee: %s\n", GetAddressStringX(addrs[i].xbee));
+                XbeeInfoList::iterator i;
+                for (i = addrs.begin(); i != addrs.end(); ++i) {
+                    printf("host:            %s\n", GetAddressStringX(i->hostAddr()));
+                    printf("xbee:            %s\n", GetAddressStringX(i->xbeeAddr()));
+                    printf("macAddrHigh:     %08x\n", i->macAddrHigh());
+                    printf("macAddrLow:      %08x\n", i->macAddrLow());
+                    printf("xbeePort:        %08x\n", i->xbeePort());
+                    printf("firmwareVersion: %08x\n", i->firmwareVersion());
+                    printf("cfgChecksum:     %08x\n", i->cfgChecksum());
+                    printf("nodeId:          '%s'\n", i->nodeID().c_str());
                 }
             }
-            if (cnt == 0) {
+            if (addrs.size() == 0) {
                 printf("error: no Xbee module found\n");
                 return 1;
             }
-            addr = addrs[0];
+            addr = addrs.front();
         }
         
-        if ((sts = xbeeLoader.init(&addr)) != 0) {
+        if ((sts = xbeeLoader.init(addr)) != 0) {
             printf("error: loader initialization failed: %d\n", sts);
             return 1;
         }
@@ -177,8 +196,29 @@ int main(int argc, char *argv[])
         loader = &xbeeLoader;
     }
     
+    /* open the binary */
+    FILE *fp;
+    if (!(fp = fopen(file, "rb"))) {
+        printf("error: can't open '%s'\n", file);
+        return 1;
+    }
+    
+    /* check for an elf file */
+    uint8_t *image;
+    int imageSize;
+    ElfHdr elfHdr;
+    if (ReadAndCheckElfHdr(fp, &elfHdr)) {
+        printf("Loading ELF file '%s'\n", file);
+        image = LoadElfFile(fp, &elfHdr, &imageSize);
+    }
+    else {
+        printf("Loading binary file '%s'\n", file);
+        image = LoadSpinBinaryFile(fp, &imageSize);
+        fclose(fp);
+    }
+    
     /* load the file */
-    if ((sts = useSingleStageLoader ? loader->loadFile(file) : loader->loadFile2(file)) != 0) {
+    if ((sts = useSingleStageLoader ? loader->loadImage(image, imageSize) : loader->loadImage2(image, imageSize)) != 0) {
         printf("error: load failed: %d\n", sts);
         return 1;
     }
@@ -187,10 +227,50 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void *LoadElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize)
+/* target checksum for a binary file */
+#define SPIN_TARGET_CHECKSUM    0x14
+
+uint8_t *LoadSpinBinaryFile(FILE *fp, int *pLength)
+{
+    uint8_t *image;
+    int imageSize;
+    
+    /* get the size of the binary file */
+    fseek(fp, 0, SEEK_END);
+    imageSize = (int)ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    
+    /* allocate space for the file */
+    if (!(image = (uint8_t *)malloc(imageSize)))
+        return NULL;
+    
+    /* read the entire image into memory */
+    if ((int)fread(image, 1, imageSize, fp) != imageSize) {
+        free(image);
+        return NULL;
+    }
+    
+    /* return the buffer containing the file contents */
+    *pLength = imageSize;
+    return image;
+}
+
+/* spin object file header */
+typedef struct {
+    uint32_t clkfreq;
+    uint8_t clkmode;
+    uint8_t chksum;
+    uint16_t pbase;
+    uint16_t vbase;
+    uint16_t dbase;
+    uint16_t pcurr;
+    uint16_t dcurr;
+} SpinHdr;
+
+uint8_t *LoadElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize)
 {
     uint32_t start, imageSize, cogImagesSize;
-    uint8_t *imageBuf, *buf;
+    uint8_t *image, *buf;
     ElfContext *c;
     ElfProgramHdr program;
     int i;
@@ -212,77 +292,81 @@ void *LoadElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize)
     }
     
     /* allocate a buffer big enough for the entire image */
-    if (!(imageBuf = (uint8_t *)malloc(imageSize)))
+    if (!(image = (uint8_t *)malloc(imageSize)))
         return NULL;
-    memset(imageBuf, 0, imageSize);
+    memset(image, 0, imageSize);
         
     /* load each program section */
     for (i = 0; i < c->hdr.phnum; ++i) {
         if (!LoadProgramTableEntry(c, i, &program)
         ||  !(buf = LoadProgramSegment(c, &program))) {
             CloseElfFile(c);
-            free(imageBuf);
+            free(image);
             return NULL;
         }
         if (program.paddr < COG_DRIVER_IMAGE_BASE)
-            memcpy(&imageBuf[program.paddr - start], buf, program.filesz);
+            memcpy(&image[program.paddr - start], buf, program.filesz);
     }
     
     /* close the elf file */
     CloseElfFile(c);
     
+    SpinHdr *spinHdr = (SpinHdr *)image;
+    uint8_t *p = image;
+    int cnt = imageSize;
+    int chksum = 0;
+
+    spinHdr->vbase = imageSize;
+    spinHdr->dbase = imageSize + 2 * sizeof(uint32_t); // stack markers
+    spinHdr->dcurr = spinHdr->dbase + sizeof(uint32_t);
+
+    /* first zero out the checksum */
+    spinHdr->chksum = 0;
+    
+    /* compute the checksum */
+    while (--cnt >= 0)
+        chksum += *p++;
+        
+    /* store the checksum in the header */
+    spinHdr->chksum = SPIN_TARGET_CHECKSUM - chksum;
+
     /* return the image */
     *pImageSize = imageSize;
-    return (void *)imageBuf;
+    return image;
 }
 
-typedef struct {
-    int baudrate;
-    int verbose;
-    char *actualport;
-} CheckPortInfo;
-
-static int ShowPort(const char *port, void *data)
+void ShowPorts(const char *prefix, bool check)
 {
-    printf("%s\n", port);
-    return 1;
-}
-
-void ShowPorts(const char *prefix)
-{
-    SerialFind(prefix, ShowPort, NULL);
-}
-
-static int ShowConnectedPort(const char *port, void *data)
-{
-    CheckPortInfo* info = (CheckPortInfo *)data;
     SerialLoader ldr;
-    int version;
-    
-    if (info->verbose) {
-        printf("Trying %s                    \r", port);
-        fflush(stdout);
-    }
-    
-    ldr.init(port, info->baudrate);
-    if (ldr.identify(&version) == 0) {
-        printf("%s, version %d\n", port, version);
-        if (info->actualport) {
-            strncpy(info->actualport, port, PATH_MAX - 1);
-            info->actualport[PATH_MAX - 1] = '\0';
+    SerialInfoList ports;
+    if (ldr.findPorts(prefix, check, ports) == 0) {
+        SerialInfoList::iterator i = ports.begin();
+        while (i != ports.end()) {
+            std::cout << i->port() << std::endl;
+            ++i;
         }
     }
-    
-    return 1;
 }
 
-void ShowConnectedPorts(const char *prefix, int baudrate, int verbose)
+void ShowXbeeModules(bool check)
 {
-    CheckPortInfo info;
-
-    info.baudrate = baudrate;
-    info.verbose = verbose;
-    info.actualport = NULL;
-    
-    SerialFind(prefix, ShowConnectedPort, &info);
+    XbeeLoader ldr;
+    XbeeInfoList addrs;
+    if (ldr.discover(500, check, addrs) != 0)
+        printf("Discover failed\n");
+    else {
+        XbeeInfoList::iterator i;
+        for (i = addrs.begin(); i != addrs.end(); ++i) {
+            printf("host:            %s\n", GetAddressStringX(i->hostAddr()));
+            printf("xbee:            %s\n", GetAddressStringX(i->xbeeAddr()));
+            printf("macAddrHigh:     %08x\n", i->macAddrHigh());
+            printf("macAddrLow:      %08x\n", i->macAddrLow());
+            printf("xbeePort:        %08x\n", i->xbeePort());
+            printf("firmwareVersion: %08x\n", i->firmwareVersion());
+            printf("cfgChecksum:     %08x\n", i->cfgChecksum());
+            printf("nodeId:          '%s'\n", i->nodeID().c_str());
+            printf("\n");
+        }
+    }
 }
+
