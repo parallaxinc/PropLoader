@@ -23,7 +23,7 @@ TODO:
 
 3) Add retry logic to get/set item as well as the loader code.
 
-4) Add .elf file handling.
+4) Add .elf file handling. (done)
 
 5) Switch to Jeff's new download protocol.
 

@@ -166,7 +166,7 @@ int main(int argc, char *argv[])
         }
         else {
             XbeeInfoList addrs;
-            if (xbeeLoader.discover(500, false, addrs) != 0)
+            if (xbeeLoader.discover(200, false, addrs) != 0)
                 printf("Discover failed\n");
             else {
                 XbeeInfoList::iterator i;
@@ -316,18 +316,15 @@ uint8_t *LoadElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize)
     int cnt = imageSize;
     int chksum = 0;
 
+    /* fixup the spin binary header */
     spinHdr->vbase = imageSize;
     spinHdr->dbase = imageSize + 2 * sizeof(uint32_t); // stack markers
     spinHdr->dcurr = spinHdr->dbase + sizeof(uint32_t);
 
-    /* first zero out the checksum */
+    /* update the checksum */
     spinHdr->chksum = 0;
-    
-    /* compute the checksum */
     while (--cnt >= 0)
         chksum += *p++;
-        
-    /* store the checksum in the header */
     spinHdr->chksum = SPIN_TARGET_CHECKSUM - chksum;
 
     /* return the image */
