@@ -10,6 +10,9 @@
 
 #define DEF_APP_SERVICE_PORT    0xBEE
 #define DEF_SERIAL_SERVICE_PORT 0x2616
+#define DEF_DISCOVER_RETRIES    3
+#define DEF_DISCOVER_TIMEOUT    (1000 / DEF_DISCOVER_RETRIES)
+#define DEF_DISCOVER_RETRIES    3
 
 class XbeeAddr {
 public:
@@ -120,7 +123,7 @@ class Xbee {
 public:
     Xbee();
     ~Xbee();
-    static int discover(int timeout, XbeeAddrList &addrs);
+    static int discover(XbeeAddrList &addrs, int timeout = DEF_DISCOVER_TIMEOUT);
     int connect(uint32_t addr);
     void disconnect();
     int getItem(xbCommand cmd, int *pValue);
@@ -130,7 +133,7 @@ public:
     int receiveAppData(void *buf, int len);
     int receiveSerialData(void *buf, int len);
 private:
-    static int discover1(IFADDR *ifaddr, int timeout, XbeeAddrList &addrs);
+    static int discover1(IFADDR *ifaddr, XbeeAddrList &addrs, int timeout = DEF_DISCOVER_TIMEOUT);
     SOCKET m_appService;
     SOCKET m_serialService;
 };

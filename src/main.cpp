@@ -166,7 +166,7 @@ int main(int argc, char *argv[])
         }
         else {
             XbeeInfoList addrs;
-            if (xbeeLoader.discover(200, false, addrs) != 0)
+            if (xbeeLoader.discover(false, addrs) != 0)
                 printf("Discover failed\n");
             else {
                 XbeeInfoList::iterator i;
@@ -349,7 +349,7 @@ void ShowXbeeModules(bool check)
 {
     XbeeLoader ldr;
     XbeeInfoList addrs;
-    if (ldr.discover(500, check, addrs) != 0)
+    if (ldr.discover(check, addrs) != 0)
         printf("Discover failed\n");
     else {
         XbeeInfoList::iterator i;

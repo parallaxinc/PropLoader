@@ -124,10 +124,10 @@ int XbeeLoader::enforceXbeeConfiguration(Xbee &xbee)
     return 0;
 }
 
-int XbeeLoader::discover(int timeout, bool check, XbeeInfoList &list)
+int XbeeLoader::discover(bool check, XbeeInfoList &list, int timeout)
 {
     XbeeAddrList addrs;
-    if (m_xbee.discover(timeout, addrs) == 0) {
+    if (m_xbee.discover(addrs, timeout) == 0) {
         XbeeAddrList::iterator i = addrs.begin();
         while (i != addrs.end()) {
             std::string sValue;

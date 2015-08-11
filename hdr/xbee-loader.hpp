@@ -58,7 +58,7 @@ public:
     XbeeLoader();
     ~XbeeLoader();
     int init(XbeeInfo &info, int baudrate = DEFAULT_BAUDRATE);
-    int discover(int timeout, bool check, XbeeInfoList &list);
+    int discover(bool check, XbeeInfoList &list, int timeout = DEF_DISCOVER_TIMEOUT);
 protected:
     int connect();
     void disconnect();

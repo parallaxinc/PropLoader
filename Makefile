@@ -93,9 +93,6 @@ $(OBJS):	$(OBJDIR) $(HDRS) Makefile
 $(BINDIR)/proploader$(EXT):	$(BINDIR) $(OBJS)
 	$(CPP) -o $@ $(OBJS) $(LIBS) -lstdc++
 
-$(BUILD)/%.binary:	$(BUILD)/%.elf
-	propeller-load -s $<
-
 $(BUILD)/%.elf:	%.c
 	propeller-elf-gcc -Os -mlmm -o $@ $<
     

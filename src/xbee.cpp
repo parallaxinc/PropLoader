@@ -51,7 +51,7 @@ Xbee::~Xbee()
     disconnect();
 }
 
-int Xbee::discover(int timeout, XbeeAddrList &addrs)
+int Xbee::discover(XbeeAddrList &addrs, int timeout)
 {
     IFADDR ifaddrs[MAX_IF_ADDRS];
     int cnt, i;
@@ -60,18 +60,18 @@ int Xbee::discover(int timeout, XbeeAddrList &addrs)
         return -1;
     
     for (i = 0; i < cnt; ++i)
-        discover1(&ifaddrs[i], timeout, addrs);
+        discover1(&ifaddrs[i], addrs, timeout);
     
     return 0;
 }
 
-int Xbee::discover1(IFADDR *ifaddr, int timeout, XbeeAddrList &addrs)
+int Xbee::discover1(IFADDR *ifaddr, XbeeAddrList &addrs, int timeout)
 {
     uint8_t buf[2048]; // BUG: get rid of this magic number!
+    int retries = DEF_DISCOVER_RETRIES;
     txPacket *tx = (txPacket *)buf;
     rxPacket *rx = (rxPacket *)buf;
     SOCKADDR_IN bcastaddr;
-    int retries = 3;
     SOCKET sock;
     int cnt, i;
         
@@ -130,6 +130,7 @@ int Xbee::discover1(IFADDR *ifaddr, int timeout, XbeeAddrList &addrs)
         }
     }
     
+    /* get rid of duplicate entries */
     addrs.sort();
     addrs.unique();
     
