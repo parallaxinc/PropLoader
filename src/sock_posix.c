@@ -107,7 +107,7 @@ int ConnectSocket(uint32_t ipaddr, short port, SOCKET *pSocket)
     /* setup the address */
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = htonl(ipaddr);
+    addr.sin_addr.s_addr = ipaddr;
         
     /* connect to the server */
     if (connect(sock, (SOCKADDR *)&addr, sizeof(addr)) != 0) {
@@ -138,7 +138,7 @@ int BindSocket(short port, SOCKET *pSocket)
     /* setup the address */
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(port);
 
     /* bind the socket to the port */
@@ -288,9 +288,19 @@ int GetInterfaceAddresses(IFADDR *addrs, int max)
 #endif
 }
 
-const char *GetAddressStringX(uint32_t addr)
+const char *AddrToString(uint32_t addr)
 {
     IN_ADDR inaddr;
-    inaddr.s_addr = htonl(addr);
+    inaddr.s_addr = addr;
     return inet_ntoa(inaddr);
 }
+
+int StringToAddr(const char *addr, uint32_t *pAddr)
+{
+    IN_ADDR inaddr;
+    if (!inet_aton(addr, &inaddr))
+        return -1;
+    *pAddr = inaddr.s_addr;
+    return 0;
+}
+

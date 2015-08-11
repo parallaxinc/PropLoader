@@ -40,6 +40,26 @@ static const char *atCmd[] = {
     /* xbChecksum */          "CK"   /* [Rb] current configuration checksum (16-bits) */
 };
 
+int XbeeAddr::determineHostAddr()
+{
+    IFADDR ifaddrs[MAX_IF_ADDRS];
+    int cnt, i;
+    
+    if ((cnt = GetInterfaceAddresses(ifaddrs, MAX_IF_ADDRS)) < 0)
+        return -1;
+    
+    for (i = 0; i < cnt; ++i) {
+        uint32_t hostAddr = ifaddrs[i].addr.sin_addr.s_addr;
+        uint32_t mask = ifaddrs[i].mask.sin_addr.s_addr;
+        if ((m_xbeeAddr & mask) == (hostAddr & mask)) {
+            m_hostAddr = hostAddr;
+            return 0;
+        } 
+    }
+
+    return -1;
+}
+
 Xbee::Xbee()
     : m_appService(INVALID_SOCKET),
       m_serialService(INVALID_SOCKET)
@@ -121,11 +141,11 @@ int Xbee::discover1(IFADDR *ifaddr, XbeeAddrList &addrs, int timeout)
             }
     
             /* store the IP addresses of the host and the Xbee module */
-            uint32_t hostAddr = ntohl(((SOCKADDR_IN *)&ifaddr->addr)->sin_addr.s_addr);
+            uint32_t hostAddr = ((SOCKADDR_IN *)&ifaddr->addr)->sin_addr.s_addr;
             uint32_t xbeeAddr = 0;
             for (i = sizeof(rxPacket); i < cnt; ++i)
                 xbeeAddr = (xbeeAddr << 8) + buf[i];
-            XbeeAddr addr(hostAddr, xbeeAddr);
+            XbeeAddr addr(hostAddr, htonl(xbeeAddr));
             addrs.push_back(addr);
         }
     }

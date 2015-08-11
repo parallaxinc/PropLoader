@@ -16,15 +16,8 @@ under Linux, Mac, and Windows. The xxx_posix.c files support both Linux and the 
 
 TODO:
 
-1) Find a way to determine the host IP address for the interface used to connect to an
-   Xbee module whose IP address is given on the command line.
-   
-2) Make Xbee discovery more robust.
+1) Add retry logic to get/set item as well as the loader code.
 
-3) Add retry logic to get/set item as well as the loader code.
+2) Switch to Jeff's new download protocol.
 
-4) Add .elf file handling. (done)
-
-5) Switch to Jeff's new download protocol.
-
-6) Create a program that will process the binary resulting from compiling IP_loader.spin.
+3) Create a program that will process the binary resulting from compiling IP_loader.spin.

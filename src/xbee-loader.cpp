@@ -13,6 +13,7 @@
 #include "xbee-loader.hpp"
 
 XbeeLoader::XbeeLoader()
+  : m_addr(0, 0)
 {
 }
 
@@ -20,16 +21,16 @@ XbeeLoader::~XbeeLoader()
 {
 }
 
-int XbeeLoader::init(XbeeInfo &info, int baudrate)
+int XbeeLoader::init(XbeeAddr &addr, int baudrate)
 {
-    m_info = info;
+    m_addr = addr;
     setBaudrate(baudrate);
     return 0;
 }
 
 int XbeeLoader::connect()
 {
-    return m_xbee.connect(m_info.xbeeAddr());
+    return m_xbee.connect(m_addr.xbeeAddr());
 }
 
 void XbeeLoader::disconnect()
@@ -106,20 +107,20 @@ static int validate(Xbee &xbee, xbCommand cmd, int value, bool readOnly)
 
 int XbeeLoader::enforceXbeeConfiguration(Xbee &xbee)
 {
-    if (validate(xbee, xbSerialIP, serialUDP, true) != 0                // Ensure XBee's Serial Service uses UDP packets [WRITE DISABLED DUE TO FIRMWARE BUG]
-    ||  validate(xbee, xbIPDestination, m_info.hostAddr(), false) != 0  // Ensure Serial-to-IP destination is us (our IP)
-    ||  validate(xbee, xbIPPort, DEF_SERIAL_SERVICE_PORT, false) != 0   // Ensure Serial-to-IP port is proper (default, in this case)
-    ||  validate(xbee, xbOutputMask, 0x7FFF, false) != 0                // Ensure output mask is proper (default, in this case)
-    ||  validate(xbee, xbRTSFlow, pinEnabled, false) != 0               // Ensure RTS flow pin is enabled (input)
-    ||  validate(xbee, xbIO4Mode, pinOutLow, false) != 0                // Ensure serial hold pin is set to output low
-    ||  validate(xbee, xbIO2Mode, pinOutHigh, false) != 0               // Ensure reset pin is set to output high
-    ||  validate(xbee, xbIO4Timer, 2, false) != 0                       // Ensure serial hold pin's timer is set to 200 ms
-    ||  validate(xbee, xbIO2Timer, 1, false) != 0                       // Ensure reset pin's timer is set to 100 ms
-    ||  validate(xbee, xbSerialMode, transparentMode, true) != 0        // Ensure Serial Mode is transparent [WRITE DISABLED DUE TO FIRMWARE BUG]
-    ||  validate(xbee, xbSerialBaud, m_baudrate, false) != 0            // Ensure baud rate is set to initial speed
-    ||  validate(xbee, xbSerialParity, parityNone, false) != 0          // Ensure parity is none
-    ||  validate(xbee, xbSerialStopBits, stopBits1, false) != 0         // Ensure stop bits is 1
-    ||  validate(xbee, xbPacketingTimeout, 3, false) != 0)              // Ensure packetization timout is 3 character times
+    if (validate(xbee, xbSerialIP, serialUDP, true) != 0                        // Ensure XBee's Serial Service uses UDP packets [WRITE DISABLED DUE TO FIRMWARE BUG]
+    ||  validate(xbee, xbIPDestination, ntohl(m_addr.hostAddr()), false) != 0   // Ensure Serial-to-IP destination is us (our IP)
+    ||  validate(xbee, xbIPPort, DEF_SERIAL_SERVICE_PORT, false) != 0           // Ensure Serial-to-IP port is proper (default, in this case)
+    ||  validate(xbee, xbOutputMask, 0x7FFF, false) != 0                        // Ensure output mask is proper (default, in this case)
+    ||  validate(xbee, xbRTSFlow, pinEnabled, false) != 0                       // Ensure RTS flow pin is enabled (input)
+    ||  validate(xbee, xbIO4Mode, pinOutLow, false) != 0                        // Ensure serial hold pin is set to output low
+    ||  validate(xbee, xbIO2Mode, pinOutHigh, false) != 0                       // Ensure reset pin is set to output high
+    ||  validate(xbee, xbIO4Timer, 2, false) != 0                               // Ensure serial hold pin's timer is set to 200 ms
+    ||  validate(xbee, xbIO2Timer, 1, false) != 0                               // Ensure reset pin's timer is set to 100 ms
+    ||  validate(xbee, xbSerialMode, transparentMode, true) != 0                // Ensure Serial Mode is transparent [WRITE DISABLED DUE TO FIRMWARE BUG]
+    ||  validate(xbee, xbSerialBaud, m_baudrate, false) != 0                    // Ensure baud rate is set to initial speed
+    ||  validate(xbee, xbSerialParity, parityNone, false) != 0                  // Ensure parity is none
+    ||  validate(xbee, xbSerialStopBits, stopBits1, false) != 0                 // Ensure stop bits is 1
+    ||  validate(xbee, xbPacketingTimeout, 3, false) != 0)                      // Ensure packetization timout is 3 character times
         return -1;
     return 0;
 }
@@ -148,8 +149,9 @@ int XbeeLoader::discover(bool check, XbeeInfoList &list, int timeout)
                 info.m_nodeID = sValue;
             m_xbee.disconnect();
             if (check) {
+                XbeeAddr addr(info.hostAddr(), info.xbeeAddr());
                 int version;
-                init(info);
+                init(addr);
                 if (identify(&version) == 0 && version == 1)
                     list.push_back(info);
             }

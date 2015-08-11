@@ -10,12 +10,6 @@
 #include "xbee-loader.hpp"
 #include "serial-loader.hpp"
 
-/* defaults */
-//#define DEF_IPADDR              "10.0.1.88"
-#define DEF_IPADDR              "10.0.1.3"
-//#define DEF_PORT                "/dev/cu.usbserial-PAYMDDM"
-#define DEF_PORT                "/dev/cu.usbserial-PAYMDDN"
-
 /* port prefix */
 #if defined(CYGWIN) || defined(WIN32) || defined(MINGW)
   #define PORT_PREFIX ""
@@ -35,16 +29,16 @@ static void usage(const char *progname)
 {
 printf("\
 usage: %s\n\
-         [ -b <baudrate> ]  set the initial baud rate (default is %d)\n\
-         [ -i <ip-addr> ]   set the IP address of the Xbee Wi-Fi module (default is %s)\n\
-         [ -p <port> ]      serial port (default is %s) >>> NOT WORKING YET <<<\n\
+         [ -b <baudrate> ]  initial baud rate (default is %d)\n\
+         [ -i <ip-addr> ]   IP address of the Xbee Wi-Fi module\n\
+         [ -p <port> ]      serial port\n\
          [ -P ]             show all serial ports with propellers connected\n\
          [ -P0 ]            show all serial ports\n\
          [ -s ]             do a serial download\n\
          [ -X ]             show all discovered xbee modules with propellers connected\n\
          [ -X0 ]            show all discovered xbee modules\n\
          [ -? ]             display a usage message and exit\n\
-         <file>             spin binary file to load\n", progname, DEFAULT_BAUDRATE, DEF_IPADDR, DEF_PORT);
+         <file>             spin binary file to load\n", progname, DEFAULT_BAUDRATE);
     exit(1);
 }
 
@@ -56,8 +50,8 @@ uint8_t *LoadElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize);
 int main(int argc, char *argv[])
 {
     bool done = false;
-    bool ipaddr = false;
-    const char *port = DEF_PORT;
+    const char *ipaddr = NULL;
+    const char *port = NULL;
     int baudrate = DEFAULT_BAUDRATE;
     bool useSerial = false;
     bool useSingleStageLoader = false;
@@ -82,12 +76,12 @@ int main(int argc, char *argv[])
                     usage(argv[0]);
                 break;
             case 'i':   // set the ip address
-                //if (argv[i][2])
-                //    ipaddr = &argv[i][2];
-                //else if (++i < argc)
-                //    ipaddr = argv[i];
-                //else
-                //    usage(argv[0]);
+                if (argv[i][2])
+                    ipaddr = &argv[i][2];
+                else if (++i < argc)
+                    ipaddr = argv[i];
+                else
+                    usage(argv[0]);
                 break;
             case 'p':
                 if (argv[i][2])
@@ -177,8 +171,18 @@ int main(int argc, char *argv[])
     
     /* do an xbee download */
     else {
-        XbeeInfo addr;
+        XbeeAddr addr(0, 0);
         if (ipaddr) {
+            uint32_t xbeeAddr;
+            if (StringToAddr(ipaddr, &xbeeAddr) != 0) {
+                printf("error: invalid IP address '%s'\n", ipaddr);
+                return 1;
+            }
+            addr.set(0, xbeeAddr);
+            if (addr.determineHostAddr() != 0) {
+                printf("error: can't determine host IP address for '%s'\n", ipaddr);
+                return 1;
+            }
         }
         else {
             XbeeInfoList addrs;
@@ -188,8 +192,8 @@ int main(int argc, char *argv[])
 #if 1
                 XbeeInfoList::iterator i;
                 for (i = addrs.begin(); i != addrs.end(); ++i) {
-                    printf("host:            %s\n", GetAddressStringX(i->hostAddr()));
-                    printf("xbee:            %s\n", GetAddressStringX(i->xbeeAddr()));
+                    printf("host:            %s\n", AddrToString(i->hostAddr()));
+                    printf("xbee:            %s\n", AddrToString(i->xbeeAddr()));
                     printf("macAddrHigh:     %08x\n", i->macAddrHigh());
                     printf("macAddrLow:      %08x\n", i->macAddrLow());
                     printf("xbeePort:        %08x\n", i->xbeePort());
@@ -204,7 +208,7 @@ int main(int argc, char *argv[])
                 printf("error: no Xbee module found\n");
                 return 1;
             }
-            addr = addrs.front();
+            addr.set(addrs.front().hostAddr(), addrs.front().xbeeAddr());
         }
         
         if ((sts = xbeeLoader.init(addr)) != 0) {
@@ -374,8 +378,8 @@ void ShowXbeeModules(bool check)
     else {
         XbeeInfoList::iterator i;
         for (i = addrs.begin(); i != addrs.end(); ++i) {
-            printf("host:            %s\n", GetAddressStringX(i->hostAddr()));
-            printf("xbee:            %s\n", GetAddressStringX(i->xbeeAddr()));
+            printf("host:            %s\n", AddrToString(i->hostAddr()));
+            printf("xbee:            %s\n", AddrToString(i->xbeeAddr()));
             printf("macAddrHigh:     %08x\n", i->macAddrHigh());
             printf("macAddrLow:      %08x\n", i->macAddrLow());
             printf("xbeePort:        %08x\n", i->xbeePort());

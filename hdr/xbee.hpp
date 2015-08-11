@@ -17,8 +17,10 @@
 class XbeeAddr {
 public:
     XbeeAddr(uint32_t hostAddr, uint32_t xbeeAddr) : m_hostAddr(hostAddr), m_xbeeAddr(xbeeAddr) {}
+    void set(uint32_t hostAddr, uint32_t xbeeAddr) { m_hostAddr = hostAddr; m_xbeeAddr = xbeeAddr; }
     uint32_t hostAddr() { return m_hostAddr; }
     uint32_t xbeeAddr() { return m_xbeeAddr; }
+    int determineHostAddr();
     bool operator==(const XbeeAddr &rhs) const
     {
         return m_xbeeAddr == rhs.m_xbeeAddr;

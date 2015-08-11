@@ -57,7 +57,7 @@ class XbeeLoader : public Loader {
 public:
     XbeeLoader();
     ~XbeeLoader();
-    int init(XbeeInfo &info, int baudrate = DEFAULT_BAUDRATE);
+    int init(XbeeAddr &addr, int baudrate = DEFAULT_BAUDRATE);
     int discover(bool check, XbeeInfoList &list, int timeout = DEF_DISCOVER_TIMEOUT);
 protected:
     int connect();
@@ -70,7 +70,7 @@ protected:
     int maxDataSize() { return XBEE_MAX_DATA_SIZE; }
 private:
     int enforceXbeeConfiguration(Xbee &xbee);
-    XbeeInfo m_info;
+    XbeeAddr m_addr;
     Xbee m_xbee;
 };
 
