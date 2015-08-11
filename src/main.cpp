@@ -37,9 +37,12 @@ printf("\
 usage: %s\n\
          [ -b <baudrate> ]  set the initial baud rate (default is %d)\n\
          [ -i <ip-addr> ]   set the IP address of the Xbee Wi-Fi module (default is %s)\n\
-         [ -p <port> ]      serial port (default is %s)\n\
+         [ -p <port> ]      serial port (default is %s) >>> NOT WORKING YET <<<\n\
+         [ -P ]             show all serial ports with propellers connected\n\
+         [ -P0 ]            show all serial ports\n\
          [ -s ]             do a serial download\n\
-         [ -x ]             use the single stage loader (for testing)\n\
+         [ -X ]             show all discovered xbee modules with propellers connected\n\
+         [ -X0 ]            show all discovered xbee modules\n\
          [ -? ]             display a usage message and exit\n\
          <file>             spin binary file to load\n", progname, DEFAULT_BAUDRATE, DEF_IPADDR, DEF_PORT);
     exit(1);
@@ -52,6 +55,7 @@ uint8_t *LoadElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize);
 
 int main(int argc, char *argv[])
 {
+    bool done = false;
     bool ipaddr = false;
     const char *port = DEF_PORT;
     int baudrate = DEFAULT_BAUDRATE;
@@ -114,11 +118,19 @@ int main(int argc, char *argv[])
                 }
 #endif
                 break;
+            case 'P':
+                ShowPorts(PORT_PREFIX, argv[i][2] == '0' ? false : true);
+                done = true;
+                break;
             case 's':
                 useSerial = true;
                 break;
             case 'x':
                 useSingleStageLoader = true;
+                break;
+            case 'X':
+                ShowXbeeModules(argv[i][2] == '0' ? false : true);
+                done = true;
                 break;
             default:
                 usage(argv[0]);
@@ -147,8 +159,12 @@ int main(int argc, char *argv[])
 #endif
     
     /* make sure a file to load was specified */
-    if (!file)
+    if (!done && !file)
         usage(argv[0]);
+        
+    /* check to see if there is a file to load */
+    if (!file)
+        goto finish;
 
     /* do a serial download */
     if (useSerial) {
@@ -169,6 +185,7 @@ int main(int argc, char *argv[])
             if (xbeeLoader.discover(false, addrs) != 0)
                 printf("Discover failed\n");
             else {
+#if 1
                 XbeeInfoList::iterator i;
                 for (i = addrs.begin(); i != addrs.end(); ++i) {
                     printf("host:            %s\n", GetAddressStringX(i->hostAddr()));
@@ -179,7 +196,9 @@ int main(int argc, char *argv[])
                     printf("firmwareVersion: %08x\n", i->firmwareVersion());
                     printf("cfgChecksum:     %08x\n", i->cfgChecksum());
                     printf("nodeId:          '%s'\n", i->nodeID().c_str());
+                    printf("\n");
                 }
+#endif
             }
             if (addrs.size() == 0) {
                 printf("error: no Xbee module found\n");
@@ -223,6 +242,7 @@ int main(int argc, char *argv[])
         return 1;
     }
     
+finish:
     /* return successfully */
     return 0;
 }
