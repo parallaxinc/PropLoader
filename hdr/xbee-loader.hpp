@@ -60,6 +60,7 @@ public:
     int discover(bool check, XbeeInfoList &list, int timeout = DEF_DISCOVER_TIMEOUT);
     int connect(XbeeAddr &addr, int baudrate = DEFAULT_BAUDRATE);
     void disconnect();
+    void terminal(bool checkForExit, bool pstMode);
 protected:
     int setBaudRate(int baudrate);
     int generateResetSignal();
@@ -67,7 +68,6 @@ protected:
     int receiveData(uint8_t *buf, int len);
     int receiveDataExact(uint8_t *buf, int len, int timeout);
     int maxDataSize() { return XBEE_MAX_DATA_SIZE; }
-    void terminal(bool checkForExit, bool pstMode);
 private:
     int enforceXbeeConfiguration(Xbee &xbee);
     XbeeAddr m_addr;

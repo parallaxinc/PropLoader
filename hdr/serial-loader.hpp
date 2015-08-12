@@ -29,6 +29,7 @@ public:
     int findPorts(const char *prefix, bool check, SerialInfoList &list);
     int connect(const char *port, int baudrate = DEFAULT_BAUDRATE);
     void disconnect();
+    void terminal(bool checkForExit, bool pstMode);
 protected:
     int setBaudRate(int baudrate);
     int generateResetSignal();
@@ -36,7 +37,6 @@ protected:
     int receiveData(uint8_t *buf, int len);
     int receiveDataExact(uint8_t *buf, int len, int timeout);
     int maxDataSize() { return SERIAL_MAX_DATA_SIZE; }
-    void terminal(bool checkForExit, bool pstMode);
     static int addPort(const char *port, void *data);
 private:
     SERIAL *m_serial;

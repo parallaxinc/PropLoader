@@ -90,6 +90,7 @@ int XbeeLoader::receiveDataExact(uint8_t *buf, int len, int timeout)
 
 void XbeeLoader::terminal(bool checkForExit, bool pstMode)
 {
+    printf(">>> unfinished <<<\n");
 }
 
 static int validate(Xbee &xbee, xbCommand cmd, int value, bool readOnly)
@@ -162,8 +163,3 @@ int XbeeLoader::discover(bool check, XbeeInfoList &list, int timeout)
     }
     return 0;
 }
-
-#if 0
-    {Create pseudo-port name}
-    PXB.PCPort := 'XB-' + ifthen(PXB.NodeID.Trim <> '', PXB.NodeID, inttohex(PXB.MacAddrHigh, 4) + inttohex(PXB.MacAddrLow, 8));
-#endif
