@@ -11,12 +11,12 @@ public:
     ~Loader() {}
     void setBaudrate(int baudrate);
     int identify(int *pVersion);
+    int loadTinyImage(const uint8_t *image, int imageSize);
     int loadImage(const uint8_t *image, int imageSize);
-    int loadImage2(const uint8_t *image, int imageSize);
-protected:
-    virtual int connect() = 0;
     virtual void disconnect() = 0;
     virtual int setBaudRate(int baudrate) = 0;
+    virtual void terminal(bool checkForExit, bool pstMode) = 0;
+protected:
     virtual int generateResetSignal() = 0;
     virtual int sendData(const uint8_t *buf, int len) = 0;
     virtual int receiveData(uint8_t *buf, int len) = 0;

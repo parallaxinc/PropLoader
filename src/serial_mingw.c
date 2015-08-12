@@ -199,6 +199,19 @@ int ReceiveSerialData(SERIAL *serial, void *buf, int len)
     return dwBytes;
 }
 
+int ReceiveSerialDataTimeout(SERIAL *serial, void *buf, int len, int timeout)
+{
+    DWORD dwBytes = 0;
+    serial->timeouts.ReadTotalTimeoutConstant = timeout;
+    SetCommTimeouts(serial->hSerial, &serial->timeouts);
+    if (!ReadFile(serial->hSerial, buf, len, &dwBytes, NULL)) {
+        printf("Error reading port\n");
+        ShowLastError();
+        return -1;
+    }
+    return dwBytes;
+}
+
 int ReceiveSerialDataExact(SERIAL *serial, void *buf, int len, int timeout)
 {
     uint8_t *ptr = (uint8_t *)buf;
@@ -241,4 +254,58 @@ static void ShowLastError(void)
         0, NULL);
     printf("    %s\n", (char *)lpMsgBuf);
     LocalFree(lpMsgBuf);
+}
+
+/* escape from terminal mode */
+#define ESC         0x1b
+
+/*
+ * if "check_for_exit" is true, then
+ * a sequence EXIT_CHAR 00 nn indicates that we should exit
+ */
+#define EXIT_CHAR   0xff
+
+void SerialTerminal(SERIAL *serial, int check_for_exit, int pst_mode)
+{
+    int sawexit_char = 0;
+    int sawexit_valid = 0;
+    int exitcode = 0;
+    int continue_terminal = 1;
+
+    while (continue_terminal) {
+        uint8_t buf[1];
+        if (ReceiveSerialDataTimeout(serial, buf, 1, 0) != -1) {
+            if (sawexit_valid) {
+                exitcode = buf[0];
+                continue_terminal = 0;
+            }
+            else if (sawexit_char) {
+                if (buf[0] == 0) {
+                    sawexit_valid = 1;
+                } else {
+                    putchar(EXIT_CHAR);
+                    putchar(buf[0]);
+                    fflush(stdout);
+                }
+            }
+            else if (check_for_exit && buf[0] == EXIT_CHAR) {
+                sawexit_char = 1;
+            }
+            else {
+                putchar(buf[0]);
+                if (pst_mode && buf[0] == '\r')
+                    putchar('\n');
+                fflush(stdout);
+            }
+        }
+        else if (kbhit()) {
+            if ((buf[0] = getch()) == ESC)
+                break;
+            SendSerialData(serial, buf, 1);
+        }
+    }
+
+    if (check_for_exit && sawexit_valid) {
+        exit(exitcode);
+    }
 }

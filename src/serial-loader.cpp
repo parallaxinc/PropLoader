@@ -12,37 +12,25 @@
 #include <unistd.h>
 #include "serial-loader.hpp"
 
-SerialLoader::SerialLoader() : m_port(NULL), m_serial(NULL)
+SerialLoader::SerialLoader() : m_serial(NULL)
 {
 }
 
 SerialLoader::~SerialLoader()
 {
     disconnect();
-    if (m_port)
-        free(m_port);
 }
 
-int SerialLoader::init(const char *port, int baudrate)
-{
-    setBaudrate(baudrate);
-    if (m_port) {
-        free(m_port);
-        m_port = NULL;
-    }
-    if (!(m_port = (char *)malloc(strlen(port) + 1)))
-        return -1;
-    strcpy(m_port, port);
-    return 0;
-}
-
-int SerialLoader::connect()
+int SerialLoader::connect(const char *port, int baudrate)
 {
     int sts;
-    if (!m_port || m_serial)
+    
+    if (m_serial)
         return -1;
-    if ((sts = OpenSerial(m_port, m_baudrate, &m_serial)) != 0)
+    
+    if ((sts = OpenSerial(port, baudrate, &m_serial)) != 0)
         return sts;
+        
     return 0;
 }
 
@@ -79,6 +67,11 @@ int SerialLoader::receiveDataExact(uint8_t *buf, int len, int timeout)
     return m_serial ? ReceiveSerialDataExact(m_serial, buf, len, timeout) : -1;
 }
 
+void SerialLoader::terminal(bool checkForExit, bool pstMode)
+{
+    SerialTerminal(m_serial, checkForExit, pstMode);
+}
+
 struct FindState {
     SerialLoader *ldr;
     bool check;
@@ -91,10 +84,13 @@ int SerialLoader::addPort(const char *port, void *data)
     
     if (state->check) {
         int version;
-        if (state->ldr->init(port) != 0)
+        if (state->ldr->connect(port) != 0)
             return 1;
-        if (state->ldr->identify(&version) != 0 || version != 1)
+        if (state->ldr->identify(&version) != 0 || version != 1) {
+            state->ldr->disconnect();
             return 1;
+        }
+        state->ldr->disconnect();
     }
     
     SerialInfo info(port);

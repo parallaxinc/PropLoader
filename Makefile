@@ -86,7 +86,7 @@ CPPFLAGS=$(CFLAGS)
 
 DIRS=$(OBJDIR) $(BINDIR)
 
-all:	 $(BINDIR)/proploader$(EXT) $(BUILD)/blink.binary $(BUILD)/blink-slow.binary $(BUILD)/toggle.binary
+all:	 $(BINDIR)/proploader$(EXT) $(BUILD)/blink.binary $(BUILD)/blink-slow.binary $(BUILD)/toggle.elf
 
 $(OBJS):	$(OBJDIR) $(HDRS) Makefile
 
@@ -106,10 +106,10 @@ setup:	$(BUILD)/blink-slow.binary
 	propeller-load -e $(BUILD)/blink-slow.binary
 
 run:	$(BINDIR)/proploader$(EXT) $(BUILD)/blink.binary
-	$(BINDIR)/proploader$(EXT) $(BUILD)/blink.binary
+	$(BINDIR)/proploader$(EXT) $(BUILD)/blink.binary -t
 
 runbig:	$(BINDIR)/proploader$(EXT) $(BUILD)/toggle.elf
-	$(BINDIR)/proploader$(EXT) $(BUILD)/toggle.elf
+	$(BINDIR)/proploader$(EXT) $(BUILD)/toggle.elf -t
 
 $(OBJDIR)/%.o:	$(SRCDIR)/%.c $(OBJDIR) $(HDRS)
 	$(CC) $(CFLAGS) -c $< -o $@

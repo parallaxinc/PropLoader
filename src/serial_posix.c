@@ -441,12 +441,14 @@ static void sigint_handler(int signum)
     exit(1);
 }
 
+#endif
+
 #define ESC     0x1b    /* escape from terminal mode */
 
 /**
  * simple terminal emulator
  */
-void terminal_mode(int check_for_exit, int pst_mode)
+void SerialTerminal(SERIAL *serial, int check_for_exit, int pst_mode)
 {
     struct termios oldt, newt;
     char buf[128], realbuf[256]; // double in case buf is filled with \r in PST mode
@@ -466,9 +468,7 @@ void terminal_mode(int check_for_exit, int pst_mode)
     tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 
     if (check_for_exit)
-      {
         exit_char = 0xff;
-      }
 
 #if 0
     /* make it possible to detect breaks */
@@ -517,7 +517,6 @@ void terminal_mode(int check_for_exit, int pst_mode)
                 if ((cnt = read(STDIN_FILENO, buf, sizeof(buf))) > 0) {
                     int i;
                     for (i = 0; i < cnt; ++i) {
-                        //printf("%02x\n", buf[i]);
                         if (buf[i] == ESC)
                             goto done;
                     }
@@ -531,10 +530,5 @@ done:
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
 
     if (sawexit_valid)
-      {
         exit(exitcode);
-      }
-    
 }
-
-#endif

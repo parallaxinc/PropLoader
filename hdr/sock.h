@@ -10,6 +10,7 @@ extern "C" {
 #include <stdint.h>
 #include <windows.h>
 #include <winsock2.h>
+typedef unsigned long in_addr_t;
 
 /* for linux and mac builds */
 #else

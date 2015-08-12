@@ -57,17 +57,17 @@ class XbeeLoader : public Loader {
 public:
     XbeeLoader();
     ~XbeeLoader();
-    int init(XbeeAddr &addr, int baudrate = DEFAULT_BAUDRATE);
     int discover(bool check, XbeeInfoList &list, int timeout = DEF_DISCOVER_TIMEOUT);
-protected:
-    int connect();
+    int connect(XbeeAddr &addr, int baudrate = DEFAULT_BAUDRATE);
     void disconnect();
+protected:
     int setBaudRate(int baudrate);
     int generateResetSignal();
     int sendData(const uint8_t *buf, int len);
     int receiveData(uint8_t *buf, int len);
     int receiveDataExact(uint8_t *buf, int len, int timeout);
     int maxDataSize() { return XBEE_MAX_DATA_SIZE; }
+    void terminal(bool checkForExit, bool pstMode);
 private:
     int enforceXbeeConfiguration(Xbee &xbee);
     XbeeAddr m_addr;

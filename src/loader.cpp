@@ -375,18 +375,18 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
     memcpy(&packet[4], payload, payloadSize);
     
     /* send the packet */
-    printf("Sending %d, %d bytes -- ", id, packetSize); fflush(stdout);
+    //printf("Sending %d, %d bytes -- ", id, packetSize); fflush(stdout);
     sendData(packet, packetSize);
     
     /* receive the response */
     cnt = receiveDataExact(response, sizeof(response), 2000);
     result = getLong(&response[0]);
     if (cnt != 4 || result == id) {
-        printf("failed %d\n", result);
+        printf("transmitPacket failed %d\n", result);
         free(packet);
         return -1;
     }
-    printf("result %d\n", result);
+    //printf("result %d\n", result);
     
     /* free the packet */
     free(packet);
@@ -413,10 +413,6 @@ int Loader::identify(int *pVersion)
     uint8_t *packet;
     int packetSize;
     
-    /* connect to the propeller */
-    if (connect() != 0)
-        return -1;
-
     /* generate the identify packet */
     if (!(packet = GenerateIdentifyPacket(&packetSize))) {
         printf("error: generating identify packet\n");
@@ -454,9 +450,6 @@ int Loader::identify(int *pVersion)
     for (i = sizeof(rxHandshake); i < cnt; ++i)
         version = ((version >> 2) & 0x3F) | ((packet2[i] & 0x01) << 6) | ((packet2[i] & 0x20) << 2);
     
-    /* disconnect from the propeller */
-    disconnect();
-    
     /* return successfully */
     *pVersion = version;
     return 0;
@@ -467,38 +460,29 @@ fail:
     return -1;
 }
 
-int Loader::loadImage(const uint8_t *image, int imageSize)
+int Loader::loadTinyImage(const uint8_t *image, int imageSize)
 {
-    int packetSize, sts;
     uint8_t *packet;
+    int packetSize;
 
     /* generate a loader packet */
     packet = GenerateLoaderPacket(image, imageSize, &packetSize);
     if (!packet)
         return -1;
 
-    /* connect to the target */
-    if ((sts = connect()) != 0) {
-        free(packet);
-        return sts;
-    }
-    
     /* load the program using the propeller ROM protocol */
     if (loadSecondStageLoader(packet, packetSize) != 0)
         return -1;
         
-    /* disconnect from the target */
-    disconnect();
-    
     /* return successfully */
     return 0;
 }
 
-int Loader::loadImage2(const uint8_t *image, int imageSize)
+int Loader::loadImage(const uint8_t *image, int imageSize)
 {
     uint8_t *packet, packet2[MAX_BUFFER_SIZE];
-    int packetSize, cnt, sts, i;
     int32_t packetID, checksum;
+    int packetSize, cnt, i;
     
     /* compute the packet ID (number of packets to be sent) */
     packetID = (imageSize + maxDataSize() - 1) / maxDataSize();
@@ -515,30 +499,24 @@ int Loader::loadImage2(const uint8_t *image, int imageSize)
     for (i = 0; i < (int)sizeof(initCallFrame); ++i)
         checksum += initCallFrame[i];
 
-    /* connect to the target */
-    if ((sts = connect()) != 0) {
-        free(packet);
-        return sts;
-    }
-    
     /* load the second-stage loader using the propeller ROM protocol */
     if (loadSecondStageLoader(packet, packetSize) != 0)
         return -1;
             
-    printf("Waiting for second-stage loader initial response\n");
+    //printf("Waiting for second-stage loader initial response\n");
     cnt = receiveData(packet2, sizeof(packet2));
     if (cnt != 4 || getLong(packet2) != packetID) {
         printf("error: second-stage loader failed to start\n");
         return -1;
     }
-    printf("Got initial second-stage loader response\n");
+    //printf("Got initial second-stage loader response\n");
     
     /* switch to the final baud rate */
     setBaudRate(FINAL_BAUD);
     
     /* transmit the image */
     int result;
-    printf("Sending image: %d\n", packetID);
+    //printf("Sending image: %d\n", packetID);
     while (imageSize > 0) {
         int size;
         if ((size = imageSize) > maxDataSize())
@@ -555,21 +533,18 @@ int Loader::loadImage2(const uint8_t *image, int imageSize)
     }
     
     /* transmit the RAM verify packet and verify the checksum */
-    printf("Sending verify packet\n");
+    //printf("Sending verify packet\n");
     transmitPacket(0, verifyRAM, sizeof(verifyRAM), &result);
     if (result != -checksum)
         printf("Checksum error\n");
     
     /* transmit the final launch packets */
-    printf("Sending launch start packet\n");
+    //printf("Sending launch start packet\n");
     transmitPacket(-checksum, launchStart, sizeof(launchStart), &result);
     if (result != -checksum - 1)
         printf("Launch failed\n");
-    printf("Sending launch final packet\n");
+    //printf("Sending launch final packet\n");
     transmitPacket(0, launchFinal, sizeof(launchFinal), &result);
-    
-    /* disconnect from the target */
-    disconnect();
     
     /* return successfully */
     return 0;
@@ -584,14 +559,14 @@ int Loader::loadSecondStageLoader(uint8_t *packet, int packetSize)
     generateResetSignal();
     
     /* send the second-stage loader */
-    printf("Send second-stage loader image\n");
+    //printf("Send second-stage loader image\n");
     sendData(packet, packetSize);
     
     /* Reset period 200 ms + first packet’s serial transfer time + 20 ms */
     msleep(200 + (packetSize * 10 * 1000) / m_baudrate + 20);
     
     /* send the verification packet (all timing templates) */
-    printf("Send verification packet\n");
+    //printf("Send verification packet\n");
     memset(packet2, 0xF9, maxDataSize());
     sendData(packet2, maxDataSize());
     
@@ -600,7 +575,7 @@ int Loader::loadSecondStageLoader(uint8_t *packet, int packetSize)
     msleep((sizeof(packet2) * 10 * 1000) / m_baudrate);
     
     /* receive the handshake response and the hardware version */
-    printf("Receive handshake response\n");
+    //printf("Receive handshake response\n");
     cnt = receiveDataExact(packet2, sizeof(rxHandshake) + 4, 2000);
     
     /* verify the handshake response */
@@ -619,13 +594,12 @@ int Loader::loadSecondStageLoader(uint8_t *packet, int packetSize)
     }
     
     /* verify the checksum */
-    printf("Receive checksum\n");
+    //printf("Receive checksum\n");
     cnt = receiveDataExact(packet2, 1, 2000);
     if (cnt != 1 || packet2[0] != 0xFE) {
         printf("error: loader checksum failed\n");
         return -1;
     }
-    printf("Success!!\n");
     
     /* return successfully */
     return 0;

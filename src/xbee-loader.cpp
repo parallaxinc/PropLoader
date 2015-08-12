@@ -21,15 +21,10 @@ XbeeLoader::~XbeeLoader()
 {
 }
 
-int XbeeLoader::init(XbeeAddr &addr, int baudrate)
+int XbeeLoader::connect(XbeeAddr &addr, int baudrate)
 {
     m_addr = addr;
     setBaudrate(baudrate);
-    return 0;
-}
-
-int XbeeLoader::connect()
-{
     return m_xbee.connect(m_addr.xbeeAddr());
 }
 
@@ -93,6 +88,10 @@ int XbeeLoader::receiveDataExact(uint8_t *buf, int len, int timeout)
     return m_xbee.receiveSerialData(buf, len);
 }
 
+void XbeeLoader::terminal(bool checkForExit, bool pstMode)
+{
+}
+
 static int validate(Xbee &xbee, xbCommand cmd, int value, bool readOnly)
 {
     int currentValue;
@@ -151,9 +150,10 @@ int XbeeLoader::discover(bool check, XbeeInfoList &list, int timeout)
             if (check) {
                 XbeeAddr addr(info.hostAddr(), info.xbeeAddr());
                 int version;
-                init(addr);
+                connect(addr);
                 if (identify(&version) == 0 && version == 1)
                     list.push_back(info);
+                disconnect();
             }
             else
                 list.push_back(info);

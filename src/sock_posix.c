@@ -297,10 +297,10 @@ const char *AddrToString(uint32_t addr)
 
 int StringToAddr(const char *addr, uint32_t *pAddr)
 {
-    IN_ADDR inaddr;
-    if (!inet_aton(addr, &inaddr))
+    in_addr_t inaddr;
+    if ((inaddr = inet_addr(addr)) == (in_addr_t)(-1))
         return -1;
-    *pAddr = inaddr.s_addr;
+    *pAddr = inaddr;
     return 0;
 }
 

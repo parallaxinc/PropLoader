@@ -35,6 +35,7 @@ usage: %s\n\
          [ -P ]             show all serial ports with propellers connected\n\
          [ -P0 ]            show all serial ports\n\
          [ -s ]             do a serial download\n\
+         [ -t ]             enter terminal mode after the load is complete\n\
          [ -X ]             show all discovered xbee modules with propellers connected\n\
          [ -X0 ]            show all discovered xbee modules\n\
          [ -? ]             display a usage message and exit\n\
@@ -50,6 +51,7 @@ uint8_t *LoadElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize);
 int main(int argc, char *argv[])
 {
     bool done = false;
+    bool terminalMode = false;
     const char *ipaddr = NULL;
     const char *port = NULL;
     int baudrate = DEFAULT_BAUDRATE;
@@ -82,6 +84,7 @@ int main(int argc, char *argv[])
                     ipaddr = argv[i];
                 else
                     usage(argv[0]);
+                useSerial = false;
                 break;
             case 'p':
                 if (argv[i][2])
@@ -111,6 +114,7 @@ int main(int argc, char *argv[])
                     port = buf;
                 }
 #endif
+                useSerial = true;
                 break;
             case 'P':
                 ShowPorts(PORT_PREFIX, argv[i][2] == '0' ? false : true);
@@ -118,6 +122,9 @@ int main(int argc, char *argv[])
                 break;
             case 's':
                 useSerial = true;
+                break;
+            case 't':
+                terminalMode = true;
                 break;
             case 'x':
                 useSingleStageLoader = true;
@@ -140,18 +147,6 @@ int main(int argc, char *argv[])
         }
     }
     
-#if 0
-    printf("\nPorts:\n");
-    ShowPorts(PORT_PREFIX, false);
-    printf("\nConnected ports:\n");
-    ShowPorts(PORT_PREFIX, true);
-    printf("\nXbee Modules:\n");
-    ShowXbeeModules(false);
-    printf("\nConnected Xbee Modules:\n");
-    ShowXbeeModules(true);
-    return 0;
-#endif
-    
     /* make sure a file to load was specified */
     if (!done && !file)
         usage(argv[0]);
@@ -162,7 +157,26 @@ int main(int argc, char *argv[])
 
     /* do a serial download */
     if (useSerial) {
-        if ((sts = serialLoader.init(port, baudrate)) != 0) {
+        SerialInfo info;
+        if (!port) {
+            SerialInfoList ports;
+            if (serialLoader.findPorts(PORT_PREFIX, true, ports) == 0) {
+#if 0
+                SerialInfoList::iterator i = ports.begin();
+                while (i != ports.end()) {
+                    std::cout << i->port() << std::endl;
+                    ++i;
+                }
+#endif
+            }
+            if (ports.size() == 0) {
+                printf("error: no serial ports found\n");
+                return 1;
+            }
+            info = ports.front();
+            port = info.port();
+        }
+        if ((sts = serialLoader.connect(port, baudrate)) != 0) {
             printf("error: loader initialization failed: %d\n", sts);
             return 1;
         }
@@ -189,7 +203,7 @@ int main(int argc, char *argv[])
             if (xbeeLoader.discover(false, addrs) != 0)
                 printf("Discover failed\n");
             else {
-#if 1
+#if 0
                 XbeeInfoList::iterator i;
                 for (i = addrs.begin(); i != addrs.end(); ++i) {
                     printf("host:            %s\n", AddrToString(i->hostAddr()));
@@ -211,7 +225,7 @@ int main(int argc, char *argv[])
             addr.set(addrs.front().hostAddr(), addrs.front().xbeeAddr());
         }
         
-        if ((sts = xbeeLoader.init(addr)) != 0) {
+        if ((sts = xbeeLoader.connect(addr)) != 0) {
             printf("error: loader initialization failed: %d\n", sts);
             return 1;
         }
@@ -241,10 +255,20 @@ int main(int argc, char *argv[])
     }
     
     /* load the file */
-    if ((sts = useSingleStageLoader ? loader->loadImage(image, imageSize) : loader->loadImage2(image, imageSize)) != 0) {
+    if ((sts = useSingleStageLoader ? loader->loadTinyImage(image, imageSize) : loader->loadImage(image, imageSize)) != 0) {
         printf("error: load failed: %d\n", sts);
         return 1;
     }
+    
+    /* enter terminal mode */
+    if (terminalMode) {
+        printf("[ Entering terminal mode. Type ESC or Control-C to exit. ]\n");
+        loader->setBaudRate(115200);
+        loader->terminal(false, false);
+    }
+    
+    /* disconnect from the target */
+    loader->disconnect();
     
 finish:
     /* return successfully */
