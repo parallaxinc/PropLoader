@@ -66,6 +66,7 @@ protected:
     int generateResetSignal();
     int sendData(const uint8_t *buf, int len);
     int receiveData(uint8_t *buf, int len);
+    int receiveDataTimeout(uint8_t *buf, int len, int timeout);
     int receiveDataExact(uint8_t *buf, int len, int timeout);
     int maxDataSize() { return XBEE_MAX_DATA_SIZE; }
 private:

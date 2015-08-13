@@ -49,8 +49,10 @@ void CloseSocket(SOCKET sock);
 int SocketDataAvailableP(SOCKET sock, int timeout);
 int SendSocketData(SOCKET sock, void *buf, int len);
 int ReceiveSocketData(SOCKET sock, void *buf, int len);
+int ReceiveSocketDataTimeout(SOCKET sock, void *buf, int len, int timeout);
 int SendSocketDataTo(SOCKET sock, void *buf, int len, SOCKADDR_IN *addr);
 int ReceiveSocketDataFrom(SOCKET sock, void *buf, int len, SOCKADDR_IN *addr);
+void SocketTerminal(SOCKET sock, int check_for_exit, int pst_mode);
 
 #ifdef __cplusplus
 }

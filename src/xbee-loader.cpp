@@ -83,6 +83,11 @@ int XbeeLoader::receiveData(uint8_t *buf, int len)
     return m_xbee.receiveSerialData(buf, len);
 }
 
+int XbeeLoader::receiveDataTimeout(uint8_t *buf, int len, int timeout)
+{
+    return m_xbee.receiveSerialDataTimeout(buf, len, timeout);
+}
+
 int XbeeLoader::receiveDataExact(uint8_t *buf, int len, int timeout)
 {
     return m_xbee.receiveSerialData(buf, len);
@@ -90,7 +95,7 @@ int XbeeLoader::receiveDataExact(uint8_t *buf, int len, int timeout)
 
 void XbeeLoader::terminal(bool checkForExit, bool pstMode)
 {
-    printf(">>> unfinished <<<\n");
+    m_xbee.terminal(checkForExit, pstMode);
 }
 
 static int validate(Xbee &xbee, xbCommand cmd, int value, bool readOnly)

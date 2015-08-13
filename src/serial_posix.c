@@ -371,6 +371,26 @@ int ReceiveSerialData(SERIAL *serial, void *buf, int len)
     return cnt;
 }
 
+int ReceiveSerialDataTimeout(SERIAL *serial, void *buf, int len, int timeout)
+{
+    ssize_t bytes = 0;
+    struct timeval toval;
+    fd_set set;
+
+    FD_ZERO(&set);
+    FD_SET(serial->fd, &set);
+
+    toval.tv_sec = timeout / 1000;
+    toval.tv_usec = (timeout % 1000) * 1000;
+
+    if (select(serial->fd + 1, &set, NULL, NULL, &toval) > 0) {
+        if (FD_ISSET(serial->fd, &set))
+            bytes = read(serial->fd, buf, len);
+    }
+
+    return (int)(bytes > 0 ? bytes : -1);
+}
+
 int ReceiveSerialDataExact(SERIAL *serial, void *buf, int len, int timeout)
 {
     uint8_t *ptr = (uint8_t *)buf;

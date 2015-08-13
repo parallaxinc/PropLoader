@@ -88,9 +88,8 @@ ElfContext *OpenElfFile(FILE *fp, ElfHdr *hdr)
     return c;
 }
 
-void CloseElfFile(ElfContext *c)
+void FreeElfContext(ElfContext *c)
 {
-    fclose(c->fp);
     free(c);
 }
 

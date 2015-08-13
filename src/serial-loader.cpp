@@ -62,6 +62,11 @@ int SerialLoader::receiveData(uint8_t *buf, int len)
     return m_serial ? ReceiveSerialData(m_serial, buf, len) : -1;
 }
 
+int SerialLoader::receiveDataTimeout(uint8_t *buf, int len, int timeout)
+{
+    return m_serial ? ReceiveSerialDataTimeout(m_serial, buf, len, timeout) : -1;
+}
+
 int SerialLoader::receiveDataExact(uint8_t *buf, int len, int timeout)
 {
     return m_serial ? ReceiveSerialDataExact(m_serial, buf, len, timeout) : -1;

@@ -128,12 +128,14 @@ public:
     static int discover(XbeeAddrList &addrs, int timeout = DEF_DISCOVER_TIMEOUT);
     int connect(uint32_t addr);
     void disconnect();
+    void terminal(bool checkForExit, bool pstMode);
     int getItem(xbCommand cmd, int *pValue);
     int getItem(xbCommand cmd, std::string &value);
     int setItem(xbCommand cmd, int value);
     int sendAppData(void *buf, int len);
     int receiveAppData(void *buf, int len);
     int receiveSerialData(void *buf, int len);
+    int receiveSerialDataTimeout(void *buf, int len, int timeout);
 private:
     static int discover1(IFADDR *ifaddr, XbeeAddrList &addrs, int timeout = DEF_DISCOVER_TIMEOUT);
     SOCKET m_appService;

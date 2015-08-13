@@ -196,6 +196,11 @@ void Xbee::disconnect()
     }
 }
 
+void Xbee::terminal(bool checkForExit, bool pstMode)
+{
+    SocketTerminal(m_serialService, checkForExit, pstMode);
+}
+
 int Xbee::getItem(xbCommand cmd, int *pValue)
 {
     uint8_t buf[2048]; // BUG: get rid of this magic number!
@@ -294,6 +299,11 @@ int Xbee::receiveAppData(void *buf, int len)
 }
 
 int Xbee::receiveSerialData(void *buf, int len)
+{
+    return ReceiveSocketData(m_serialService, buf, len);
+}
+
+int Xbee::receiveSerialDataTimeout(void *buf, int len, int timeout)
 {
     return ReceiveSocketData(m_serialService, buf, len);
 }

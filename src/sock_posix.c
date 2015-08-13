@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
@@ -7,6 +8,7 @@
 #include <iphlpapi.h>
 #else
 #include <ifaddrs.h>
+#include <termios.h>
 #endif
 
 #include "sock.h"
@@ -212,10 +214,169 @@ int ReceiveSocketData(SOCKET sock, void *buf, int len)
     return recv(sock, buf, len, 0);
 }
 
+/* ReceiveSocketDataTimeout - receive socket data */
+int ReceiveSocketDataTimeout(SOCKET sock, void *buf, int len, int timeout)
+{
+    ssize_t bytes = 0;
+    struct timeval toval;
+    fd_set set;
+
+    FD_ZERO(&set);
+    FD_SET(sock, &set);
+
+    toval.tv_sec = timeout / 1000;
+    toval.tv_usec = (timeout % 1000) * 1000;
+
+    if (select(sock + 1, &set, NULL, NULL, &toval) > 0) {
+        if (FD_ISSET(sock, &set))
+            bytes = recv(sock, buf, len, 0);
+    }
+
+    return (int)(bytes > 0 ? bytes : -1);
+}
+
 /* SendSocketDataTo - send socket data to a specified address */
 int SendSocketDataTo(SOCKET sock, void *buf, int len, SOCKADDR_IN *addr)
 {
     return sendto(sock, buf, len, 0, (SOCKADDR *)addr, sizeof(SOCKADDR));
+}
+
+/* escape from terminal mode */
+#define ESC         0x1b
+
+/*
+ * if "check_for_exit" is true, then
+ * a sequence EXIT_CHAR 00 nn indicates that we should exit
+ */
+#define EXIT_CHAR   0xff
+
+void SocketTerminal(SOCKET sock, int check_for_exit, int pst_mode)
+{
+#ifdef __MINGW32__
+    int sawexit_char = 0;
+    int sawexit_valid = 0;
+    int exitcode = 0;
+    int continue_terminal = 1;
+
+    while (continue_terminal) {
+        uint8_t buf[1];
+        if (ReceiveSocketDataTimeout(sock, buf, 1, 0) != -1) {
+            if (sawexit_valid) {
+                exitcode = buf[0];
+                continue_terminal = 0;
+            }
+            else if (sawexit_char) {
+                if (buf[0] == 0) {
+                    sawexit_valid = 1;
+                } else {
+                    putchar(EXIT_CHAR);
+                    putchar(buf[0]);
+                    fflush(stdout);
+                }
+            }
+            else if (check_for_exit && buf[0] == EXIT_CHAR) {
+                sawexit_char = 1;
+            }
+            else {
+                putchar(buf[0]);
+                if (pst_mode && buf[0] == '\r')
+                    putchar('\n');
+                fflush(stdout);
+            }
+        }
+        else if (kbhit()) {
+            if ((buf[0] = getch()) == ESC)
+                break;
+            SendSocketData(sock, buf, 1);
+        }
+    }
+
+    if (check_for_exit && sawexit_valid) {
+        exit(exitcode);
+    }
+#else
+    struct termios oldt, newt;
+    char buf[128], realbuf[256]; // double in case buf is filled with \r in PST mode
+    ssize_t cnt;
+    fd_set set;
+    int exit_char = 0xdead; /* not a valid character */
+    int sawexit_char = 0;
+    int sawexit_valid = 0; 
+    int exitcode = 0;
+    int continue_terminal = 1;
+
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO | ISIG);
+    newt.c_iflag &= ~(ICRNL | INLCR);
+    newt.c_oflag &= ~OPOST;
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+    if (check_for_exit)
+        exit_char = EXIT_CHAR;
+
+#if 0
+    /* make it possible to detect breaks */
+    tcgetattr(sock, &newt);
+    newt.c_iflag &= ~IGNBRK;
+    newt.c_iflag |= PARMRK;
+    tcsetattr(sock, TCSANOW, &newt);
+#endif
+
+    do {
+        FD_ZERO(&set);
+        FD_SET(sock, &set);
+        FD_SET(STDIN_FILENO, &set);
+        if (select(sock + 1, &set, NULL, NULL, NULL) > 0) {
+            if (FD_ISSET(sock, &set)) {
+                if ((cnt = recv(sock, buf, sizeof(buf), 0)) > 0) {
+                    int i;
+                    // check for breaks
+                    ssize_t realbytes = 0;
+                    for (i = 0; i < cnt; i++) {
+                      if (sawexit_valid)
+                        {
+                          exitcode = buf[i];
+                          continue_terminal = 0;
+                        }
+                      else if (sawexit_char) {
+                        if (buf[i] == 0) {
+                          sawexit_valid = 1;
+                        } else {
+                          realbuf[realbytes++] = exit_char;
+                          realbuf[realbytes++] = buf[i];
+                          sawexit_char = 0;
+                        }
+                      } else if (((int)buf[i] & 0xff) == exit_char) {
+                        sawexit_char = 1;
+                      } else {
+                        realbuf[realbytes++] = buf[i];
+                        if (pst_mode && buf[i] == '\r')
+                            realbuf[realbytes++] = '\n';
+                      }
+                    }
+                    write(fileno(stdout), realbuf, realbytes);
+                }
+            }
+            if (FD_ISSET(STDIN_FILENO, &set)) {
+                if ((cnt = read(STDIN_FILENO, buf, sizeof(buf))) > 0) {
+                    int i;
+                    for (i = 0; i < cnt; ++i) {
+                        if (buf[i] == ESC)
+                            goto done;
+                    }
+                    write(sock, buf, cnt);
+                }
+            }
+        }
+    } while (continue_terminal);
+
+done:
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+
+    if (sawexit_valid)
+        exit(exitcode);
+#endif
 }
 
 /* GetInterfaceAddresses - get the addresses of all IPv4 interfaces */

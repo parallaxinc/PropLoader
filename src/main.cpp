@@ -56,7 +56,6 @@ int main(int argc, char *argv[])
     const char *port = NULL;
     int baudrate = DEFAULT_BAUDRATE;
     bool useSerial = false;
-    bool useSingleStageLoader = false;
     char *file = NULL;
     XbeeLoader xbeeLoader;
     SerialLoader serialLoader;
@@ -126,9 +125,6 @@ int main(int argc, char *argv[])
             case 't':
                 terminalMode = true;
                 break;
-            case 'x':
-                useSingleStageLoader = true;
-                break;
             case 'X':
                 ShowXbeeModules(argv[i][2] == '0' ? false : true);
                 done = true;
@@ -161,13 +157,6 @@ int main(int argc, char *argv[])
         if (!port) {
             SerialInfoList ports;
             if (serialLoader.findPorts(PORT_PREFIX, true, ports) == 0) {
-#if 0
-                SerialInfoList::iterator i = ports.begin();
-                while (i != ports.end()) {
-                    std::cout << i->port() << std::endl;
-                    ++i;
-                }
-#endif
             }
             if (ports.size() == 0) {
                 printf("error: no serial ports found\n");
@@ -201,23 +190,7 @@ int main(int argc, char *argv[])
         else {
             XbeeInfoList addrs;
             if (xbeeLoader.discover(false, addrs) != 0)
-                printf("Discover failed\n");
-            else {
-#if 0
-                XbeeInfoList::iterator i;
-                for (i = addrs.begin(); i != addrs.end(); ++i) {
-                    printf("host:            %s\n", AddrToString(i->hostAddr()));
-                    printf("xbee:            %s\n", AddrToString(i->xbeeAddr()));
-                    printf("macAddrHigh:     %08x\n", i->macAddrHigh());
-                    printf("macAddrLow:      %08x\n", i->macAddrLow());
-                    printf("xbeePort:        %08x\n", i->xbeePort());
-                    printf("firmwareVersion: %08x\n", i->firmwareVersion());
-                    printf("cfgChecksum:     %08x\n", i->cfgChecksum());
-                    printf("nodeId:          '%s'\n", i->nodeID().c_str());
-                    printf("\n");
-                }
-#endif
-            }
+                printf("error: discover failed\n");
             if (addrs.size() == 0) {
                 printf("error: no Xbee module found\n");
                 return 1;
@@ -233,29 +206,8 @@ int main(int argc, char *argv[])
         loader = &xbeeLoader;
     }
     
-    /* open the binary */
-    FILE *fp;
-    if (!(fp = fopen(file, "rb"))) {
-        printf("error: can't open '%s'\n", file);
-        return 1;
-    }
-    
-    /* check for an elf file */
-    uint8_t *image;
-    int imageSize;
-    ElfHdr elfHdr;
-    if (ReadAndCheckElfHdr(fp, &elfHdr)) {
-        printf("Loading ELF file '%s'\n", file);
-        image = LoadElfFile(fp, &elfHdr, &imageSize);
-    }
-    else {
-        printf("Loading binary file '%s'\n", file);
-        image = LoadSpinBinaryFile(fp, &imageSize);
-        fclose(fp);
-    }
-    
     /* load the file */
-    if ((sts = useSingleStageLoader ? loader->loadTinyImage(image, imageSize) : loader->loadImage(image, imageSize)) != 0) {
+    if ((sts = loader->loadFile(file)) != 0) {
         printf("error: load failed: %d\n", sts);
         return 1;
     }
@@ -273,111 +225,6 @@ int main(int argc, char *argv[])
 finish:
     /* return successfully */
     return 0;
-}
-
-/* target checksum for a binary file */
-#define SPIN_TARGET_CHECKSUM    0x14
-
-uint8_t *LoadSpinBinaryFile(FILE *fp, int *pLength)
-{
-    uint8_t *image;
-    int imageSize;
-    
-    /* get the size of the binary file */
-    fseek(fp, 0, SEEK_END);
-    imageSize = (int)ftell(fp);
-    fseek(fp, 0, SEEK_SET);
-    
-    /* allocate space for the file */
-    if (!(image = (uint8_t *)malloc(imageSize)))
-        return NULL;
-    
-    /* read the entire image into memory */
-    if ((int)fread(image, 1, imageSize, fp) != imageSize) {
-        free(image);
-        return NULL;
-    }
-    
-    /* return the buffer containing the file contents */
-    *pLength = imageSize;
-    return image;
-}
-
-/* spin object file header */
-typedef struct {
-    uint32_t clkfreq;
-    uint8_t clkmode;
-    uint8_t chksum;
-    uint16_t pbase;
-    uint16_t vbase;
-    uint16_t dbase;
-    uint16_t pcurr;
-    uint16_t dcurr;
-} SpinHdr;
-
-uint8_t *LoadElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize)
-{
-    uint32_t start, imageSize, cogImagesSize;
-    uint8_t *image, *buf;
-    ElfContext *c;
-    ElfProgramHdr program;
-    int i;
-
-    /* open the elf file */
-    if (!(c = OpenElfFile(fp, hdr)))
-        return NULL;
-        
-    /* get the total size of the program */
-    if (!GetProgramSize(c, &start, &imageSize, &cogImagesSize)) {
-        CloseElfFile(c);
-        return NULL;
-    }
-        
-    /* check to see if cog images in eeprom are allowed */
-    if (cogImagesSize > 0) {
-        CloseElfFile(c);
-        return NULL;
-    }
-    
-    /* allocate a buffer big enough for the entire image */
-    if (!(image = (uint8_t *)malloc(imageSize)))
-        return NULL;
-    memset(image, 0, imageSize);
-        
-    /* load each program section */
-    for (i = 0; i < c->hdr.phnum; ++i) {
-        if (!LoadProgramTableEntry(c, i, &program)
-        ||  !(buf = LoadProgramSegment(c, &program))) {
-            CloseElfFile(c);
-            free(image);
-            return NULL;
-        }
-        if (program.paddr < COG_DRIVER_IMAGE_BASE)
-            memcpy(&image[program.paddr - start], buf, program.filesz);
-    }
-    
-    /* close the elf file */
-    CloseElfFile(c);
-    
-    SpinHdr *spinHdr = (SpinHdr *)image;
-    uint8_t *p = image;
-    int cnt = imageSize;
-    int chksum = 0;
-
-    /* fixup the spin binary header */
-    spinHdr->vbase = imageSize;
-    spinHdr->dbase = imageSize + 2 * sizeof(uint32_t); // stack markers
-    spinHdr->dcurr = spinHdr->dbase + sizeof(uint32_t);
-
-    /* update the checksum */
-    spinHdr->chksum = 0;
-    while (--cnt >= 0)
-        chksum += *p++;
-    spinHdr->chksum = SPIN_TARGET_CHECKSUM - chksum;
-
-    /* return the image */
-    *pImageSize = imageSize;
-    return image;
 }
 
 void ShowPorts(const char *prefix, bool check)

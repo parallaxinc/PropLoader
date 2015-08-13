@@ -11,6 +11,7 @@ public:
     ~Loader() {}
     void setBaudrate(int baudrate);
     int identify(int *pVersion);
+    int loadFile(const char *file);
     int loadTinyImage(const uint8_t *image, int imageSize);
     int loadImage(const uint8_t *image, int imageSize);
     virtual void disconnect() = 0;
@@ -20,6 +21,7 @@ protected:
     virtual int generateResetSignal() = 0;
     virtual int sendData(const uint8_t *buf, int len) = 0;
     virtual int receiveData(uint8_t *buf, int len) = 0;
+    virtual int receiveDataTimeout(uint8_t *buf, int len, int timeout) = 0;
     virtual int receiveDataExact(uint8_t *buf, int len, int timeout) = 0;
     virtual int maxDataSize() = 0;
     int m_baudrate;

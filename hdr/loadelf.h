@@ -125,7 +125,7 @@ typedef struct {
 
 int ReadAndCheckElfHdr(FILE *fp, ElfHdr *hdr);
 ElfContext *OpenElfFile(FILE *fp, ElfHdr *hdr);
-void CloseElfFile(ElfContext *c);
+void FreeElfContext(ElfContext *c);
 int GetProgramSize(ElfContext *c, uint32_t *pStart, uint32_t *pSize, uint32_t *pCogImagesSize);
 int FindSectionTableEntry(ElfContext *c, const char *name, ElfSectionHdr *section);
 int FindProgramSegment(ElfContext *c, const char *name, ElfProgramHdr *program);
