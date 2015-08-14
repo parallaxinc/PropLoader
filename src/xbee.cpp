@@ -78,6 +78,7 @@ int Xbee::discover(XbeeAddrList &addrs, int timeout)
     
     if ((cnt = GetInterfaceAddresses(ifaddrs, MAX_IF_ADDRS)) < 0)
         return -1;
+    printf("Found %d interfaces\n", cnt);
     
     for (i = 0; i < cnt; ++i)
         discover1(&ifaddrs[i], addrs, timeout);
@@ -94,6 +95,8 @@ int Xbee::discover1(IFADDR *ifaddr, XbeeAddrList &addrs, int timeout)
     SOCKADDR_IN bcastaddr;
     SOCKET sock;
     int cnt, i;
+    
+    printf("Checking %s\n", inet_ntoa(ifaddr->addr.sin_addr));
         
     /* create a broadcast socket */
     if (OpenBroadcastSocket(&sock) != 0)
@@ -114,45 +117,43 @@ int Xbee::discover1(IFADDR *ifaddr, XbeeAddrList &addrs, int timeout)
     bcastaddr = ifaddr->bcast;
     bcastaddr.sin_port = htons(DEF_APP_SERVICE_PORT);
     
-    /* try a few times in case our broadcast packets get lost */
+    /* send the broadcast packets */
     while (--retries >= 0) {
-    
-        /* send the broadcast packet */
         if (SendSocketDataTo(sock, tx, sizeof(txPacket), &bcastaddr) != sizeof(txPacket)) {
             CloseSocket(sock);
-            return -3;
+            return -1;
+        }
+    }
+
+    /* receive Xbee responses */
+    while (SocketDataAvailableP(sock, timeout)) {
+
+        /* get the next response */
+        if ((cnt = ReceiveSocketData(sock, buf, sizeof(buf))) < (int)sizeof(rxPacket)) {
+            CloseSocket(sock);
+            return -1;
+        }
+        printf("Got one!\n");
+
+        /* verify the packet header */
+        if ((rx->hdr.number1 ^ rx->hdr.number2) != 0x4242 || rx->status != 0x00) {
+            CloseSocket(sock);
+            return -1;
         }
 
-        /* receive Xbee responses */
-        while (SocketDataAvailableP(sock, timeout)) {
-    
-            /* get the next response */
-            if ((cnt = ReceiveSocketData(sock, buf, sizeof(buf))) < (int)sizeof(rxPacket)) {
-                CloseSocket(sock);
-                printf("oops\n");
-                return -4;
-            }
-    
-            /* verify the packet header */
-            if ((rx->hdr.number1 ^ rx->hdr.number2) != 0x4242 || rx->status != 0x00) {
-                CloseSocket(sock);
-                printf("oops 2\n");
-                return -1;
-            }
-    
-            /* store the IP addresses of the host and the Xbee module */
-            uint32_t hostAddr = ((SOCKADDR_IN *)&ifaddr->addr)->sin_addr.s_addr;
-            uint32_t xbeeAddr = 0;
-            for (i = sizeof(rxPacket); i < cnt; ++i)
-                xbeeAddr = (xbeeAddr << 8) + buf[i];
-            XbeeAddr addr(hostAddr, htonl(xbeeAddr));
-            addrs.push_back(addr);
-        }
+        /* store the IP addresses of the host and the Xbee module */
+        uint32_t hostAddr = ((SOCKADDR_IN *)&ifaddr->addr)->sin_addr.s_addr;
+        uint32_t xbeeAddr = 0;
+        for (i = sizeof(rxPacket); i < cnt; ++i)
+            xbeeAddr = (xbeeAddr << 8) + buf[i];
+        XbeeAddr addr(hostAddr, htonl(xbeeAddr));
+        addrs.push_back(addr);
     }
     
     /* get rid of duplicate entries */
     addrs.sort();
     addrs.unique();
+    printf("%d unique\n", addrs.size());
     
     /* close the socket */
     CloseSocket(sock);

@@ -114,8 +114,14 @@ runbig:	$(BINDIR)/proploader$(EXT) $(BUILD)/toggle.elf
 P:	$(BINDIR)/proploader$(EXT)
 	$(BINDIR)/proploader$(EXT) -P
 	
+P0:	$(BINDIR)/proploader$(EXT)
+	$(BINDIR)/proploader$(EXT) -P0
+	
 X:	$(BINDIR)/proploader$(EXT)
 	$(BINDIR)/proploader$(EXT) -X
+	
+X0:	$(BINDIR)/proploader$(EXT)
+	$(BINDIR)/proploader$(EXT) -X0
 	
 $(OBJDIR)/%.o:	$(SRCDIR)/%.c $(OBJDIR) $(HDRS)
 	$(CC) $(CFLAGS) -c $< -o $@

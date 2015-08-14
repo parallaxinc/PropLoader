@@ -6,6 +6,7 @@
 #ifdef __MINGW32__
 #include <ws2tcpip.h>
 #include <iphlpapi.h>
+#include <conio.h>
 #else
 #include <ifaddrs.h>
 #include <termios.h>
