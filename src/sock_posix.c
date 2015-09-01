@@ -67,9 +67,10 @@ int GetInternetAddress(const char *hostName, short port, SOCKADDR_IN *addr)
 }
 
 /* OpenBroadcastSocket - open a broadcast socket */
-int OpenBroadcastSocket(SOCKET *pSocket)
+int OpenBroadcastSocket(short port, SOCKET *pSocket)
 {
     int broadcast = 1;
+    SOCKADDR_IN addr;
     SOCKET sock;
     
 #ifdef __MINGW32__
@@ -84,6 +85,18 @@ int OpenBroadcastSocket(SOCKET *pSocket)
     /* enable broadcasting */
     if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (void *)&broadcast, sizeof(broadcast)) != 0) {
         CloseSocket(sock);
+        return -1;
+    }
+
+    /* setup the address */
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(port);
+
+    /* bind the socket to the port */
+    if (bind(sock, (SOCKADDR *)&addr, sizeof(addr)) != 0) {
+        closesocket(sock);
         return -1;
     }
 

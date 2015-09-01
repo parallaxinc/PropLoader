@@ -195,6 +195,7 @@ int main(int argc, char *argv[])
                 printf("error: no Xbee module found\n");
                 return 1;
             }
+            printf("Loading %s\n", AddrToString(addrs.front().xbeeAddr()));
             addr.set(addrs.front().hostAddr(), addrs.front().xbeeAddr());
         }
         

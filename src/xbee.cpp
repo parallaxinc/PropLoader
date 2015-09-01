@@ -78,7 +78,6 @@ int Xbee::discover(XbeeAddrList &addrs, int timeout)
     
     if ((cnt = GetInterfaceAddresses(ifaddrs, MAX_IF_ADDRS)) < 0)
         return -1;
-    printf("Found %d interfaces\n", cnt);
     
     for (i = 0; i < cnt; ++i)
         discover1(&ifaddrs[i], addrs, timeout);
@@ -96,10 +95,8 @@ int Xbee::discover1(IFADDR *ifaddr, XbeeAddrList &addrs, int timeout)
     SOCKET sock;
     int cnt, i;
     
-    printf("Checking %s\n", inet_ntoa(ifaddr->addr.sin_addr));
-        
     /* create a broadcast socket */
-    if (OpenBroadcastSocket(&sock) != 0)
+    if (OpenBroadcastSocket(DEF_APP_SERVICE_PORT, &sock) != 0)
         return -2;
         
     /* build a broadcast packet */
@@ -133,12 +130,15 @@ int Xbee::discover1(IFADDR *ifaddr, XbeeAddrList &addrs, int timeout)
             CloseSocket(sock);
             return -1;
         }
-        printf("Got one!\n");
 
+        /* make sure this is a command response */
+        if (cnt < (int)sizeof(rxPacket) || rx->hdr.commandID != 0x82)
+            continue;
+            
         /* verify the packet header */
         if ((rx->hdr.number1 ^ rx->hdr.number2) != 0x4242 || rx->status != 0x00) {
-            CloseSocket(sock);
-            return -1;
+            //printf("Verify failed: number1 %04x, number2 %04x, status %02x\n", rx->hdr.number1, rx->hdr.number2, rx->status);
+            continue;
         }
 
         /* store the IP addresses of the host and the Xbee module */
@@ -153,7 +153,6 @@ int Xbee::discover1(IFADDR *ifaddr, XbeeAddrList &addrs, int timeout)
     /* get rid of duplicate entries */
     addrs.sort();
     addrs.unique();
-    printf("%d unique\n", addrs.size());
     
     /* close the socket */
     CloseSocket(sock);

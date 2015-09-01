@@ -42,7 +42,7 @@ int GetInterfaceAddresses(IFADDR *addrs, int max);
 int GetInternetAddress(const char *hostName, short port, SOCKADDR_IN *addr);
 const char *AddrToString(uint32_t addr);
 int StringToAddr(const char *addr, uint32_t *pAddr);
-int OpenBroadcastSocket(SOCKET *pSocket);
+int OpenBroadcastSocket(short port, SOCKET *pSocket);
 int ConnectSocket(uint32_t ipaddr, short port, SOCKET *pSocket);
 int BindSocket(short port, SOCKET *pSocket);
 void CloseSocket(SOCKET sock);
