@@ -206,7 +206,7 @@ int Xbee::getItem(xbCommand cmd, int *pValue)
     uint8_t buf[2048]; // BUG: get rid of this magic number!
     txPacket *tx = (txPacket *)buf;
     rxPacket *rx = (rxPacket *)buf;
-    int cnt, i;
+    int retries, timeout, cnt, i;
     
     tx->hdr.number1 = 0x0000;
     tx->hdr.number2 = tx->hdr.number1 ^ 0x4242;
@@ -218,16 +218,28 @@ int Xbee::getItem(xbCommand cmd, int *pValue)
     tx->configOptions = 0x02;
     strncpy(tx->atCommand, atCmd[cmd], 2);
     //printf("getItem %s --> ", atCmd[cmd]); fflush(stdout);
-    if (SendSocketData(m_appService, tx, sizeof(txPacket)) != sizeof(txPacket))
-        return -1;
-    if ((cnt = ReceiveSocketData(m_appService, buf, sizeof(buf))) < (int)sizeof(rxPacket))
-        return -1;
-    if ((rx->hdr.number1 ^ rx->hdr.number2) != 0x4242 || rx->status != 0x00)
-        return -1;
-    for (i = sizeof(rxPacket); i < cnt; ++i)
-        *pValue = (*pValue << 8) + buf[i];
-    //printf("%d (%08x)\n", *pValue, *pValue);
-    return 0;
+
+    retries = 3;
+    timeout = 500;
+    while (--retries >= 0) {
+    
+        if (SendSocketData(m_appService, tx, sizeof(txPacket)) != sizeof(txPacket))
+            return -1;
+            
+        if (SocketDataAvailableP(m_appService, timeout)) {
+            if ((cnt = ReceiveSocketData(m_appService, buf, sizeof(buf))) >= (int)sizeof(rxPacket)) {
+                if ((rx->hdr.number1 ^ rx->hdr.number2) == 0x4242 && rx->status == 0x00) {
+                    *pValue = 0;
+                    for (i = sizeof(rxPacket); i < cnt; ++i)
+                        *pValue = (*pValue << 8) + buf[i];
+                    //printf("%d (%08x)\n", *pValue, *pValue);
+                    return 0;
+                }
+            }
+        }
+    }
+    
+    return -1;
 }
 
 int Xbee::getItem(xbCommand cmd, std::string &value)
@@ -235,7 +247,7 @@ int Xbee::getItem(xbCommand cmd, std::string &value)
     uint8_t buf[2048]; // BUG: get rid of this magic number!
     txPacket *tx = (txPacket *)buf;
     rxPacket *rx = (rxPacket *)buf;
-    int cnt;
+    int retries, timeout, cnt;
     
     tx->hdr.number1 = 0x0000;
     tx->hdr.number2 = tx->hdr.number1 ^ 0x4242;
@@ -247,16 +259,27 @@ int Xbee::getItem(xbCommand cmd, std::string &value)
     tx->configOptions = 0x02;
     strncpy(tx->atCommand, atCmd[cmd], 2);
     //printf("getItem %s --> ", atCmd[cmd]); fflush(stdout);
-    if (SendSocketData(m_appService, tx, sizeof(txPacket)) != sizeof(txPacket))
-        return -1;
-    if ((cnt = ReceiveSocketData(m_appService, buf, sizeof(buf))) < (int)sizeof(rxPacket))
-        return -1;
-    if ((rx->hdr.number1 ^ rx->hdr.number2) != 0x4242 || rx->status != 0x00)
-        return -1;
-    buf[cnt] = '\0'; // terminate the string
-    value = std::string((char *)&buf[sizeof(rxPacket)]);
-    //printf("'%s'\n", &buf[sizeof(rxPacket)]);
-    return 0;
+    
+    retries = 3;
+    timeout = 500;
+    while (--retries >= 0) {
+    
+        if (SendSocketData(m_appService, tx, sizeof(txPacket)) != sizeof(txPacket))
+            return -1;
+            
+        if (SocketDataAvailableP(m_appService, timeout)) {
+            if ((cnt = ReceiveSocketData(m_appService, buf, sizeof(buf))) >= (int)sizeof(rxPacket)) {
+                if ((rx->hdr.number1 ^ rx->hdr.number2) == 0x4242 && rx->status == 0x00) {
+                    buf[cnt] = '\0'; // terminate the string
+                    value = std::string((char *)&buf[sizeof(rxPacket)]);
+                    //printf("'%s'\n", &buf[sizeof(rxPacket)]);
+                    return 0;
+                }
+            }
+        }
+    }
+    
+    return -1;
 }
 
 int Xbee::setItem(xbCommand cmd, int value)
@@ -264,7 +287,7 @@ int Xbee::setItem(xbCommand cmd, int value)
     uint8_t buf[2048]; // BUG: get rid of this magic number!
     txPacket *tx = (txPacket *)buf;
     rxPacket *rx = (rxPacket *)buf;
-    int cnt, i;
+    int retries, timeout, cnt, i;
     
     tx->hdr.number1 = 0x0000;
     tx->hdr.number2 = tx->hdr.number1 ^ 0x4242;
@@ -278,14 +301,23 @@ int Xbee::setItem(xbCommand cmd, int value)
     for (i = 0; i < (int)sizeof(int); ++i)
         buf[sizeof(txPacket) + i] = value >> ((sizeof(int) - i - 1) * 8);
     //printf("setItem %s to %d (%08x) --> ", atCmd[cmd], value, value); fflush(stdout);
-    if (SendSocketData(m_appService, tx, sizeof(txPacket) + sizeof(int)) != sizeof(txPacket) + sizeof(int))
-        return -1;
-    if ((cnt = ReceiveSocketData(m_appService, buf, sizeof(buf))) < (int)sizeof(rxPacket))
-        return -1;
-    if ((rx->hdr.number1 ^ rx->hdr.number2) != 0x4242 || rx->status != 0x00)
-        return -1;
-    //printf("done\n");
-    return 0;
+    
+    retries = 3;
+    timeout = 500;
+    while (--retries >= 0) {
+    
+        if (SendSocketData(m_appService, tx, sizeof(txPacket) + sizeof(int)) != sizeof(txPacket) + sizeof(int))
+            return -1;
+            
+        if (SocketDataAvailableP(m_appService, timeout)) {
+            if ((cnt = ReceiveSocketData(m_appService, buf, sizeof(buf))) >= (int)sizeof(rxPacket)) {
+                if ((rx->hdr.number1 ^ rx->hdr.number2) == 0x4242 && rx->status == 0x00)
+                    return 0;
+            }
+        }
+    }
+    
+    return -1;
 }
 
 int Xbee::sendAppData(void *buf, int len)

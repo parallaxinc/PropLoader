@@ -121,12 +121,26 @@ int ConnectSocket(uint32_t ipaddr, short port, SOCKET *pSocket)
         return -1;
 
     /* setup the address */
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(port);
+
+    /* bind the socket to the port (responses are always sent to 0xBEE) */
+    if (bind(sock, (SOCKADDR *)&addr, sizeof(addr)) != 0) {
+    printf("bind failed\n");
+        closesocket(sock);
+        return -1;
+    }
+
+    /* setup the address */
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
     addr.sin_addr.s_addr = ipaddr;
         
     /* connect to the server */
     if (connect(sock, (SOCKADDR *)&addr, sizeof(addr)) != 0) {
+    printf("connect failed\n");
         closesocket(sock);
         return -1;
     }
