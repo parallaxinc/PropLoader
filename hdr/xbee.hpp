@@ -137,6 +137,7 @@ public:
     int receiveSerialDataTimeout(void *buf, int len, int timeout);
 private:
     static int discover1(IFADDR *ifaddr, XbeeAddrList &addrs, int timeout = DEF_DISCOVER_TIMEOUT);
+    int sendRemoteCommand(xbCommand cmd, txPacket *tx, int txCnt, rxPacket *rx, int rxSize);
     SOCKET m_appService;
     SOCKET m_serialService;
 };
