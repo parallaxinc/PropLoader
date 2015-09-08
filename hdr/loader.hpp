@@ -5,15 +5,21 @@
 
 #define DEFAULT_BAUDRATE    115200
 
+typedef enum {
+    ltNone = 0,
+    ltDownloadAndRun = (1 << 0),
+    ltDownloadAndProgramEeprom = (1 << 1)
+} LoadType;
+
 class Loader {
 public:
     Loader() : m_baudrate(DEFAULT_BAUDRATE) {}
     ~Loader() {}
     void setBaudrate(int baudrate);
     int identify(int *pVersion);
-    int loadFile(const char *file);
+    int loadFile(const char *file, LoadType loadType = ltDownloadAndRun);
+    int loadImage(const uint8_t *image, int imageSize, LoadType loadType = ltDownloadAndRun);
     int loadTinyImage(const uint8_t *image, int imageSize);
-    int loadImage(const uint8_t *image, int imageSize);
     virtual void disconnect() = 0;
     virtual int setBaudRate(int baudrate) = 0;
     virtual void terminal(bool checkForExit, bool pstMode) = 0;

@@ -30,10 +30,12 @@ static void usage(const char *progname)
 printf("\
 usage: %s\n\
          [ -b <baudrate> ]  initial baud rate (default is %d)\n\
+         [ -e ]             program eeprom\n\
          [ -i <ip-addr> ]   IP address of the Xbee Wi-Fi module\n\
          [ -p <port> ]      serial port\n\
          [ -P ]             show all serial ports with propellers connected\n\
          [ -P0 ]            show all serial ports\n\
+         [ -r ]             run program after downloading\n\
          [ -s ]             do a serial download\n\
          [ -t ]             enter terminal mode after the load is complete\n\
          [ -X ]             show all discovered xbee modules with propellers connected\n\
@@ -55,6 +57,7 @@ int main(int argc, char *argv[])
     const char *ipaddr = NULL;
     const char *port = NULL;
     int baudrate = DEFAULT_BAUDRATE;
+    int loadType = ltNone;
     bool useSerial = false;
     char *file = NULL;
     XbeeLoader xbeeLoader;
@@ -75,6 +78,9 @@ int main(int argc, char *argv[])
                     baudrate = atoi(argv[i]);
                 else
                     usage(argv[0]);
+                break;
+            case 'e':
+                loadType |= ltDownloadAndProgramEeprom;
                 break;
             case 'i':   // set the ip address
                 if (argv[i][2])
@@ -119,6 +125,9 @@ int main(int argc, char *argv[])
                 ShowPorts(PORT_PREFIX, argv[i][2] == '0' ? false : true);
                 done = true;
                 break;
+            case 'r':
+                loadType |= ltDownloadAndRun;
+                break;
             case 's':
                 useSerial = true;
                 break;
@@ -146,6 +155,10 @@ int main(int argc, char *argv[])
     /* make sure a file to load was specified */
     if (!done && !file)
         usage(argv[0]);
+        
+    /* default to 'download and run' if neither -e nor -r are specified */
+    if (loadType == ltNone)
+        loadType = ltDownloadAndRun;
         
     /* check to see if there is a file to load */
     if (!file)
@@ -208,7 +221,7 @@ int main(int argc, char *argv[])
     }
     
     /* load the file */
-    if ((sts = loader->loadFile(file)) != 0) {
+    if ((sts = loader->loadFile(file, (LoadType)loadType)) != 0) {
         printf("error: load failed: %d\n", sts);
         return 1;
     }

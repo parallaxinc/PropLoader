@@ -87,10 +87,11 @@ int Xbee::discover(XbeeAddrList &addrs, int timeout)
 
 int Xbee::discover1(IFADDR *ifaddr, XbeeAddrList &addrs, int timeout)
 {
-    uint8_t buf[2048]; // BUG: get rid of this magic number!
+    uint8_t txBuf[2048]; // BUG: get rid of this magic number!
+    uint8_t rxBuf[2048]; // BUG: get rid of this magic number!
     int retries = DEF_DISCOVER_RETRIES;
-    txPacket *tx = (txPacket *)buf;
-    rxPacket *rx = (rxPacket *)buf;
+    txPacket *tx = (txPacket *)txBuf;
+    rxPacket *rx = (rxPacket *)rxBuf;
     SOCKADDR_IN bcastaddr;
     SOCKET sock;
     int cnt, i;
@@ -126,7 +127,7 @@ int Xbee::discover1(IFADDR *ifaddr, XbeeAddrList &addrs, int timeout)
     while (SocketDataAvailableP(sock, timeout)) {
 
         /* get the next response */
-        if ((cnt = ReceiveSocketData(sock, buf, sizeof(buf))) < (int)sizeof(rxPacket)) {
+        if ((cnt = ReceiveSocketData(sock, rxBuf, sizeof(rxBuf))) < (int)sizeof(rxPacket)) {
             CloseSocket(sock);
             return -1;
         }
@@ -145,7 +146,7 @@ int Xbee::discover1(IFADDR *ifaddr, XbeeAddrList &addrs, int timeout)
         uint32_t hostAddr = ((SOCKADDR_IN *)&ifaddr->addr)->sin_addr.s_addr;
         uint32_t xbeeAddr = 0;
         for (i = sizeof(rxPacket); i < cnt; ++i)
-            xbeeAddr = (xbeeAddr << 8) + buf[i];
+            xbeeAddr = (xbeeAddr << 8) + rxBuf[i];
         XbeeAddr addr(hostAddr, htonl(xbeeAddr));
         addrs.push_back(addr);
     }
