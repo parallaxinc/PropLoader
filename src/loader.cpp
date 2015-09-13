@@ -414,7 +414,7 @@ uint8_t *Loader::generateInitialLoaderPacket(int packetID, int *pLength)
     return GenerateLoaderPacket(loaderImage, sizeof(rawLoaderImage), pLength);
 }
 
-int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int *pResult)
+int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int *pResult, int timeout)
 {
     int packetSize = 2*sizeof(uint32_t) + payloadSize;
     uint8_t *packet, response[8];
@@ -437,7 +437,7 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
         sendData(packet, packetSize);
     
         /* receive the response */
-        cnt = receiveDataExact(response, sizeof(response), 2000);
+        cnt = receiveDataExact(response, sizeof(response), timeout);
         result = getLong(&response[0]);
         if (cnt == 8 && getLong(&response[4]) == tag && result != id) {
             free(packet);
@@ -740,7 +740,7 @@ int Loader::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
     
     if (loadType & ltDownloadAndProgramEeprom) {
         printf("Sending program eeprom packet\n");
-        transmitPacket(packetID, programVerifyEEPROM, sizeof(programVerifyEEPROM), &result);
+        transmitPacket(packetID, programVerifyEEPROM, sizeof(programVerifyEEPROM), &result, 8000);
         if (result != -checksum*2)
             printf("Checksum error: expected %08x, got %08x\n", -checksum, result);
         packetID = -checksum*2;

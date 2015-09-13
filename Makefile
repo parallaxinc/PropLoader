@@ -111,6 +111,12 @@ run:	$(BINDIR)/proploader$(EXT) $(BUILD)/blink.binary
 runbig:	$(BINDIR)/proploader$(EXT) $(BUILD)/toggle.elf
 	$(BINDIR)/proploader$(EXT) $(BUILD)/toggle.elf -t
 
+E:	$(BINDIR)/proploader$(EXT) $(BUILD)/blink.binary
+	$(BINDIR)/proploader$(EXT) $(BUILD)/blink.binary -e
+
+Ebig:	$(BINDIR)/proploader$(EXT) $(BUILD)/toggle.elf
+	$(BINDIR)/proploader$(EXT) $(BUILD)/toggle.elf -e
+
 P:	$(BINDIR)/proploader$(EXT)
 	$(BINDIR)/proploader$(EXT) -P
 	
