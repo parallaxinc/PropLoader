@@ -50,6 +50,13 @@ OSINT=$(OBJDIR)/serial_mingw.o $(OBJDIR)/sock_posix.o $(OBJDIR)/enumcom.o
 LIBS=-lws2_32 -liphlpapi -lsetupapi
 endif
 
+ifeq ($(OS),Windows_NT)
+CFLAGS+=-DMINGW
+EXT=.exe
+OSINT=$(OBJDIR)/serial_mingw.o $(OBJDIR)/sock_posix.o $(OBJDIR)/enumcom.o
+LIBS=-lws2_32 -liphlpapi -lsetupapi
+endif
+
 ifeq ($(OS),macosx)
 CFLAGS+=-DMACOSX
 EXT=
