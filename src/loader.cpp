@@ -419,7 +419,7 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
     int packetSize = 2*sizeof(uint32_t) + payloadSize;
     uint8_t *packet, response[8];
     int retries, result, cnt;
-    uint32_t tag;
+    int32_t tag;
     
     /* build the packet to transmit */
     if (!(packet = (uint8_t *)malloc(packetSize)))
@@ -432,7 +432,7 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
     while (--retries >= 0) {
     
         /* setup the packet header */
-        tag = rand();
+        tag = (int32_t)rand();
         setLong(&packet[4], tag);
         sendData(packet, packetSize);
     

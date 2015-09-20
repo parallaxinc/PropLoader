@@ -64,6 +64,10 @@ int OpenSerial(const char *port, int baud, SERIAL **pSerial)
     DCB state;
     int sts;
 
+    /* allocate a serial state structure */
+    if (!(serial = (SERIAL *)malloc(sizeof(SERIAL))))
+        return -1;
+        
     sprintf(fullPort, "\\\\.\\%s", port);
 
     serial->hSerial = CreateFile(
@@ -75,8 +79,10 @@ int OpenSerial(const char *port, int baud, SERIAL **pSerial)
         0,
         NULL);
 
-    if (serial->hSerial == INVALID_HANDLE_VALUE)
-        return FALSE;
+    if (serial->hSerial == INVALID_HANDLE_VALUE) {
+        free(serial);
+        return -1;
+    }
 
     /* set the baud rate */
     if ((sts = SetSerialBaud(serial, baud)) != 0) {

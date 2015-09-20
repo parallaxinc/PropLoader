@@ -27,47 +27,41 @@ CPP=$(PREFIX)g++
 
 CFLAGS=-Wall
 
+ifeq ($(OS),Windows_NT)
+OS=msys
+endif
+
 ifeq ($(OS),linux)
 CFLAGS+=-DLINUX
 EXT=
 OSINT=$(OBJDIR)/sock_posix.o $(OBJDIR)/serial_posix.o
 LIBS=
-endif
 
-ifeq ($(OS),raspberrypi)
+else ifeq ($(OS),raspberrypi)
 OS=linux
 CFLAGS+=-DLINUX -DRASPBERRY_PI
 EXT=
-OSINT=$(OBJDIR)/serial_posix.o $(OBJDIR)/sock_posix.o
+OSINT=$(OBJDIR)/sock_posix.o $(OBJDIR)/serial_posix.o $(OBJDIR)/gpio_sysfs.o
 LIBS=
-OSINT+=gpio_sysfs.o
-endif
 
-ifeq ($(OS),msys)
+else ifeq ($(OS),msys)
 CFLAGS+=-DMINGW
 EXT=.exe
 OSINT=$(OBJDIR)/serial_mingw.o $(OBJDIR)/sock_posix.o $(OBJDIR)/enumcom.o
 LIBS=-lws2_32 -liphlpapi -lsetupapi
-endif
 
-ifeq ($(OS),Windows_NT)
-CFLAGS+=-DMINGW
-EXT=.exe
-OSINT=$(OBJDIR)/serial_mingw.o $(OBJDIR)/sock_posix.o $(OBJDIR)/enumcom.o
-LIBS=-lws2_32 -liphlpapi -lsetupapi
-endif
-
-ifeq ($(OS),macosx)
+else ifeq ($(OS),macosx)
 CFLAGS+=-DMACOSX
 EXT=
 OSINT=$(OBJDIR)/serial_posix.o $(OBJDIR)/sock_posix.o
 LIBS=
-endif
 
-ifeq ($(OS),)
+else ifeq ($(OS),)
 $(error OS not set)
-endif
 
+else
+$(error Unknown OS $(OS))
+endif
 
 BUILD=$(realpath ..)/proploader-$(OS)-build
 
