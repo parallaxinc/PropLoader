@@ -699,6 +699,7 @@ int Loader::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
         checksum += initCallFrame[i];
 
     /* load the second-stage loader using the propeller ROM protocol */
+    printf("Loading second-stage loader\n");
     if (loadSecondStageLoader(packet, packetSize) != 0)
         return -1;
             

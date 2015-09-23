@@ -1,4 +1,5 @@
-MKDIR=mkdir -p
+MKDIR=mkdir
+TOUCH=touch
 RM=rm -r -f
 
 ifeq ($(CROSS),)
@@ -85,13 +86,11 @@ $(OSINT)
 CFLAGS+=-I$(HDRDIR)
 CPPFLAGS=$(CFLAGS)
 
-DIRS=$(OBJDIR) $(BINDIR)
-
 all:	 $(BINDIR)/proploader$(EXT) $(BUILD)/blink.binary $(BUILD)/blink-slow.binary $(BUILD)/toggle.elf
 
-$(OBJS):	$(OBJDIR) $(HDRS) Makefile
+$(OBJS):	$(OBJDIR)/created $(HDRS) Makefile
 
-$(BINDIR)/proploader$(EXT):	$(BINDIR) $(OBJS)
+$(BINDIR)/proploader$(EXT):	$(BINDIR)/created $(OBJS)
 	$(CPP) -o $@ $(OBJS) $(LIBS) -lstdc++
 
 $(BUILD)/%.elf:	%.c
@@ -130,14 +129,15 @@ X:	$(BINDIR)/proploader$(EXT)
 X0:	$(BINDIR)/proploader$(EXT)
 	$(BINDIR)/proploader$(EXT) -X0
 	
-$(OBJDIR)/%.o:	$(SRCDIR)/%.c $(OBJDIR) $(HDRS)
+$(OBJDIR)/%.o:	$(SRCDIR)/%.c $(HDRS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(OBJDIR)/%.o:	$(SRCDIR)/%.cpp $(OBJDIR) $(HDRS)
+$(OBJDIR)/%.o:	$(SRCDIR)/%.cpp $(HDRS)
 	$(CPP) $(CPPFLAGS) -c $< -o $@
-
-$(DIRS):
-	$(MKDIR) $@
 
 clean:
 	$(RM) $(BUILD)
+
+%/created:
+	@$(MKDIR) -p $(@D)
+	@$(TOUCH) $@

@@ -68,6 +68,10 @@ int OpenSerial(const char *port, int baud, SERIAL **pSerial)
     if (!(serial = (SERIAL *)malloc(sizeof(SERIAL))))
         return -1;
         
+    /* initialize the state structure */
+    memset(serial, 0, sizeof(SERIAL));
+    serial->resetMethod = RESET_WITH_DTR;
+
     sprintf(fullPort, "\\\\.\\%s", port);
 
     serial->hSerial = CreateFile(
