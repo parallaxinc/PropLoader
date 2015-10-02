@@ -2,6 +2,7 @@
 #define __LOADER_HPP__
 
 #include <stdint.h>
+#include <unistd.h>
 
 #define DEFAULT_BAUDRATE    115200
 
@@ -26,6 +27,8 @@ public:
 protected:
     virtual int generateResetSignal() = 0;
     virtual int sendData(const uint8_t *buf, int len) = 0;
+    virtual void pauseForVerification(int byteCount) = 0;
+    virtual void pauseForChecksum(int byteCount) = 0;
     virtual int receiveData(uint8_t *buf, int len) = 0;
     virtual int receiveDataTimeout(uint8_t *buf, int len, int timeout) = 0;
     virtual int receiveDataExact(uint8_t *buf, int len, int timeout) = 0;
@@ -36,5 +39,10 @@ private:
     int loadSecondStageLoader(uint8_t *packet, int packetSize);
     int transmitPacket(int id, const uint8_t *payload, int payloadSize, int *pResult, int timeout = 2000);
 };
+
+inline void msleep(int ms)
+{
+    usleep(ms * 1000);
+}
 
 #endif

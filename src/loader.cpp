@@ -454,11 +454,6 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
     return -1;
 }
 
-static void msleep(int ms)
-{
-    usleep(ms * 1000);
-}
-
 void Loader::setBaudrate(int baudrate)
 {
     m_baudrate = baudrate;
@@ -483,16 +478,13 @@ int Loader::identify(int *pVersion)
     /* send the identify packet */
     sendData(packet, packetSize);
     
-    /* Reset period 200 ms + first packet’s serial transfer time + 20 ms */
-    msleep(200 + (packetSize * 10 * 1000) / m_baudrate + 20);
+    pauseForVerification(packetSize);
     
     /* send the verification packet (all timing templates) */
     memset(packet2, 0xF9, maxDataSize());
     sendData(packet2, maxDataSize());
     
-    /* this delay helps apply the majority of the next step’s receive timeout to a
-       valid time window in the communication sequence */
-    msleep((sizeof(packet2) * 10 * 1000) / m_baudrate);
+    pauseForChecksum(sizeof(packet2));
     
     /* receive the handshake response and the hardware version */
     cnt = receiveDataExact(packet2, sizeof(rxHandshake) + 4, 2000);
@@ -699,14 +691,16 @@ int Loader::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
         checksum += initCallFrame[i];
 
     /* load the second-stage loader using the propeller ROM protocol */
-    printf("Loading second-stage loader\n");
     if (loadSecondStageLoader(packet, packetSize) != 0)
         return -1;
             
     //printf("Waiting for second-stage loader initial response\n");
-    cnt = receiveData(packet2, sizeof(packet2));
+    cnt = receiveDataTimeout(packet2, sizeof(packet2), 2000);
     if (cnt != 8 || getLong(packet2) != packetID) {
-        printf("error: second-stage loader failed to start\n");
+        printf("error: second-stage loader failed to start - cnt %d, packetID: expected %d, got %d\n", cnt, packetID, getLong(packet2));
+        for (i = 0; i < cnt; ++i)
+            printf(" %02x\n", packet2[i]);
+        printf("\n");
         return -1;
     }
     //printf("Got initial second-stage loader response\n");
@@ -716,7 +710,6 @@ int Loader::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
     
     /* transmit the image */
     int result;
-    //printf("Sending image: %d\n", packetID);
     while (imageSize > 0) {
         int size;
         if ((size = imageSize) > maxDataSize())
@@ -733,14 +726,13 @@ int Loader::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
     }
     
     /* transmit the RAM verify packet and verify the checksum */
-    printf("Sending verify packet\n");
     transmitPacket(packetID, verifyRAM, sizeof(verifyRAM), &result);
     if (result != -checksum)
         printf("Checksum error\n");
     packetID = -checksum;
     
     if (loadType & ltDownloadAndProgramEeprom) {
-        printf("Sending program eeprom packet\n");
+        //printf("Programming EEPROM\n");
         transmitPacket(packetID, programVerifyEEPROM, sizeof(programVerifyEEPROM), &result, 8000);
         if (result != -checksum*2)
             printf("Checksum error: expected %08x, got %08x\n", -checksum, result);
@@ -748,13 +740,13 @@ int Loader::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
     }
     
     /* transmit the final launch packets */
-    printf("Sending launch start packet\n");
+    //printf("Sending launch start packet\n");
     transmitPacket(packetID, launchStart, sizeof(launchStart), &result);
     if (result != packetID - 1)
         printf("Launch failed\n");
     --packetID;
     
-    printf("Sending launch final packet\n");
+    //printf("Sending launch final packet\n");
     transmitPacket(0, launchFinal, sizeof(launchFinal), &result);
     
     /* return successfully */
@@ -773,17 +765,14 @@ int Loader::loadSecondStageLoader(uint8_t *packet, int packetSize)
     //printf("Send second-stage loader image\n");
     sendData(packet, packetSize);
     
-    /* Reset period 200 ms + first packet’s serial transfer time + 20 ms */
-    msleep(200 + (packetSize * 10 * 1000) / m_baudrate + 20);
+    pauseForVerification(packetSize);
     
     /* send the verification packet (all timing templates) */
     //printf("Send verification packet\n");
     memset(packet2, 0xF9, maxDataSize());
     sendData(packet2, maxDataSize());
     
-    /* this delay helps apply the majority of the next step’s receive timeout to a
-       valid time window in the communication sequence */
-    msleep((sizeof(packet2) * 10 * 1000) / m_baudrate);
+    pauseForChecksum(sizeof(packet2));
     
     /* receive the handshake response and the hardware version */
     //printf("Receive handshake response\n");

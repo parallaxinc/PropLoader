@@ -361,6 +361,11 @@ int SendSerialData(SERIAL *serial, const void *buf, int len)
     return cnt;
 }
 
+int FlushSerialData(SERIAL *serial)
+{
+    return tcdrain(serial->fd);
+}
+
 int ReceiveSerialData(SERIAL *serial, void *buf, int len)
 {
     int cnt = read(serial->fd, buf, len);

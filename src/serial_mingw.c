@@ -117,6 +117,9 @@ int OpenSerial(const char *port, int baud, SERIAL **pSerial)
     serial->timeouts = serial->originalTimeouts;
     serial->timeouts.ReadIntervalTimeout = MAXDWORD;
     serial->timeouts.ReadTotalTimeoutMultiplier = MAXDWORD;
+    serial->timeouts.WriteTotalTimeoutMultiplier = 0;
+    serial->timeouts.WriteTotalTimeoutConstant = 0;
+    SetCommTimeouts(serial->hSerial, &serial->timeouts);
 
     /* setup device buffers */
     SetupComm(serial->hSerial, 10000, 10000);
@@ -197,10 +200,17 @@ int SendSerialData(SERIAL *serial, const void *buf, int len)
     return dwBytes;
 }
 
+int FlushSerialData(SERIAL *serial)
+{
+    return FlushFileBuffers(serial->hSerial) ? 0 : -1;
+}
+
 int ReceiveSerialData(SERIAL *serial, void *buf, int len)
 {
     DWORD dwBytes = 0;
-    SetCommTimeouts(serial->hSerial, &serial->originalTimeouts);
+    FlushFileBuffers(serial->hSerial);
+    serial->timeouts.ReadTotalTimeoutConstant = 0;
+    SetCommTimeouts(serial->hSerial, &serial->timeouts);
     if (!ReadFile(serial->hSerial, buf, len, &dwBytes, NULL)) {
         printf("Error reading port\n");
         ShowLastError();
@@ -212,6 +222,7 @@ int ReceiveSerialData(SERIAL *serial, void *buf, int len)
 int ReceiveSerialDataTimeout(SERIAL *serial, void *buf, int len, int timeout)
 {
     DWORD dwBytes = 0;
+    FlushFileBuffers(serial->hSerial);
     serial->timeouts.ReadTotalTimeoutConstant = timeout;
     SetCommTimeouts(serial->hSerial, &serial->timeouts);
     if (!ReadFile(serial->hSerial, buf, len, &dwBytes, NULL)) {
@@ -219,6 +230,12 @@ int ReceiveSerialDataTimeout(SERIAL *serial, void *buf, int len, int timeout)
         ShowLastError();
         return -1;
     }
+    
+    if (dwBytes == 0) {
+        printf("Timeout 1\n");
+        return -1;
+    }
+    
     return dwBytes;
 }
 
@@ -228,6 +245,8 @@ int ReceiveSerialDataExact(SERIAL *serial, void *buf, int len, int timeout)
     int remaining = len;
     DWORD dwBytes = 0;
     
+    FlushFileBuffers(serial->hSerial);
+
     serial->timeouts.ReadTotalTimeoutConstant = timeout;
     SetCommTimeouts(serial->hSerial, &serial->timeouts);
     
@@ -238,6 +257,12 @@ int ReceiveSerialDataExact(SERIAL *serial, void *buf, int len, int timeout)
         if (!ReadFile(serial->hSerial, ptr, remaining, &dwBytes, NULL)) {
             printf("Error reading port\n");
             ShowLastError();
+            return -1;
+        }
+        
+        /* check for a timeout */
+        if (dwBytes == 0) {
+            printf("Timeout %d %d\n", len, remaining);
             return -1;
         }
                     
@@ -319,3 +344,79 @@ void SerialTerminal(SERIAL *serial, int check_for_exit, int pst_mode)
         exit(exitcode);
     }
 }
+
+#if 0
+
+HANDLE hComm;
+hComm = CreateFile( gszPort,  
+                    GENERIC_READ | GENERIC_WRITE, 
+                    0, 
+                    0, 
+                    OPEN_EXISTING,
+                    FILE_FLAG_OVERLAPPED,
+                    0);
+if (hComm == INVALID_HANDLE_VALUE)
+   // error opening port; abort
+   
+DWORD dwRead;
+BOOL fWaitingOnRead = FALSE;
+OVERLAPPED osReader = {0};
+
+// Create the overlapped event. Must be closed before exiting
+// to avoid a handle leak.
+osReader.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+
+if (osReader.hEvent == NULL)
+   // Error creating overlapped event; abort.
+
+if (!fWaitingOnRead) {
+   // Issue read operation.
+   if (!ReadFile(hComm, lpBuf, READ_BUF_SIZE, &dwRead, &osReader)) {
+      if (GetLastError() != ERROR_IO_PENDING)     // read not delayed?
+         // Error in communications; report it.
+      else
+         fWaitingOnRead = TRUE;
+   }
+   else {    
+      // read completed immediately
+      HandleASuccessfulRead(lpBuf, dwRead);
+    }
+}
+
+#define READ_TIMEOUT      500      // milliseconds
+
+DWORD dwRes;
+
+if (fWaitingOnRead) {
+   dwRes = WaitForSingleObject(osReader.hEvent, READ_TIMEOUT);
+   switch(dwRes)
+   {
+      // Read completed.
+      case WAIT_OBJECT_0:
+          if (!GetOverlappedResult(hComm, &osReader, &dwRead, FALSE))
+             // Error in communications; report it.
+          else
+             // Read completed successfully.
+             HandleASuccessfulRead(lpBuf, dwRead);
+
+          //  Reset flag so that another opertion can be issued.
+          fWaitingOnRead = FALSE;
+          break;
+
+      case WAIT_TIMEOUT:
+          // Operation isn't complete yet. fWaitingOnRead flag isn't
+          // changed since I'll loop back around, and I don't want
+          // to issue another read until the first one finishes.
+          //
+          // This is a good time to do some background work.
+          break;                       
+
+      default:
+          // Error in the WaitForSingleObject; abort.
+          // This indicates a problem with the OVERLAPPED structure's
+          // event handle.
+          break;
+   }
+}
+
+#endif

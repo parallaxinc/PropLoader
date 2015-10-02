@@ -57,6 +57,21 @@ int SerialLoader::sendData(const uint8_t *buf, int len)
     return m_serial ? SendSerialData(m_serial, buf, len) : -1;
 }
 
+void SerialLoader::pauseForVerification(int byteCount)
+{
+    flushData();
+    msleep(100);
+}
+
+void SerialLoader::pauseForChecksum(int byteCount)
+{
+}
+
+int SerialLoader::flushData()
+{
+    return m_serial ? FlushSerialData(m_serial) : -1;
+}
+
 int SerialLoader::receiveData(uint8_t *buf, int len)
 {
     return m_serial ? ReceiveSerialData(m_serial, buf, len) : -1;

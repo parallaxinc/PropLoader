@@ -18,11 +18,6 @@ else
   endif
 endif
 
-HDRDIR=hdr
-SRCDIR=src
-OBJDIR=$(BUILD)/obj
-BINDIR=$(BUILD)/bin
-
 CC=$(PREFIX)gcc
 CPP=$(PREFIX)g++
 
@@ -65,6 +60,11 @@ $(error Unknown OS $(OS))
 endif
 
 BUILD=$(realpath ..)/proploader-$(OS)-build
+
+HDRDIR=hdr
+SRCDIR=src
+OBJDIR=$(BUILD)/obj
+BINDIR=$(BUILD)/bin
 
 HDRS=\
 $(HDRDIR)/loader.hpp \

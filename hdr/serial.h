@@ -49,6 +49,7 @@ void CloseSerial(SERIAL *serial);
 int SetSerialBaud(SERIAL *serial, int baud);
 int SerialGenerateResetSignal(SERIAL *serial);
 int SendSerialData(SERIAL *serial, const void *buf, int len);
+int FlushSerialData(SERIAL *serial);
 int ReceiveSerialData(SERIAL *serial, void *buf, int len);
 int ReceiveSerialDataTimeout(SERIAL *serial, void *buf, int len, int timeout);
 int ReceiveSerialDataExact(SERIAL *serial, void *buf, int len, int timeout);

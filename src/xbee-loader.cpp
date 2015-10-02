@@ -78,6 +78,19 @@ int XbeeLoader::sendData(const uint8_t *buf, int len)
     return cnt;
 }
 
+void XbeeLoader::pauseForVerification(int byteCount)
+{
+    /* Reset period 200 ms + first packet’s serial transfer time + 20 ms */
+    msleep(200 + (byteCount * 10 * 1000) / m_baudrate + 20);
+}
+
+void XbeeLoader::pauseForChecksum(int byteCount)
+{
+    /* this delay helps apply the majority of the next step’s receive timeout to a
+       valid time window in the communication sequence */
+    msleep((byteCount * 10 * 1000) / m_baudrate);
+}
+
 int XbeeLoader::receiveData(uint8_t *buf, int len)
 {
     return m_xbee.receiveSerialData(buf, len);

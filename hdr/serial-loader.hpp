@@ -34,12 +34,15 @@ protected:
     int setBaudRate(int baudrate);
     int generateResetSignal();
     int sendData(const uint8_t *buf, int len);
+    void pauseForVerification(int byteCount);
+    void pauseForChecksum(int byteCount);
     int receiveData(uint8_t *buf, int len);
     int receiveDataTimeout(uint8_t *buf, int len, int timeout);
     int receiveDataExact(uint8_t *buf, int len, int timeout);
     int maxDataSize() { return SERIAL_MAX_DATA_SIZE; }
     static int addPort(const char *port, void *data);
 private:
+    int flushData();
     SERIAL *m_serial;
 };
 
