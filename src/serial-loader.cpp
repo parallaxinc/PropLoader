@@ -65,6 +65,8 @@ void SerialLoader::pauseForVerification(int byteCount)
 
 void SerialLoader::pauseForChecksum(int byteCount)
 {
+    flushData();
+    msleep(100);
 }
 
 int SerialLoader::flushData()
