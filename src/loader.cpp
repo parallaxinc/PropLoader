@@ -433,43 +433,36 @@ int Loader::identify(int *pVersion)
     }
 
     /* reset the Propeller */
-    printf("Reset Propeller\n");
     generateResetSignal();
     
     /* send the identify packet */
-    printf("Send identify packet\n");
     sendData(packet, packetSize);
     
     pauseForVerification(packetSize);
     
     /* send the verification packet (all timing templates) */
-    printf("Send verification packet\n");
     memset(packet2, 0xF9, maxDataSize());
     sendData(packet2, maxDataSize());
     
     pauseForChecksum(sizeof(packet2));
     
     /* receive the handshake response and the hardware version */
-    printf("Receiving response\n");
     cnt = receiveDataExact(packet2, sizeof(rxHandshake) + 4, 2000);
     if (cnt < 0)
         goto fail;
     
     /* verify the handshake response */
-    printf("Verifying response\n");
     if (cnt != sizeof(rxHandshake) + 4 || memcmp(packet2, rxHandshake, sizeof(rxHandshake)) != 0) {
         printf("error: handshake failed\n");
         goto fail;
     }
     
     /* verify the hardware version */
-    printf("Checking hardware version\n");
     version = 0;
     for (i = sizeof(rxHandshake); i < cnt; ++i)
         version = ((version >> 2) & 0x3F) | ((packet2[i] & 0x01) << 6) | ((packet2[i] & 0x20) << 2);
     
     /* return successfully */
-    printf("Found Propeller version %d\n", version);
     *pVersion = version;
     return 0;
     

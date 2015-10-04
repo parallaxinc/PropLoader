@@ -11,7 +11,7 @@
 #define DEF_APP_SERVICE_PORT    0xBEE
 #define DEF_SERIAL_SERVICE_PORT 0x2616
 #define DEF_DISCOVER_RETRIES    4
-#define DEF_DISCOVER_TIMEOUT    2000
+#define DEF_DISCOVER_TIMEOUT    300
 
 class XbeeAddr {
 public:
