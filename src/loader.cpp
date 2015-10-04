@@ -414,46 +414,6 @@ uint8_t *Loader::generateInitialLoaderPacket(int packetID, int *pLength)
     return GenerateLoaderPacket(loaderImage, sizeof(rawLoaderImage), pLength);
 }
 
-int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int *pResult, int timeout)
-{
-    int packetSize = 2*sizeof(uint32_t) + payloadSize;
-    uint8_t *packet, response[8];
-    int retries, result, cnt;
-    int32_t tag;
-    
-    /* build the packet to transmit */
-    if (!(packet = (uint8_t *)malloc(packetSize)))
-        return -1;
-    setLong(&packet[0], id);
-    memcpy(&packet[8], payload, payloadSize);
-    
-    /* send the packet */
-    retries = 3;
-    while (--retries >= 0) {
-    
-        /* setup the packet header */
-        tag = (int32_t)rand();
-        setLong(&packet[4], tag);
-        sendData(packet, packetSize);
-    
-        /* receive the response */
-        cnt = receiveDataExact(response, sizeof(response), timeout);
-        result = getLong(&response[0]);
-        if (cnt == 8 && getLong(&response[4]) == tag && result != id) {
-            free(packet);
-            *pResult = result;
-            return 0;
-        }
-    }
-    
-    /* free the packet */
-    free(packet);
-    
-    /* return timeout */
-    printf("error: transmitPacket failed\n");
-    return -1;
-}
-
 void Loader::setBaudrate(int baudrate)
 {
     m_baudrate = baudrate;
@@ -473,34 +433,43 @@ int Loader::identify(int *pVersion)
     }
 
     /* reset the Propeller */
+    printf("Reset Propeller\n");
     generateResetSignal();
     
     /* send the identify packet */
+    printf("Send identify packet\n");
     sendData(packet, packetSize);
     
     pauseForVerification(packetSize);
     
     /* send the verification packet (all timing templates) */
+    printf("Send verification packet\n");
     memset(packet2, 0xF9, maxDataSize());
     sendData(packet2, maxDataSize());
     
     pauseForChecksum(sizeof(packet2));
     
     /* receive the handshake response and the hardware version */
+    printf("Receiving response\n");
     cnt = receiveDataExact(packet2, sizeof(rxHandshake) + 4, 2000);
+    if (cnt < 0)
+        goto fail;
     
     /* verify the handshake response */
+    printf("Verifying response\n");
     if (cnt != sizeof(rxHandshake) + 4 || memcmp(packet2, rxHandshake, sizeof(rxHandshake)) != 0) {
         printf("error: handshake failed\n");
         goto fail;
     }
     
     /* verify the hardware version */
+    printf("Checking hardware version\n");
     version = 0;
     for (i = sizeof(rxHandshake); i < cnt; ++i)
         version = ((version >> 2) & 0x3F) | ((packet2[i] & 0x01) << 6) | ((packet2[i] & 0x20) << 2);
     
     /* return successfully */
+    printf("Found Propeller version %d\n", version);
     *pVersion = version;
     return 0;
     
@@ -671,9 +640,9 @@ int Loader::loadTinyImage(const uint8_t *image, int imageSize)
 
 int Loader::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
 {
-    uint8_t *packet, packet2[MAX_BUFFER_SIZE];
+    uint8_t *packet, response[8];
+    int packetSize, result, cnt, i;
     int32_t packetID, checksum;
-    int packetSize, cnt, i;
     
     /* compute the packet ID (number of packets to be sent) */
     packetID = (imageSize + maxDataSize() - 1) / maxDataSize();
@@ -695,12 +664,10 @@ int Loader::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
         return -1;
             
     //printf("Waiting for second-stage loader initial response\n");
-    cnt = receiveDataTimeout(packet2, sizeof(packet2), 2000);
-    if (cnt != 8 || getLong(packet2) != packetID) {
-        printf("error: second-stage loader failed to start - cnt %d, packetID: expected %d, got %d\n", cnt, packetID, getLong(packet2));
-        for (i = 0; i < cnt; ++i)
-            printf(" %02x\n", packet2[i]);
-        printf("\n");
+    cnt = receiveDataExact(response, sizeof(response), 2000);
+    result = getLong(&response[0]);
+    if (cnt != 8 || result != packetID) {
+        printf("error: second-stage loader failed to start - cnt %d, packetID %d, result %d\n", cnt, packetID, result);
         return -1;
     }
     //printf("Got initial second-stage loader response\n");
@@ -709,7 +676,6 @@ int Loader::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
     setBaudRate(FINAL_BAUD);
     
     /* transmit the image */
-    int result;
     while (imageSize > 0) {
         int size;
         if ((size = imageSize) > maxDataSize())
@@ -751,6 +717,46 @@ int Loader::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
     
     /* return successfully */
     return 0;
+}
+
+int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int *pResult, int timeout)
+{
+    int packetSize = 2*sizeof(uint32_t) + payloadSize;
+    uint8_t *packet, response[8];
+    int retries, result, cnt;
+    int32_t tag;
+    
+    /* build the packet to transmit */
+    if (!(packet = (uint8_t *)malloc(packetSize)))
+        return -1;
+    setLong(&packet[0], id);
+    memcpy(&packet[8], payload, payloadSize);
+    
+    /* send the packet */
+    retries = 3;
+    while (--retries >= 0) {
+    
+        /* setup the packet header */
+        tag = (int32_t)rand();
+        setLong(&packet[4], tag);
+        sendData(packet, packetSize);
+    
+        /* receive the response */
+        cnt = receiveDataExact(response, sizeof(response), timeout);
+        result = getLong(&response[0]);
+        if (cnt == 8 && getLong(&response[4]) == tag && result != id) {
+            free(packet);
+            *pResult = result;
+            return 0;
+        }
+    }
+    
+    /* free the packet */
+    free(packet);
+    
+    /* return timeout */
+    printf("error: transmitPacket failed\n");
+    return -1;
 }
 
 int Loader::loadSecondStageLoader(uint8_t *packet, int packetSize)

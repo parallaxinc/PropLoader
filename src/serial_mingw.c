@@ -232,7 +232,7 @@ int ReceiveSerialDataTimeout(SERIAL *serial, void *buf, int len, int timeout)
     }
     
     if (dwBytes == 0) {
-        printf("Timeout 1\n");
+        //printf("Timeout 1\n");
         return -1;
     }
     
@@ -262,7 +262,7 @@ int ReceiveSerialDataExact(SERIAL *serial, void *buf, int len, int timeout)
         
         /* check for a timeout */
         if (dwBytes == 0) {
-            printf("Timeout %d %d\n", len, remaining);
+            //printf("Timeout %d %d\n", len, remaining);
             return -1;
         }
                     

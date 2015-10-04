@@ -306,5 +306,5 @@ int Xbee::receiveSerialData(void *buf, int len)
 
 int Xbee::receiveSerialDataTimeout(void *buf, int len, int timeout)
 {
-    return ReceiveSocketData(m_serialService, buf, len);
+    return ReceiveSocketDataTimeout(m_serialService, buf, len, timeout);
 }

@@ -103,7 +103,7 @@ int XbeeLoader::receiveDataTimeout(uint8_t *buf, int len, int timeout)
 
 int XbeeLoader::receiveDataExact(uint8_t *buf, int len, int timeout)
 {
-    return m_xbee.receiveSerialData(buf, len);
+    return m_xbee.receiveSerialDataTimeout(buf, len, timeout);
 }
 
 void XbeeLoader::terminal(bool checkForExit, bool pstMode)
