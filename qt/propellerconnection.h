@@ -18,6 +18,7 @@ public:
     virtual void pauseForVerification(int byteCount) = 0;
     virtual int receiveDataTimeout(uint8_t *buf, int len, int timeout) = 0;
     virtual int receiveDataExactTimeout(uint8_t *buf, int len, int timeout) = 0;
+    virtual int receiveChecksumAck(int byteCount) = 0;
 };
 
 #endif // PROPELLERCONNECTION_H

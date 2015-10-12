@@ -1,6 +1,12 @@
 #include <QThread>
 #include "serialpropellerconnection.h"
 
+// number of milliseconds to pause while Propeller loader calculates the checksum
+#define CHECKSUM_PAUSE  200
+
+// number of milliseconds between attempts to read the checksum ack
+#define CALIBRATE_PAUSE 10
+
 SerialPropellerConnection::SerialPropellerConnection()
 {
 }
@@ -113,5 +119,23 @@ int SerialPropellerConnection::receiveDataExactTimeout(uint8_t *buf, int len, in
 
     /* return the full size of the buffer */
     return len;
+}
+
+int SerialPropellerConnection::receiveChecksumAck(int byteCount)
+{
+    static uint8_t calibrate[1] = { 0xF9 };
+    int msSendTime = (byteCount * 10 * 1000) / m_baudRate;
+    int retries = (msSendTime / CALIBRATE_PAUSE) | (CHECKSUM_PAUSE / CALIBRATE_PAUSE);
+    uint8_t buf[1];
+    int cnt;
+
+    do {
+        sendData(calibrate, sizeof(calibrate));
+        cnt = receiveDataExactTimeout(buf, 1, CALIBRATE_PAUSE);
+        if (cnt == 1)
+            return buf[0] == 0xFE ? 0 : -1;
+    } while (--retries >= 0);
+
+    return -1;
 }
 

@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
     }
 
     PropellerLoader loader(connection);
-    if (loader.load(file.data()) != 0) {
+    if (loader.load(file.data(), ltDownloadAndRun) != 0) {
         printf("Loading %s failed\n", file.data());
         return 1;
     }

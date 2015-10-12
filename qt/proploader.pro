@@ -10,10 +10,12 @@ TEMPLATE = app
 HEADERS += \
     propellerloader.h \
     propellerconnection.h \
-    serialpropellerconnection.h
+    serialpropellerconnection.h \
+    loadelf.h
 
 SOURCES += \
     main.cpp \
     propellerloader.cpp \
     propellerconnection.cpp \
-    serialpropellerconnection.cpp
+    serialpropellerconnection.cpp \
+    loadelf.c
