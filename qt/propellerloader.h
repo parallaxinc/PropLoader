@@ -10,8 +10,8 @@
 enum LoadType {
     ltNone = 0,
     ltDownloadAndRun = (1 << 0),
-    ltDownloadAndProgramEeprom = (1 << 1),
-    ltDownloadAndProgramEepromAndRun = ltDownloadAndRun | ltDownloadAndProgramEeprom
+    ltDownloadAndProgram = (1 << 1),
+    ltDownloadAndProgramAndRun = ltDownloadAndRun | ltDownloadAndProgram
 };
 
 class PropellerLoader : public QObject
@@ -28,7 +28,7 @@ private:
     uint8_t *loadSpinBinaryFile(FILE *fp, int *pLength);
     uint8_t *loadElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize);
     static void generateIdentifyPacket(QByteArray &packet);
-    static void generateLoaderPacket(QByteArray &packet, const uint8_t *image, int imageSize);
+    static int generateLoaderPacket(QByteArray &packet, const uint8_t *image, int imageSize, LoadType loadType);
     static void encodeBytes(QByteArray &packet, const uint8_t *inBytes, int inCount);
 
     PropellerConnection &m_connection;

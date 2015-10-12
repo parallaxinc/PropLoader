@@ -141,25 +141,6 @@ PropellerLoader::~PropellerLoader()
 {
 }
 
-#if 0
-int PropellerLoader::load(const char *fileName)
-{
-    QFile file(fileName);
-    file.open(QIODevice::ReadOnly);
-
-    int imageSize = (int)file.size();
-    uint8_t *image = new uint8_t [imageSize];
-    file.read((char *)image, imageSize);
-    file.close();
-
-    int err = load(image, imageSize);
-
-    delete image;
-
-    return err;
-}
-#endif
-
 int PropellerLoader::load(const char *file, LoadType loadType)
 {
     int imageSize, sts;
@@ -309,7 +290,8 @@ int PropellerLoader::load(uint8_t *image, int size, LoadType loadType)
     int version, cnt, i;
 
     /* generate a single packet containing the tx handshake and the image to load */
-    generateLoaderPacket(packet, image, size);
+    if (generateLoaderPacket(packet, image, size, loadType) != 0)
+        return -1;
 
     /* reset the Propeller */
     m_connection.generateResetSignal();
@@ -345,8 +327,8 @@ int PropellerLoader::load(uint8_t *image, int size, LoadType loadType)
     }
 
     /* receive and verify the checksum */
-    //printf("Receive checksum\n");
-    if (m_connection.receiveChecksumAck(packet.size()) != 0)
+    printf("Receive checksum\n");
+    if (m_connection.receiveChecksumAck(packet.size(), 250) != 0)
         return -1;
 #if 0
     cnt = m_connection.receiveDataExactTimeout(buf, 1, 2000);
@@ -356,8 +338,22 @@ int PropellerLoader::load(uint8_t *image, int size, LoadType loadType)
     }
 #endif
 
+    /* wait for eeprom programming and verification */
+    if (loadType == ltDownloadAndProgram || loadType == ltDownloadAndProgramAndRun) {
+
+printf("Receive EEPROM programming ACK\n");
+        /* wait for an ACK indicating a successful EEPROM programming */
+        if (m_connection.receiveChecksumAck(0, 5000) != 0)
+            return -1;
+
+printf("Receive EEPROM verification ACK\n");
+        /* wait for an ACK indicating a successful EEPROM verification */
+        if (m_connection.receiveChecksumAck(0, 2000) != 0)
+            return -1;
+    }
+
     /* return successfully */
-    //printf("Load completed\n");
+    printf("Load completed\n");
     return 0;
 }
 
@@ -371,7 +367,7 @@ void PropellerLoader::generateIdentifyPacket(QByteArray &packet)
     packet.append((char *)shutdownCmd, sizeof(shutdownCmd));
 }
 
-void PropellerLoader::generateLoaderPacket(QByteArray &packet, const uint8_t *image, int imageSize)
+int PropellerLoader::generateLoaderPacket(QByteArray &packet, const uint8_t *image, int imageSize, LoadType loadType)
 {
     int imageSizeInLongs = (imageSize + 3) / 4;
     int tmp, i;
@@ -381,7 +377,21 @@ void PropellerLoader::generateLoaderPacket(QByteArray &packet, const uint8_t *im
 
     /* copy the handshake image and the command to the packet */
     packet.append((char *)txHandshake, sizeof(txHandshake));
-    packet.append((char *)loadRunCmd, sizeof(loadRunCmd));
+
+    /* append the loader command */
+    switch (loadType) {
+    case ltDownloadAndRun:
+        packet.append((char *)loadRunCmd, sizeof(loadRunCmd));
+        break;
+    case ltDownloadAndProgram:
+        packet.append((char *)programShutdownCmd, sizeof(loadRunCmd));
+        break;
+    case ltDownloadAndProgramAndRun:
+        packet.append((char *)programRunCmd, sizeof(loadRunCmd));
+        break;
+    default:
+        return -1;
+    }
 
     /* add the image size in longs */
     tmp = imageSizeInLongs;
@@ -392,6 +402,9 @@ void PropellerLoader::generateLoaderPacket(QByteArray &packet, const uint8_t *im
 
     /* encode the image and insert it into the packet */
     encodeBytes(packet, image, imageSize);
+
+    /* return successfully */
+    return 0;
 }
 
 /* encodeBytes
