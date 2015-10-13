@@ -33,6 +33,7 @@
 
 #include <QTextStream>
 #include <QCoreApplication>
+#include <QCommandLineParser>
 #include <QStringList>
 
 #include "serialpropellerconnection.h"
@@ -42,29 +43,46 @@ QT_USE_NAMESPACE
 
 int main(int argc, char *argv[])
 {
-    QCoreApplication coreApplication(argc, argv);
-    int argumentCount = QCoreApplication::arguments().size();
-    QStringList argumentList = QCoreApplication::arguments();
+    QCoreApplication app(argc, argv);
+    QString port, file;
 
-    QTextStream standardOutput(stdout);
+    QCommandLineParser parser;
 
-    if (argumentCount != 3) {
-        standardOutput << QObject::tr("Usage: %1 <port> <file>").arg(argumentList.first()) << endl;
-        return 1;
+    parser.addPositionalArgument("file", QCoreApplication::translate("main", "File to load."));
+
+    QCommandLineOption portOption(QStringList() << "p" << "port",
+            QCoreApplication::translate("main", "Serial port."),
+            QCoreApplication::translate("main", "port"));
+    parser.addOption(portOption);
+
+    parser.process(app);
+
+    if (parser.isSet(portOption))
+        port = parser.value(portOption);
+    else {
+        QStringList ports(SerialPropellerConnection::availablePorts("/dev/cu.usbserial"));
+        if (ports.size() < 1) {
+            printf("No ports found\n");
+            return 1;
+        }
+        port = ports[0];
     }
 
-    QByteArray port(argumentList.at(1).toLocal8Bit());
-    QByteArray file(argumentList.at(2).toLocal8Bit());
+    if (parser.positionalArguments().size() != 1)
+        parser.showHelp();
+    file = parser.positionalArguments()[0];
 
+    printf("Opening %s\n", port.toLatin1().data());
     SerialPropellerConnection connection;
-    if (connection.open(port.data(), 115200) != 0) {
-        printf("Opening %s failed\n", port.data());
+    if (connection.open(port.toLatin1().data(), 115200) != 0) {
+        printf("Opening %s failed\n", port.toLatin1().data());
         return 1;
     }
 
+    printf("Loading %s\n", file.toLatin1().data());
     PropellerLoader loader(connection);
-    if (loader.load(file.data(), ltDownloadAndRun) != 0) {
-        printf("Loading %s failed\n", file.data());
+    if (loader.load(file.toLatin1().data(), ltDownloadAndRun) != 0) {
+        printf("Loading %s failed\n", file.toLatin1().data());
         return 1;
     }
 

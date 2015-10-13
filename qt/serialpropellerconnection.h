@@ -2,6 +2,8 @@
 #define SERIALPROPELLERCONNECTION_H
 
 #include <QSerialPort>
+#include <QSerialPortInfo>
+#include <QStringList>
 #include "propellerconnection.h"
 
 class SerialPropellerConnection : public PropellerConnection
@@ -22,7 +24,7 @@ public:
     int receiveDataTimeout(uint8_t *buf, int len, int timeout);
     int receiveDataExactTimeout(uint8_t *buf, int len, int timeout);
     int receiveChecksumAck(int byteCount, int delay);
-
+    static QStringList availablePorts(const char *prefix);
 private:
     QSerialPort m_serialPort;
     int m_baudRate;

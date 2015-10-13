@@ -13,6 +13,20 @@ SerialPropellerConnection::SerialPropellerConnection(const char *port, int baudR
     open(port, baudRate);
 }
 
+QStringList SerialPropellerConnection::availablePorts(const char *prefix)
+{
+    QList<QSerialPortInfo> ports = QSerialPortInfo::availablePorts();
+    QStringList portNames;
+
+    for (int i = 0; i < ports.size(); ++i) {
+        QString name = ports[i].systemLocation();
+        if (name.startsWith(prefix))
+            portNames.append(name);
+    }
+
+    return portNames;
+}
+
 int SerialPropellerConnection::open(const char *port, int baudRate)
 {
     if (isOpen())
@@ -28,10 +42,10 @@ int SerialPropellerConnection::open(const char *port, int baudRate)
 
     m_serialPort.open(QIODevice::ReadWrite);
 
-    m_serialPort.isOpen();
-
-    m_serialPort.setBreakEnabled(false);
-    m_serialPort.setDataTerminalReady(false);
+    if (m_serialPort.isOpen()) {
+        m_serialPort.setBreakEnabled(false);
+        m_serialPort.setDataTerminalReady(false);
+    }
 
     return m_serialPort.isOpen() ? 0 : -1;
 }
