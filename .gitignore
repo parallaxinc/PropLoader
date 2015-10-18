@@ -3,3 +3,5 @@
 *.elf
 obj/
 bin/
+build-proploader-*
+qt/proploader.pro.user*
