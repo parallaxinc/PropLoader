@@ -38,6 +38,7 @@
 
 #include "serialpropellerconnection.h"
 #include "propellerloader.h"
+#include "fastpropellerloader.h"
 
 QT_USE_NAMESPACE
 
@@ -80,9 +81,16 @@ int main(int argc, char *argv[])
     }
 
     printf("Loading %s\n", file.toLatin1().data());
-    PropellerLoader loader(connection);
-    if (loader.load(file.toLatin1().data(), ltDownloadAndRun) != 0) {
-        printf("Loading %s failed\n", file.toLatin1().data());
+
+    PropellerImage image;
+    if (image.load(file.toLatin1().data()) != 0) {
+        printf("error: reading '%s'\n", file.toLatin1().data());
+        return 1;
+    }
+
+    FastPropellerLoader loader(connection);
+    if (loader.load(image, ltDownloadAndRun) != 0) {
+        printf("error: loading '%s'\n", file.toLatin1().data());
         return 1;
     }
 

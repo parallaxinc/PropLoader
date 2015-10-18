@@ -24,6 +24,8 @@ public:
     int receiveDataTimeout(uint8_t *buf, int len, int timeout);
     int receiveDataExactTimeout(uint8_t *buf, int len, int timeout);
     int receiveChecksumAck(int byteCount, int delay);
+    int setBaudRate(int baudRate);
+    int maxDataSize() { return 1024; }
     static QStringList availablePorts(const char *prefix);
 private:
     QSerialPort m_serialPort;

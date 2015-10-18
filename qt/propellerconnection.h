@@ -19,6 +19,8 @@ public:
     virtual int receiveDataTimeout(uint8_t *buf, int len, int timeout) = 0;
     virtual int receiveDataExactTimeout(uint8_t *buf, int len, int timeout) = 0;
     virtual int receiveChecksumAck(int byteCount, int delay) = 0;
+    virtual int setBaudRate(int baudRate) = 0;
+    virtual int maxDataSize() = 0;
 };
 
 #endif // PROPELLERCONNECTION_H

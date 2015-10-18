@@ -11,11 +11,15 @@ HEADERS += \
     propellerloader.h \
     propellerconnection.h \
     serialpropellerconnection.h \
-    loadelf.h
+    loadelf.h \
+    fastpropellerloader.h \
+    propellerimage.h
 
 SOURCES += \
     main.cpp \
     propellerloader.cpp \
     propellerconnection.cpp \
     serialpropellerconnection.cpp \
-    loadelf.c
+    loadelf.c \
+    fastpropellerloader.cpp \
+    propellerimage.cpp

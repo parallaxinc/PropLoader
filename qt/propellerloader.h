@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <QObject>
 #include <QByteArray>
+#include "propellerimage.h"
 #include "propellerconnection.h"
 #include "loadelf.h"
 
@@ -21,18 +22,14 @@ class PropellerLoader : public QObject
 public:
     PropellerLoader(PropellerConnection &connection);
     ~PropellerLoader();
-    int load(const char *fileName, LoadType loadType);
-    int load(uint8_t *image, int size, LoadType loadType);
+    int load(PropellerImage &image, LoadType loadType);
 
 private:
-    uint8_t *loadSpinBinaryFile(FILE *fp, int *pLength);
-    uint8_t *loadElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize);
     static void generateIdentifyPacket(QByteArray &packet);
     static int generateLoaderPacket(QByteArray &packet, const uint8_t *image, int imageSize, LoadType loadType);
     static void encodeBytes(QByteArray &packet, const uint8_t *inBytes, int inCount);
 
     PropellerConnection &m_connection;
-    int m_baudRate;
 };
 
 #endif // PROPELLERLOADER_H
