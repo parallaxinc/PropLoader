@@ -152,7 +152,10 @@ int SerialPropellerConnection::receiveChecksumAck(int byteCount, int delay)
 
 int SerialPropellerConnection::setBaudRate(int baudRate)
 {
-    return m_serialPort.setBaudRate(baudRate) ? 0 : -1;
+    if (!m_serialPort.setBaudRate(baudRate))
+        return -1;
+    m_baudRate = baudRate;
+    return 0;
 }
 
 

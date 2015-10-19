@@ -3,7 +3,8 @@
 
 #include "fastpropellerloader.h"
 
-#define FINAL_BAUD              921600      /* Final XBee-to-Propeller baud rate. */
+//#define FINAL_BAUD              921600      /* Final XBee-to-Propeller baud rate. */
+#define FINAL_BAUD              115200      /* Final XBee-to-Propeller baud rate. */
 #define MAX_RX_SENSE_ERROR      23          /* Maximum number of cycles by which the detection of a start bit could be off (as affected by the Loader code) */
 
 // Offset (in bytes) from end of Loader Image pointing to where most host-initialized values exist.
@@ -129,14 +130,15 @@ int FastPropellerLoader::load(PropellerImage &image, LoadType loadType)
     }
 
     /* switch to the final baud rate */
-    m_connection.setBaudRate(FINAL_BAUD);
+    if (m_connection.setBaudRate(FINAL_BAUD) != 0)
+        return -1;
 
     /* transmit the image */
     uint8_t *p = imageData;
     int remaining = imageSize;
     while (remaining > 0) {
         int size;
-        printf("Sending packet %d\n", packetID);
+        //printf("Sending packet %d\n", packetID);
         if ((size = remaining) > maxDataSize())
             size = maxDataSize();
         if (transmitPacket(packetID, p, size, &result) != 0) {
@@ -207,10 +209,6 @@ int FastPropellerLoader::transmitPacket(int id, const uint8_t *payload, int payl
         /* receive the response */
         cnt = m_connection.receiveDataExactTimeout(response, sizeof(response), timeout);
         result = getLong(&response[0]);
-        for (int i = 0; i < 8; ++i)
-            printf(" %02x", response[i]);
-        printf("\n");
-        printf("id %d, cnt %d, result %d (%08x)\n", id, cnt, result, result);
         if (cnt == 8 && getLong(&response[4]) == tag && result != id) {
             free(packet);
             *pResult = result;
