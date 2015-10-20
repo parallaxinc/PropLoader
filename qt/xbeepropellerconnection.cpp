@@ -1,9 +1,13 @@
 #include <netinet/in.h>
+#include <QAbstractSocket>
+#include <QHostInfo>
+#include <QThread>
 #include "xbeepropellerconnection.h"
 
 #define APP_SERVICE_PORT    0xBEE
 #define SERIAL_SERVICE_PORT 0x2616
 #define XBEE_MAX_DATA_SIZE  1020
+#define CHKSUM_VERIFY_SIZE  1024
 
 typedef enum {
     serialUDP = 0,
@@ -58,7 +62,7 @@ static const char *atCmd[] = {
     /* xbIO2Timer */          "T2",  /* [Rb/Wb] I/O 2 state timer (100 ms units; $0..$1770) */
     /* xbIO4Timer */          "T4",  /* [Rb/Wb] I/O 4 state timer (100 ms units; $0..$1770) */
     /* xbSerialMode */        "AP",  /* [Rb/Wb] Serial mode (0=Transparent, 1=API wo/Escapes, 2=API w/Escapes) */
-    /* xbSerialBaud */        "BD",  /* [Rb/Wb] serial baud rate ($1=2400, $2=4800, $3=9600, $4=19200, $5=38400, $6=57600, $7=115200, $8=230400, $9=460800, $A=921600) */
+    /* xbSerialBaud */        "BD",  /* [Rb/Wb] serial baud rate ($1=2400, $2=4800, $3=9600, $4=19200, $5=38400, $6=57600, $7=INITIAL_BAUD_RATE, $8=230400, $9=460800, $A=921600) */
     /* xbSerialParity */      "NB",  /* [Rb/Wb] serial parity ($0=none, $1=even, $2=odd) */
     /* xbSerialStopBits */    "SB",  /* [Rb/Wb] serial stop bits ($0=one stop bit, $1=two stop bits) */
     /* xbRTSFlow */           "D6",  /* [Rb/Wb] RTS flow control pin (3-bits; 0=Disabled, 1=RTS Flow Control, 2=<undefined>, 3=Digital input, 4=Digital output low, 5=Digital output high) */
@@ -70,21 +74,48 @@ static const char *atCmd[] = {
 };
 
 XbeePropellerConnection::XbeePropellerConnection()
+    : m_baudRate(INITIAL_BAUD_RATE)
 {
 }
 
-XbeePropellerConnection::XbeePropellerConnection(const QString & hostName, int baudRate)
+XbeePropellerConnection::XbeePropellerConnection(const QString &hostName, int baudRate)
+    : m_baudRate(baudRate)
 {
-    m_appService.connectToHost(hostName, APP_SERVICE_PORT);
-    m_serialService.bind(SERIAL_SERVICE_PORT);
+    open(hostName, baudRate);
 }
 
 XbeePropellerConnection::~XbeePropellerConnection()
 {
 }
 
+int XbeePropellerConnection::open(const QString &hostName, int baudRate)
+{
+    QHostInfo hostInfo = QHostInfo::fromName(hostName);
+    QList<QHostAddress> addresses = hostInfo.addresses();
+
+    if (addresses.length() <= 0)
+        return -1;
+
+    QHostAddress address = addresses.first();
+    if (address.protocol() != QAbstractSocket::IPv4Protocol)
+        return -1;
+
+    m_addr = addresses.first().toIPv4Address();
+    printf("m_addr %08x\n", m_addr);
+
+    if (isOpen())
+        close();
+
+    m_appService.connectToHost(hostName, APP_SERVICE_PORT);
+    m_serialService.bind(SERIAL_SERVICE_PORT);
+    m_baudRate = baudRate;
+
+    return 0;
+}
+
 bool XbeePropellerConnection::isOpen()
 {
+    return true;
 }
 
 int XbeePropellerConnection::close()
@@ -123,10 +154,6 @@ int XbeePropellerConnection::sendData(const uint8_t *buf, int len)
     return m_appService.write(packet);
 }
 
-void XbeePropellerConnection::pauseForVerification(int byteCount)
-{
-}
-
 int XbeePropellerConnection::receiveDataTimeout(uint8_t *buf, int len, int timeout)
 {
     if (!m_appService.waitForReadyRead(timeout))
@@ -136,10 +163,33 @@ int XbeePropellerConnection::receiveDataTimeout(uint8_t *buf, int len, int timeo
 
 int XbeePropellerConnection::receiveDataExactTimeout(uint8_t *buf, int len, int timeout)
 {
+    if (!m_appService.waitForReadyRead(timeout))
+        return -1;
+    return m_appService.read((char *)buf, len) == len ? len : -1;
 }
 
 int XbeePropellerConnection::receiveChecksumAck(int byteCount, int delay)
 {
+    uint8_t packet[1];
+    int cnt;
+
+    /* wait for the Xbee to send the download to the Propeller */
+    QThread::msleep((byteCount * 10 * 1000) / m_baudRate + delay);
+
+    /* prompt the Propeller to send the checksum verification */
+    QByteArray verify(CHKSUM_VERIFY_SIZE, 0xF9);
+    sendData((uint8_t *)verify.data(), verify.size());
+
+    /* verify the checksum */
+    //printf("Receive checksum\n");
+    cnt = receiveDataExactTimeout(packet, sizeof(packet), 2000);
+    if (cnt != 1 || packet[0] != 0xFE) {
+        printf("error: loader checksum failed\n");
+        return -1;
+    }
+
+    /* return successfully */
+    return 0;
 }
 
 int XbeePropellerConnection::setBaudRate(int baudRate)

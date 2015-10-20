@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    XbeePropellerConnection xbeeConnection("10.0.1.88");
+    //XbeePropellerConnection xbeeConnection("10.0.1.88");
 
     printf("Loading %s\n", file.toLatin1().data());
 
@@ -92,6 +92,7 @@ int main(int argc, char *argv[])
     }
 
     FastPropellerLoader loader(connection);
+    //FastPropellerLoader loader(xbeeConnection);
     if (loader.load(image, ltDownloadAndRun) != 0) {
         printf("error: loading '%s'\n", file.toLatin1().data());
         return 1;

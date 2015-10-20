@@ -3,7 +3,17 @@
 
 #include "propellerloader.h"
 
+#define DEBUG
+
 #define LENGTH_FIELD_SIZE       11          /* number of bytes in the length field */
+
+#ifdef DEBUG
+#define INFO(fmt, args...)  do { printf(fmt, ##args); } while (0)
+#else
+#define INFO(fmt, args...)
+#endif
+
+#define ERROR(fmt, args...) do { printf("error: " fmt, ##args); } while (0)
 
 // Propeller Download Stream Translator array.  Index into this array using the "Binary Value" (usually 5 bits) to translate,
 // the incoming bit size (again, usually 5), and the desired data element to retrieve (encoding = translation, bitCount = bit count
@@ -154,66 +164,56 @@ int PropellerLoader::load(PropellerImage &image, LoadType loadType)
         return -1;
 
     /* reset the Propeller */
+    INFO("Reset Propeller\n");
     m_connection.generateResetSignal();
 
     /* send the packet */
-    //printf("Send second-stage loader image\n");
+    INFO("Send image\n");
     m_connection.sendData((uint8_t *)packet.data(), packet.size());
 
-    /* pause while the transfer occurs */
-    m_connection.pauseForVerification(packet.size());
-
-    /* send the verification packet (all timing templates) */
-    //printf("Send verification packet\n");
-//    m_connection.sendData((uint8_t *)verificationPacket.data(), verificationPacket.size());
-
     /* receive the handshake response and the hardware version */
-    //printf("Receive handshake response\n");
+    INFO("Receive handshake response");
     cnt = m_connection.receiveDataExactTimeout(buf, sizeof(rxHandshake) + 4, 2000);
+    INFO(" -- got %d bytes\n", cnt);
 
     /* verify the rx handshake */
+    INFO("Verify handshake response\n");
     if (cnt != sizeof(rxHandshake) + 4 || memcmp(buf, rxHandshake, sizeof(rxHandshake)) != 0) {
-        printf("error: handshake failed\n");
+        ERROR("handshake failed\n");
         return -1;
     }
 
     /* verify the hardware version */
+    INFO("Verify hardware version\n");
     version = 0;
     for (i = sizeof(rxHandshake); i < cnt; ++i)
         version = ((version >> 2) & 0x3F) | ((buf[i] & 0x01) << 6) | ((buf[i] & 0x20) << 2);
     if (version != 1) {
-        printf("error: wrong propeller version\n");
+        ERROR("wrong propeller version\n");
         return -1;
     }
 
     /* receive and verify the checksum */
-    printf("Receive checksum\n");
+    INFO("Receive checksum\n");
     if (m_connection.receiveChecksumAck(packet.size(), 250) != 0)
         return -1;
-#if 0
-    cnt = m_connection.receiveDataExactTimeout(buf, 1, 2000);
-    if (cnt != 1 || buf[0] != 0xFE) {
-        printf("error: loader checksum failed\n");
-        return -1;
-    }
-#endif
 
     /* wait for eeprom programming and verification */
     if (loadType == ltDownloadAndProgram || loadType == ltDownloadAndProgramAndRun) {
 
-printf("Receive EEPROM programming ACK\n");
+        INFO("Receive EEPROM programming ACK\n");
         /* wait for an ACK indicating a successful EEPROM programming */
         if (m_connection.receiveChecksumAck(0, 5000) != 0)
             return -1;
 
-printf("Receive EEPROM verification ACK\n");
+        INFO("Receive EEPROM verification ACK\n");
         /* wait for an ACK indicating a successful EEPROM verification */
         if (m_connection.receiveChecksumAck(0, 2000) != 0)
             return -1;
     }
 
     /* return successfully */
-    printf("Load completed\n");
+    INFO("Load completed\n");
     return 0;
 }
 

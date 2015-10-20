@@ -19,8 +19,6 @@ public:
     int close();
     int generateResetSignal();
     int sendData(const uint8_t *buf, int len);
-    void pauseForVerification(int byteCount);
-    void pauseForChecksum(int byteCount);
     int receiveDataTimeout(uint8_t *buf, int len, int timeout);
     int receiveDataExactTimeout(uint8_t *buf, int len, int timeout);
     int receiveChecksumAck(int byteCount, int delay);

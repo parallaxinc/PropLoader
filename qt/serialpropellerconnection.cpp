@@ -5,6 +5,7 @@
 #define CALIBRATE_PAUSE 10
 
 SerialPropellerConnection::SerialPropellerConnection()
+    : m_baudRate(115200)
 {
 }
 
@@ -84,15 +85,6 @@ int SerialPropellerConnection::sendData(const uint8_t *buf, int len)
     if (!isOpen())
         return -1;
     return m_serialPort.write((char *)buf, len);
-}
-
-void SerialPropellerConnection::pauseForVerification(int byteCount)
-{
-    Q_UNUSED(byteCount);
-    //int msDelay = (byteCount * 10 * 1000) / m_baudRate;
-    //if (isOpen())
-    //    m_serialPort.waitForBytesWritten(msDelay);
-    //QThread::msleep(100);
 }
 
 int SerialPropellerConnection::receiveDataTimeout(uint8_t *buf, int len, int timeout)

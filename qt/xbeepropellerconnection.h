@@ -2,8 +2,10 @@
 #define XBEEPROPELLERCONNECTION_H
 
 #include <QUdpSocket>
-
 #include "propellerconnection.h"
+
+#define INITIAL_BAUD_RATE   115200
+#define FINAL_BAUD_RATE     921600
 
 typedef enum {
     xbData,
@@ -63,13 +65,13 @@ class XbeePropellerConnection : public PropellerConnection
 {
 public:
     XbeePropellerConnection();
-    XbeePropellerConnection(const QString &hostName, int baudRate = 115200);
+    XbeePropellerConnection(const QString &hostName, int baudRate = INITIAL_BAUD_RATE);
     ~XbeePropellerConnection();
+    int open(const QString &hostName, int baudRate = INITIAL_BAUD_RATE);
     bool isOpen();
     int close();
     int generateResetSignal();
     int sendData(const uint8_t *buf, int len);
-    void pauseForVerification(int byteCount);
     int receiveDataTimeout(uint8_t *buf, int len, int timeout);
     int receiveDataExactTimeout(uint8_t *buf, int len, int timeout);
     int receiveChecksumAck(int byteCount, int delay);
