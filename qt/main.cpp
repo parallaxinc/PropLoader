@@ -37,6 +37,7 @@
 #include <QStringList>
 
 #include "serialpropellerconnection.h"
+#include "xbeepropellerconnection.h"
 #include "propellerloader.h"
 #include "fastpropellerloader.h"
 
@@ -79,6 +80,8 @@ int main(int argc, char *argv[])
         printf("Opening %s failed\n", port.toLatin1().data());
         return 1;
     }
+
+    XbeePropellerConnection xbeeConnection("10.0.1.88");
 
     printf("Loading %s\n", file.toLatin1().data());
 

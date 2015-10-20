@@ -2,6 +2,7 @@
 #define PROPELLERCONNECTION_H
 
 #include <stdint.h>
+#include <stdint.h>
 #include <QObject>
 
 class PropellerConnection : public QObject

@@ -1,5 +1,5 @@
 QT = core
-QT += serialport
+QT += serialport network
 
 CONFIG += console
 CONFIG -= app_bundle
@@ -13,7 +13,8 @@ HEADERS += \
     serialpropellerconnection.h \
     loadelf.h \
     fastpropellerloader.h \
-    propellerimage.h
+    propellerimage.h \
+    xbeepropellerconnection.h
 
 SOURCES += \
     main.cpp \
@@ -22,4 +23,5 @@ SOURCES += \
     serialpropellerconnection.cpp \
     loadelf.c \
     fastpropellerloader.cpp \
-    propellerimage.cpp
+    propellerimage.cpp \
+    xbeepropellerconnection.cpp
