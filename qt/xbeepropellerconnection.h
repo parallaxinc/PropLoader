@@ -87,6 +87,7 @@ private:
     int sendRemoteCommand(xbCommand cmd, txPacket *tx, int txCnt, rxPacket *rx, int rxSize);
 
     uint32_t m_addr;
+    uint32_t m_hostAddr;
     QUdpSocket m_appService;
     QUdpSocket m_serialService;
     int m_baudRate;

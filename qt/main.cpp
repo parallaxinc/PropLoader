@@ -43,10 +43,17 @@
 
 QT_USE_NAMESPACE
 
+enum ConnectionType {
+    NoConnection,
+    SerialConnection,
+    XbeeConnection
+};
+
 int main(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
-    QString port, file;
+    QString port, ipaddr, file;
+    ConnectionType connectionType = NoConnection;
 
     QCommandLineParser parser;
 
@@ -57,11 +64,21 @@ int main(int argc, char *argv[])
             QCoreApplication::translate("main", "port"));
     parser.addOption(portOption);
 
+    QCommandLineOption ipOption(QStringList() << "i" << "ip",
+            QCoreApplication::translate("main", "IP address."),
+            QCoreApplication::translate("main", "ip"));
+    parser.addOption(ipOption);
+
     parser.process(app);
 
-#if 0
-    if (parser.isSet(portOption))
+    if (parser.isSet(portOption)) {
         port = parser.value(portOption);
+        connectionType = SerialConnection;
+    }
+    else if (parser.isSet(ipOption)) {
+        ipaddr = parser.value(ipOption);
+        connectionType = XbeeConnection;
+    }
     else {
         QStringList ports(SerialPropellerConnection::availablePorts("/dev/cu.usbserial"));
         if (ports.size() < 1) {
@@ -69,23 +86,38 @@ int main(int argc, char *argv[])
             return 1;
         }
         port = ports[0];
+        connectionType = SerialConnection;
     }
-#endif
 
     if (parser.positionalArguments().size() != 1)
         parser.showHelp();
     file = parser.positionalArguments()[0];
 
-#if 0
-    printf("Opening %s\n", port.toLatin1().data());
-    SerialPropellerConnection connection;
-    if (connection.open(port.toLatin1().data(), 115200) != 0) {
-        printf("Opening %s failed\n", port.toLatin1().data());
+    SerialPropellerConnection serialConnection;
+    XbeePropellerConnection xbeeConnection;
+    PropellerConnection *connection;
+
+    if (connectionType == SerialConnection) {
+        printf("Opening %s\n", port.toLatin1().data());
+        if (serialConnection.open(port.toLatin1().data(), 115200) != 0) {
+            printf("Opening %s failed\n", port.toLatin1().data());
+            return 1;
+        }
+        connection = &serialConnection;
+    }
+
+    else if (connectionType == XbeeConnection) {
+        if (xbeeConnection.open(ipaddr.toLatin1().data()) != 0) {
+            printf("Connection to %s failed\n", ipaddr.toLatin1().data());
+            return 1;
+        }
+        connection = &xbeeConnection;
+    }
+
+    else {
+        printf("error: no connection type\n");
         return 1;
     }
-#endif
-
-    XbeePropellerConnection xbeeConnection("10.0.1.88");
 
     printf("Loading %s\n", file.toLatin1().data());
 
@@ -96,7 +128,7 @@ int main(int argc, char *argv[])
     }
 
     //FastPropellerLoader loader(connection);
-    FastPropellerLoader loader(xbeeConnection);
+    FastPropellerLoader loader(*connection);
     if (loader.load(image, ltDownloadAndRun) != 0) {
         printf("error: loading '%s'\n", file.toLatin1().data());
         return 1;

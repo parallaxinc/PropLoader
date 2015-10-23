@@ -119,6 +119,9 @@ int XbeePropellerConnection::open(const QString &hostName, int baudRate)
     m_serialService.bind(SERIAL_SERVICE_PORT);
     m_baudRate = baudRate;
 
+    QHostAddress localAddress = m_appService.localAddress();
+    m_hostAddr = localAddress.toIPv4Address();
+
     return 0;
 }
 
@@ -239,7 +242,7 @@ int XbeePropellerConnection::validate(xbCommand cmd, int value, bool readOnly)
 int XbeePropellerConnection::enforceXbeeConfiguration()
 {
     if (validate(xbSerialIP, serialUDP, true) != 0              // Ensure XBee's Serial Service uses UDP packets [WRITE DISABLED DUE TO FIRMWARE BUG]
-    ||  validate(xbIPDestination, 0x0a000155, false) != 0    // Ensure Serial-to-IP destination is us (our IP)
+    ||  validate(xbIPDestination, m_hostAddr, false) != 0       // Ensure Serial-to-IP destination is us (our IP)
     ||  validate(xbIPPort, SERIAL_SERVICE_PORT, false) != 0     // Ensure Serial-to-IP port is proper (default, in this case)
     ||  validate(xbOutputMask, 0x7FFF, false) != 0              // Ensure output mask is proper (default, in this case)
     ||  validate(xbRTSFlow, pinEnabled, false) != 0             // Ensure RTS flow pin is enabled (input)
