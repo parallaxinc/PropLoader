@@ -9,7 +9,7 @@
 #define XBEE_MAX_DATA_SIZE  1020
 #define CHKSUM_VERIFY_SIZE  1024
 
-#define DEBUG
+//#define DEBUG
 
 #ifdef DEBUG
 #define INFO(fmt, args...)  do { printf(fmt, ##args); } while (0)

@@ -125,7 +125,6 @@ static int validate(Xbee &xbee, xbCommand cmd, int value, bool readOnly)
 
 int XbeeLoader::enforceXbeeConfiguration(Xbee &xbee)
 {
-printf("host ip %08x\n", ntohl(m_addr.hostAddr()));
     if (validate(xbee, xbSerialIP, serialUDP, true) != 0                        // Ensure XBee's Serial Service uses UDP packets [WRITE DISABLED DUE TO FIRMWARE BUG]
     ||  validate(xbee, xbIPDestination, ntohl(m_addr.hostAddr()), false) != 0   // Ensure Serial-to-IP destination is us (our IP)
     ||  validate(xbee, xbIPPort, DEF_SERIAL_SERVICE_PORT, false) != 0           // Ensure Serial-to-IP port is proper (default, in this case)
