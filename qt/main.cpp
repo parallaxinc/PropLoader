@@ -59,6 +59,7 @@ int main(int argc, char *argv[])
 
     parser.process(app);
 
+#if 0
     if (parser.isSet(portOption))
         port = parser.value(portOption);
     else {
@@ -69,19 +70,22 @@ int main(int argc, char *argv[])
         }
         port = ports[0];
     }
+#endif
 
     if (parser.positionalArguments().size() != 1)
         parser.showHelp();
     file = parser.positionalArguments()[0];
 
+#if 0
     printf("Opening %s\n", port.toLatin1().data());
     SerialPropellerConnection connection;
     if (connection.open(port.toLatin1().data(), 115200) != 0) {
         printf("Opening %s failed\n", port.toLatin1().data());
         return 1;
     }
+#endif
 
-    //XbeePropellerConnection xbeeConnection("10.0.1.88");
+    XbeePropellerConnection xbeeConnection("10.0.1.88");
 
     printf("Loading %s\n", file.toLatin1().data());
 
@@ -91,8 +95,8 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    FastPropellerLoader loader(connection);
-    //FastPropellerLoader loader(xbeeConnection);
+    //FastPropellerLoader loader(connection);
+    FastPropellerLoader loader(xbeeConnection);
     if (loader.load(image, ltDownloadAndRun) != 0) {
         printf("error: loading '%s'\n", file.toLatin1().data());
         return 1;

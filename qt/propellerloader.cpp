@@ -3,9 +3,9 @@
 
 #include "propellerloader.h"
 
-#define DEBUG
-
 #define LENGTH_FIELD_SIZE       11          /* number of bytes in the length field */
+
+#define DEBUG
 
 #ifdef DEBUG
 #define INFO(fmt, args...)  do { printf(fmt, ##args); } while (0)
@@ -165,15 +165,23 @@ int PropellerLoader::load(PropellerImage &image, LoadType loadType)
 
     /* reset the Propeller */
     INFO("Reset Propeller\n");
-    m_connection.generateResetSignal();
+    if (m_connection.generateResetSignal() != 0)
+        return -1;
 
     /* send the packet */
     INFO("Send image\n");
-    m_connection.sendData((uint8_t *)packet.data(), packet.size());
+    if (m_connection.sendData((uint8_t *)packet.data(), packet.size()) != packet.size()) {
+        ERROR("sendData failed\n");
+        return -1;
+    }
 
     /* receive the handshake response and the hardware version */
     INFO("Receive handshake response");
     cnt = m_connection.receiveDataExactTimeout(buf, sizeof(rxHandshake) + 4, 2000);
+    if (cnt == -1) {
+        ERROR("receiveDataExactTimeout failed\n");
+        return -1;
+    }
     INFO(" -- got %d bytes\n", cnt);
 
     /* verify the rx handshake */
@@ -195,21 +203,27 @@ int PropellerLoader::load(PropellerImage &image, LoadType loadType)
 
     /* receive and verify the checksum */
     INFO("Receive checksum\n");
-    if (m_connection.receiveChecksumAck(packet.size(), 250) != 0)
+    if (m_connection.receiveChecksumAck(packet.size(), 250) != 0) {
+        ERROR("checksum verification failed");
         return -1;
+    }
 
     /* wait for eeprom programming and verification */
     if (loadType == ltDownloadAndProgram || loadType == ltDownloadAndProgramAndRun) {
 
         INFO("Receive EEPROM programming ACK\n");
         /* wait for an ACK indicating a successful EEPROM programming */
-        if (m_connection.receiveChecksumAck(0, 5000) != 0)
+        if (m_connection.receiveChecksumAck(0, 5000) != 0) {
+            ERROR("EEPROM programming failed\n");
             return -1;
+        }
 
         INFO("Receive EEPROM verification ACK\n");
         /* wait for an ACK indicating a successful EEPROM verification */
-        if (m_connection.receiveChecksumAck(0, 2000) != 0)
+        if (m_connection.receiveChecksumAck(0, 2000) != 0) {
+            ERROR("EEPROM verification failed\n");
             return -1;
+        }
     }
 
     /* return successfully */

@@ -9,6 +9,16 @@
 #define XBEE_MAX_DATA_SIZE  1020
 #define CHKSUM_VERIFY_SIZE  1024
 
+#define DEBUG
+
+#ifdef DEBUG
+#define INFO(fmt, args...)  do { printf(fmt, ##args); } while (0)
+#else
+#define INFO(fmt, args...)
+#endif
+
+#define ERROR(fmt, args...) do { printf("error: " fmt, ##args); } while (0)
+
 typedef enum {
     serialUDP = 0,
     serialTCP
@@ -101,7 +111,6 @@ int XbeePropellerConnection::open(const QString &hostName, int baudRate)
         return -1;
 
     m_addr = addresses.first().toIPv4Address();
-    printf("m_addr %08x\n", m_addr);
 
     if (isOpen())
         close();
@@ -129,7 +138,10 @@ int XbeePropellerConnection::generateResetSignal()
 {
     if (enforceXbeeConfiguration() != 0)
         return -1;
-    return setItem(xbOutputState, 0x0010);
+    if (setItem(xbOutputState, 0x0010) != 0)
+        return -1;
+    QThread::msleep(20);
+    return 0;
 }
 
 int XbeePropellerConnection::sendData(const uint8_t *buf, int len)
@@ -137,6 +149,7 @@ int XbeePropellerConnection::sendData(const uint8_t *buf, int len)
     int packetSize = sizeof(appHeader) + len;
     QByteArray packet(packetSize, 0);
     appHeader *hdr;
+    int cnt;
 
     /* initialize the app header */
     hdr = (appHeader *)packet.data();
@@ -151,21 +164,27 @@ int XbeePropellerConnection::sendData(const uint8_t *buf, int len)
     packet.replace(sizeof(appHeader), len, (char *)buf, len);
 
     /* send the data to the xbee */
-    return m_appService.write(packet);
+    if ((cnt = m_appService.write(packet)) != packet.size())
+        return -1;
+
+    /* return the number of bytes written (minus the header) */
+    return len;
 }
 
 int XbeePropellerConnection::receiveDataTimeout(uint8_t *buf, int len, int timeout)
 {
-    if (!m_appService.waitForReadyRead(timeout))
+    if (!m_serialService.waitForReadyRead(timeout))
         return -1;
-    return m_appService.read((char *)buf, len);
+    int cnt = m_serialService.readDatagram((char *)buf, len);
+    return cnt;
 }
 
 int XbeePropellerConnection::receiveDataExactTimeout(uint8_t *buf, int len, int timeout)
 {
-    if (!m_appService.waitForReadyRead(timeout))
+    if (!m_serialService.waitForReadyRead(timeout))
         return -1;
-    return m_appService.read((char *)buf, len) == len ? len : -1;
+    int cnt = m_serialService.readDatagram((char *)buf, len);
+    return cnt == len ? len : -1;
 }
 
 int XbeePropellerConnection::receiveChecksumAck(int byteCount, int delay)
@@ -174,17 +193,17 @@ int XbeePropellerConnection::receiveChecksumAck(int byteCount, int delay)
     int cnt;
 
     /* wait for the Xbee to send the download to the Propeller */
-    QThread::msleep((byteCount * 10 * 1000) / m_baudRate + delay);
+    //QThread::msleep((byteCount * 10 * 1000) / m_baudRate + delay);
+    QThread::msleep(delay);
 
     /* prompt the Propeller to send the checksum verification */
     QByteArray verify(CHKSUM_VERIFY_SIZE, 0xF9);
     sendData((uint8_t *)verify.data(), verify.size());
 
     /* verify the checksum */
-    //printf("Receive checksum\n");
     cnt = receiveDataExactTimeout(packet, sizeof(packet), 2000);
     if (cnt != 1 || packet[0] != 0xFE) {
-        printf("error: loader checksum failed\n");
+        ERROR("loader checksum failed\n");
         return -1;
     }
 
@@ -220,7 +239,7 @@ int XbeePropellerConnection::validate(xbCommand cmd, int value, bool readOnly)
 int XbeePropellerConnection::enforceXbeeConfiguration()
 {
     if (validate(xbSerialIP, serialUDP, true) != 0              // Ensure XBee's Serial Service uses UDP packets [WRITE DISABLED DUE TO FIRMWARE BUG]
-    ||  validate(xbIPDestination, ntohl(m_addr), false) != 0    // Ensure Serial-to-IP destination is us (our IP)
+    ||  validate(xbIPDestination, 0x0a000155, false) != 0    // Ensure Serial-to-IP destination is us (our IP)
     ||  validate(xbIPPort, SERIAL_SERVICE_PORT, false) != 0     // Ensure Serial-to-IP port is proper (default, in this case)
     ||  validate(xbOutputMask, 0x7FFF, false) != 0              // Ensure output mask is proper (default, in this case)
     ||  validate(xbRTSFlow, pinEnabled, false) != 0             // Ensure RTS flow pin is enabled (input)
@@ -245,8 +264,15 @@ int XbeePropellerConnection::getItem(xbCommand cmd, int *pValue)
     rxPacket *rx = (rxPacket *)rxBuf;
     int cnt, i;
 
+    INFO("getItem %s\n", atCmd[cmd]);
     if ((cnt = sendRemoteCommand(cmd, tx, sizeof(txPacket), rx, sizeof(rxBuf))) == -1)
         return -1;
+    INFO(" ->");
+#ifdef DEBUG
+    for (i = sizeof(rxPacket); i < cnt; ++i)
+        INFO(" %02x", rxBuf[i]);
+#endif
+    INFO("\n");
 
     *pValue = 0;
     for (i = sizeof(rxPacket); i < cnt; ++i)
@@ -263,10 +289,12 @@ int XbeePropellerConnection::getItem(xbCommand cmd, QString &value)
     rxPacket *rx = (rxPacket *)rxBuf;
     int cnt;
 
+    INFO("getItem %s\n", atCmd[cmd]);
     if ((cnt = sendRemoteCommand(cmd, tx, sizeof(txPacket), rx, sizeof(rxBuf))) == -1)
         return -1;
 
     rxBuf[cnt] = '\0'; // terminate the string
+    INFO(" -- '%s'\n", &rxBuf[sizeof(rxPacket)]);
     value = QString((char *)&rxBuf[sizeof(rxPacket)]);
 
     return 0;
@@ -283,8 +311,10 @@ int XbeePropellerConnection::setItem(xbCommand cmd, int value)
     for (i = 0; i < (int)sizeof(int); ++i)
         txBuf[sizeof(txPacket) + i] = value >> ((sizeof(int) - i - 1) * 8);
 
+    INFO("setItem %s %08x\n", atCmd[cmd], value);
     if ((cnt = sendRemoteCommand(cmd, tx, sizeof(txPacket) + sizeof(int), rx, sizeof(rxBuf))) == -1)
         return -1;
+    INFO("ok\n");
 
     return 0;
 }
