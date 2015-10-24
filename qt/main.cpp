@@ -93,6 +93,16 @@ int main(int argc, char *argv[])
         parser.showHelp();
     file = parser.positionalArguments()[0];
 
+    QSet<uint32_t> modules;
+    XbeePropellerConnection::availableModules(modules, 2000);
+    if (modules.isEmpty())
+        printf("No Xbee Wi-Fi modules found.\n");
+    else {
+        printf("Xbee Wi-Fi modules:\n");
+        for (QSet<uint32_t>::iterator i = modules.begin(); i != modules.end(); ++i)
+            printf(" %08x\n", *i);
+    }
+
     SerialPropellerConnection serialConnection;
     XbeePropellerConnection xbeeConnection;
     PropellerConnection *connection;

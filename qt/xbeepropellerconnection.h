@@ -1,11 +1,14 @@
 #ifndef XBEEPROPELLERCONNECTION_H
 #define XBEEPROPELLERCONNECTION_H
 
+#include <QSet>
 #include <QUdpSocket>
 #include "propellerconnection.h"
 
 #define INITIAL_BAUD_RATE   115200
 #define FINAL_BAUD_RATE     921600
+#define DISCOVER_RETRIES    4
+#define DISCOVER_TIMEOUT    300
 
 typedef enum {
     xbData,
@@ -77,6 +80,7 @@ public:
     int receiveChecksumAck(int byteCount, int delay);
     int setBaudRate(int baudRate);
     int maxDataSize();
+    static int availableModules(QSet<uint32_t> &modules, int timeout);
 
 private:
     int validate(xbCommand cmd, int value, bool readOnly);

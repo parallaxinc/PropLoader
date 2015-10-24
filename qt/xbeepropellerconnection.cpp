@@ -1,5 +1,5 @@
 #include <netinet/in.h>
-#include <QAbstractSocket>
+#include <QUdpSocket>
 #include <QHostInfo>
 #include <QThread>
 #include "xbeepropellerconnection.h"
@@ -98,6 +98,69 @@ XbeePropellerConnection::~XbeePropellerConnection()
 {
 }
 
+int XbeePropellerConnection::availableModules(QSet<uint32_t> &modules, int timeout)
+{
+    uint8_t txBuf[2048]; // BUG: get rid of this magic number!
+    uint8_t rxBuf[2048]; // BUG: get rid of this magic number!
+    int retries = DISCOVER_RETRIES;
+    txPacket *tx = (txPacket *)txBuf;
+    rxPacket *rx = (rxPacket *)rxBuf;
+    QUdpSocket sock;
+    int cnt, i;
+
+    /* build a broadcast packet */
+    tx->hdr.number1 = 0x0000;
+    tx->hdr.number2 = tx->hdr.number1 ^ 0x4242;
+    tx->hdr.packetID = 0;
+    tx->hdr.encryptionPad = 0;
+    tx->hdr.commandID = 0x02;
+    tx->hdr.commandOptions = 0x00;
+    tx->frameID = 0x01;
+    tx->configOptions = 0x02;
+    strncpy(tx->atCommand, "MY", 2);
+
+    /* send the broadcast packets */
+    while (--retries >= 0) {
+        int cnt = sock.writeDatagram((char *)tx, sizeof(txPacket), QHostAddress::Broadcast, APP_SERVICE_PORT);
+        if (cnt != sizeof(txPacket)) {
+            sock.close();
+            return -1;
+        }
+    }
+
+    /* receive Xbee responses */
+    while (sock.waitForReadyRead(timeout)) {
+
+        /* get the next response */
+        if ((cnt = sock.readDatagram((char *)rxBuf, sizeof(rxBuf))) < (int)sizeof(rxPacket)) {
+            sock.close();
+            return -1;
+        }
+
+        /* make sure this is a command response */
+        if (cnt < (int)sizeof(rxPacket) || rx->hdr.commandID != 0x82)
+            continue;
+
+        /* verify the packet header */
+        if ((rx->hdr.number1 ^ rx->hdr.number2) != 0x4242 || rx->status != 0x00) {
+            //printf("Verify failed: number1 %04x, number2 %04x, status %02x\n", rx->hdr.number1, rx->hdr.number2, rx->status);
+            continue;
+        }
+
+        /* store the IP addresses of the host and the Xbee module */
+        uint32_t xbeeAddr = 0;
+        for (i = sizeof(rxPacket); i < cnt; ++i)
+            xbeeAddr = (xbeeAddr << 8) + rxBuf[i];
+        modules.insert(xbeeAddr);
+    }
+
+    /* close the socket */
+    sock.close();
+
+    /* return successfully */
+    return 0;
+}
+
 int XbeePropellerConnection::open(const QString &hostName, int baudRate)
 {
     QHostInfo hostInfo = QHostInfo::fromName(hostName);
@@ -194,6 +257,8 @@ int XbeePropellerConnection::receiveChecksumAck(int byteCount, int delay)
 {
     uint8_t packet[1];
     int cnt;
+
+    Q_UNUSED(byteCount);
 
     /* wait for the Xbee to send the download to the Propeller */
     //QThread::msleep((byteCount * 10 * 1000) / m_baudRate + delay);
