@@ -69,6 +69,10 @@ int main(int argc, char *argv[])
             QCoreApplication::translate("main", "ip"));
     parser.addOption(ipOption);
 
+    QCommandLineOption serialOption(QStringList() << "s" << "serial",
+            QCoreApplication::translate("main", "Serial download."));
+    parser.addOption(serialOption);
+
     parser.process(app);
 
     if (parser.isSet(portOption)) {
@@ -80,28 +84,42 @@ int main(int argc, char *argv[])
         connectionType = XbeeConnection;
     }
     else {
-        QStringList ports(SerialPropellerConnection::availablePorts("/dev/cu.usbserial"));
-        if (ports.size() < 1) {
-            printf("No ports found\n");
-            return 1;
+        if (parser.isSet(serialOption)) {
+            QStringList ports(SerialPropellerConnection::availablePorts("/dev/cu.usbserial"));
+            if (ports.size() < 1) {
+                printf("No ports found\n");
+                return 1;
+            }
+            port = ports[0];
+            connectionType = SerialConnection;
         }
-        port = ports[0];
-        connectionType = SerialConnection;
+        else {
+            QList<XbeeInfo> modules;
+            XbeePropellerConnection::availableModules(modules, 2000);
+            if (modules.isEmpty()) {
+                printf("No Xbee Wi-Fi modules found.\n");
+                return 1;
+            }
+            printf("Xbee Wi-Fi modules:\n");
+            for (QList<XbeeInfo>::iterator i = modules.begin(); i != modules.end(); ++i) {
+                XbeeInfo info = *i;
+                QHostAddress ipAddr(info.ipAddr);
+                printf("ipAddr:          %s\n", ipAddr.toString().toLatin1().data());
+                printf("macAddrHigh:     %08x\n", info.macAddrHigh);
+                printf("macAddrLow:      %08x\n", info.macAddrLow);
+                printf("xbeePort:        %08x\n", info.xbeePort);
+                printf("firmwareVersion: %08x\n", info.firmwareVersion);
+                printf("cfgChecksum:     %08x\n", info.cfgChecksum);
+                printf("nodeId:          '%s'\n", info.nodeID.toLatin1().data());
+            }
+            ipaddr = QHostAddress(modules[0].ipAddr).toString();
+            connectionType = XbeeConnection;
+        }
     }
 
     if (parser.positionalArguments().size() != 1)
         parser.showHelp();
     file = parser.positionalArguments()[0];
-
-    QSet<uint32_t> modules;
-    XbeePropellerConnection::availableModules(modules, 2000);
-    if (modules.isEmpty())
-        printf("No Xbee Wi-Fi modules found.\n");
-    else {
-        printf("Xbee Wi-Fi modules:\n");
-        for (QSet<uint32_t>::iterator i = modules.begin(); i != modules.end(); ++i)
-            printf(" %08x\n", *i);
-    }
 
     SerialPropellerConnection serialConnection;
     XbeePropellerConnection xbeeConnection;
@@ -117,6 +135,7 @@ int main(int argc, char *argv[])
     }
 
     else if (connectionType == XbeeConnection) {
+        printf("Opening %s\n", ipaddr.toLatin1().data());
         if (xbeeConnection.open(ipaddr.toLatin1().data()) != 0) {
             printf("Connection to %s failed\n", ipaddr.toLatin1().data());
             return 1;

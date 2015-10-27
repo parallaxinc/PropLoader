@@ -1,7 +1,7 @@
 #ifndef XBEEPROPELLERCONNECTION_H
 #define XBEEPROPELLERCONNECTION_H
 
-#include <QSet>
+#include <QList>
 #include <QUdpSocket>
 #include "propellerconnection.h"
 
@@ -41,28 +41,39 @@ typedef enum {
     xbChecksum
 } xbCommand;
 
-typedef struct {
+struct appHeader {
     uint16_t number1;		    // Can be any random number.
     uint16_t number2;			// Must be number1 ^ 0x4242
     uint8_t packetID;			// Reserved (use 0)
     uint8_t encryptionPad;		// Reserved (use 0)
     uint8_t commandID;			// $00 = Data, $02 = Remote Command, $03 = General Purpose Memory Command, $04 = I/O Sample
     uint8_t commandOptions;     // Bit 0 : Encrypt (Reserved), Bit 1 : Request Packet ACK, Bits 2..7 : (Reserved)
-} appHeader;
+};
 
-typedef struct {
+struct txPacket {
     appHeader hdr;              // application packet header
     uint8_t frameID;			// 1
     uint8_t configOptions;		// 0 = Queue command only; must follow with AC command to apply changes, 2 = Apply Changes immediately
     char atCommand[2];		    // Command Name - Two ASCII characters that identify the AT command
-} txPacket;
+};
 
-typedef struct {
+struct rxPacket {
     appHeader hdr;              // application packet header
     uint8_t frameID;			// 1
     char atCommand[2];		    // Command Name - Two ASCII characters that identify the AT command
     uint8_t status;             // Command status (0 = OK, 1 = ERROR, 2 = Invalid Command, 3 = Invalid Parameter)
-} rxPacket;
+};
+
+struct XbeeInfo {
+    uint32_t ipAddr;
+    uint32_t macAddrHigh;
+    uint32_t macAddrLow;
+    uint16_t xbeePort;
+    uint32_t firmwareVersion;
+    uint32_t cfgChecksum;
+    QString nodeID;
+    QString name;
+};
 
 class XbeePropellerConnection : public PropellerConnection
 {
@@ -71,6 +82,7 @@ public:
     XbeePropellerConnection(const QString &hostName, int baudRate = INITIAL_BAUD_RATE);
     ~XbeePropellerConnection();
     int open(const QString &hostName, int baudRate = INITIAL_BAUD_RATE);
+    int open(uint32_t ipAddress, int baudRate = INITIAL_BAUD_RATE);
     bool isOpen();
     int close();
     int generateResetSignal();
@@ -80,7 +92,7 @@ public:
     int receiveChecksumAck(int byteCount, int delay);
     int setBaudRate(int baudRate);
     int maxDataSize();
-    static int availableModules(QSet<uint32_t> &modules, int timeout);
+    static int availableModules(QList<XbeeInfo> &modules, int timeout);
 
 private:
     int validate(xbCommand cmd, int value, bool readOnly);
