@@ -73,7 +73,7 @@ int PropellerImage::load(const char *file)
     /* open the binary */
     if (!(fp = fopen(file, "rb"))) {
         printf("error: can't open '%s'\n", file);
-        return NULL;
+        return -1;
     }
 
     /* check for an elf file */
@@ -131,7 +131,7 @@ int PropellerImage::loadElfFile(FILE *fp, ElfHdr *hdr)
 
     /* open the elf file */
     if (!(c = OpenElfFile(fp, hdr)))
-        return NULL;
+        return -1;
 
     /* get the total size of the program */
     if (!GetProgramSize(c, &start, &imageSize, &cogImagesSize))

@@ -1,4 +1,3 @@
-#include <netinet/in.h>
 #include <QUdpSocket>
 #include <QHostInfo>
 #include <QThread>
