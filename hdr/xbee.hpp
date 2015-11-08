@@ -63,7 +63,8 @@ typedef enum {
     xbFirmwareVer,
     xbHardwareVer,
     xbHardwareSeries,
-    xbChecksum
+    xbChecksum,
+    xbWrite
 } xbCommand;
 
 typedef enum {
@@ -130,7 +131,9 @@ public:
     void terminal(bool checkForExit, bool pstMode);
     int getItem(xbCommand cmd, int *pValue);
     int getItem(xbCommand cmd, std::string &value);
+    int setItem(xbCommand cmd);
     int setItem(xbCommand cmd, int value);
+    int setItem(xbCommand cmd, std::string value);
     int sendAppData(void *buf, int len);
     int receiveAppData(void *buf, int len);
     int receiveSerialData(void *buf, int len);

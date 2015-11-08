@@ -37,7 +37,8 @@ static const char *atCmd[] = {
     /* xbFirmwareVer */       "VR",  /* [Rb] Firmware version.  Nibbles ABCD; ABC = major release, D = minor release.  B = 0 (standard release), B > 0 (variant release) (16-bits) */
     /* xbHardwareVer */       "HV",  /* [Rb] Hardware version.  Nibbles ABCD; AB = module type, CD = revision (16-bits) */
     /* xbHardwareSeries */    "HS",  /* [Rb] Hardware series. (16-bits?) */
-    /* xbChecksum */          "CK"   /* [Rb] current configuration checksum (16-bits) */
+    /* xbChecksum */          "CK",  /* [Rb] current configuration checksum (16-bits) */
+    /* xbWrite */             "WR",  /* [W] write parameter values to non-volatile memory (use sparingly to preserve flash) */
 };
 
 int XbeeAddr::determineHostAddr()
@@ -237,6 +238,20 @@ int Xbee::getItem(xbCommand cmd, std::string &value)
     return 0;
 }
 
+int Xbee::setItem(xbCommand cmd)
+{
+    uint8_t txBuf[2048]; // BUG: get rid of this magic number!
+    uint8_t rxBuf[2048]; // BUG: get rid of this magic number!
+    txPacket *tx = (txPacket *)txBuf;
+    rxPacket *rx = (rxPacket *)rxBuf;
+    int cnt;
+    
+    if ((cnt = sendRemoteCommand(cmd, tx, sizeof(txPacket), rx, sizeof(rxBuf))) == -1)
+        return -1;
+            
+    return 0;
+}
+
 int Xbee::setItem(xbCommand cmd, int value)
 {
     uint8_t txBuf[2048]; // BUG: get rid of this magic number!
@@ -251,6 +266,23 @@ int Xbee::setItem(xbCommand cmd, int value)
     if ((cnt = sendRemoteCommand(cmd, tx, sizeof(txPacket) + sizeof(int), rx, sizeof(rxBuf))) == -1)
         return -1;
             
+    return 0;
+}
+
+int Xbee::setItem(xbCommand cmd, std::string value)
+{
+    uint8_t txBuf[2048]; // BUG: get rid of this magic number!
+    uint8_t rxBuf[2048]; // BUG: get rid of this magic number!
+    txPacket *tx = (txPacket *)txBuf;
+    rxPacket *rx = (rxPacket *)rxBuf;
+    int cnt;
+    
+    for (int i = 0; i < value.size(); ++i)
+        txBuf[sizeof(txPacket) + i] = value[i];
+    
+    if ((cnt = sendRemoteCommand(cmd, tx, sizeof(txPacket) + value.size(), rx, sizeof(rxBuf))) == -1)
+        return -1;
+        
     return 0;
 }
 

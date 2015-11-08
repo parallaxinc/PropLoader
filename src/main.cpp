@@ -32,6 +32,7 @@ usage: %s\n\
          [ -b <baudrate> ]  initial baud rate (default is %d)\n\
          [ -e ]             program eeprom\n\
          [ -i <ip-addr> ]   IP address of the Xbee Wi-Fi module\n\
+         [ -n <name> ]      set the friendly name of an Xbee Wi-Fi module\n\
          [ -p <port> ]      serial port\n\
          [ -P ]             show all serial ports with propellers connected\n\
          [ -P0 ]            show all serial ports\n\
@@ -47,6 +48,7 @@ usage: %s\n\
 
 void ShowPorts(const char *prefix, bool check);
 void ShowXbeeModules(bool check);
+void SetFriendlyName(const char *ipaddr, const char *name);
 uint8_t *LoadSpinBinaryFile(FILE *fp, int *pLength);
 uint8_t *LoadElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize);
 
@@ -56,6 +58,7 @@ int main(int argc, char *argv[])
     bool terminalMode = false;
     const char *ipaddr = NULL;
     const char *port = NULL;
+    const char *name = NULL;
     int baudrate = DEFAULT_BAUDRATE;
     int loadType = ltNone;
     bool useSerial = false;
@@ -90,6 +93,16 @@ int main(int argc, char *argv[])
                 else
                     usage(argv[0]);
                 useSerial = false;
+                break;
+            case 'n':
+                if (argv[i][2])
+                    name = &argv[i][2];
+                else if (++i < argc)
+                    name = argv[i];
+                else
+                    usage(argv[0]);
+                SetFriendlyName(ipaddr, name);
+                done = true;
                 break;
             case 'p':
                 if (argv[i][2])
@@ -156,14 +169,14 @@ int main(int argc, char *argv[])
     if (!done && !file)
         usage(argv[0]);
         
-    /* default to 'download and run' if neither -e nor -r are specified */
-    if (loadType == ltNone)
-        loadType = ltDownloadAndRun;
-        
     /* check to see if there is a file to load */
     if (!file)
         goto finish;
 
+    /* default to 'download and run' if neither -e nor -r are specified */
+    if (loadType == ltNone)
+        loadType = ltDownloadAndRun;
+        
     /* do a serial download */
     if (useSerial) {
         SerialInfo info;
@@ -276,3 +289,37 @@ void ShowXbeeModules(bool check)
     }
 }
 
+void SetFriendlyName(const char *ipaddr, const char *name)
+{
+    /* make sure an IP address was specified */
+    if (!ipaddr) {
+        printf("error: must specify IP address with -i when using -n\n");
+        return;
+    }
+    
+    /* convert the IP address string to an integer address */
+    uint32_t xbeeAddr;
+    if (StringToAddr(ipaddr, &xbeeAddr) != 0) {
+        printf("error: invalid IP address '%s'\n", ipaddr);
+        return;
+    }
+        
+    /* connect to the Xbee module */
+    Xbee xbee;
+    if (xbee.connect(xbeeAddr) != 0) {
+        printf("error: failed to connect to %s\n", ipaddr);
+        return;
+    }
+    
+    if (xbee.setItem(xbNodeID, std::string(name)) != 0) {
+        printf("error: can't set nodeID\n");
+        return;
+    }
+    
+    if (xbee.setItem(xbWrite) != 0) {
+        printf("error: writing parameters\n");
+        return;
+    }
+    
+    xbee.disconnect();
+}
