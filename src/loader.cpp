@@ -706,7 +706,7 @@ int Loader::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
     --packetID;
     
     //printf("Sending launch final packet\n");
-    transmitPacket(packetID, launchFinal, sizeof(launchFinal), &result);
+    transmitPacket(0, launchFinal, sizeof(launchFinal), &result);
     
     /* return successfully */
     return 0;
@@ -732,6 +732,7 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
         /* setup the packet header */
         tag = (int32_t)rand();
         setLong(&packet[4], tag);
+        //printf("transmit packet %d\n", id);
         sendData(packet, packetSize);
     
         /* receive the response */
@@ -748,7 +749,7 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
     free(packet);
     
     /* return timeout */
-    printf("error: transmitPacket failed\n");
+    printf("error: transmitPacket %d failed\n", id);
     return -1;
 }
 
