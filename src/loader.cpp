@@ -706,7 +706,7 @@ int Loader::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
     --packetID;
     
     //printf("Sending launch final packet\n");
-    transmitPacket(0, launchFinal, sizeof(launchFinal), &result);
+    transmitPacket(packetID, launchFinal, sizeof(launchFinal), &result);
     
     /* return successfully */
     return 0;

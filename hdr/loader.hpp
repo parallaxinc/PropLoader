@@ -24,8 +24,8 @@ public:
     virtual void disconnect() = 0;
     virtual int setBaudRate(int baudrate) = 0;
     virtual void terminal(bool checkForExit, bool pstMode) = 0;
-protected:
     virtual int generateResetSignal() = 0;
+protected:
     virtual int sendData(const uint8_t *buf, int len) = 0;
     virtual void pauseForVerification(int byteCount) = 0;
     virtual void pauseForChecksum(int byteCount) = 0;

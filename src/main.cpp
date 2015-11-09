@@ -37,6 +37,7 @@ usage: %s\n\
          [ -P ]             show all serial ports with propellers connected\n\
          [ -P0 ]            show all serial ports\n\
          [ -r ]             run program after downloading\n\
+         [ -R ]             reset the Propeller\n\
          [ -s ]             do a serial download\n\
          [ -t ]             enter terminal mode after the load is complete\n\
          [ -X ]             show all discovered xbee modules with propellers connected\n\
@@ -55,6 +56,7 @@ uint8_t *LoadElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize);
 int main(int argc, char *argv[])
 {
     bool done = false;
+    bool reset = false;
     bool terminalMode = false;
     const char *ipaddr = NULL;
     const char *port = NULL;
@@ -141,6 +143,10 @@ int main(int argc, char *argv[])
             case 'r':
                 loadType |= ltDownloadAndRun;
                 break;
+            case 'R':
+                reset = true;
+                done = true;
+                break;
             case 's':
                 useSerial = true;
                 break;
@@ -166,11 +172,11 @@ int main(int argc, char *argv[])
     }
     
     /* make sure a file to load was specified */
-    if (!done && !file)
+    if (!done && !reset && !file && !terminalMode)
         usage(argv[0]);
         
-    /* check to see if there is a file to load */
-    if (!file)
+    /* check to see if a reset was requested or there is a file to load */
+    if (!reset && !file)
         goto finish;
 
     /* default to 'download and run' if neither -e nor -r are specified */
@@ -221,7 +227,6 @@ int main(int argc, char *argv[])
                 printf("error: no Xbee module found\n");
                 return 1;
             }
-            printf("Loading %s\n", AddrToString(addrs.front().xbeeAddr()));
             addr.set(addrs.front().hostAddr(), addrs.front().xbeeAddr());
         }
         
@@ -233,8 +238,11 @@ int main(int argc, char *argv[])
         loader = &xbeeLoader;
     }
     
+    if (reset)
+        loader->generateResetSignal();
+    
     /* load the file */
-    if ((sts = loader->loadFile(file, (LoadType)loadType)) != 0) {
+    if (file && (sts = loader->loadFile(file, (LoadType)loadType)) != 0) {
         printf("error: load failed: %d\n", sts);
         return 1;
     }
