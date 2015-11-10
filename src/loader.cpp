@@ -251,7 +251,7 @@ static uint8_t rawLoaderImage[] = {
     0x30,0x00,0x00,0x00,0x30,0x00,0x00,0x00,0x68,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
     0x35,0xC7,0x08,0x35,0x2C,0x32,0x00,0x00};
     
-// Loader VerifyRAM snippet; use with ltVerifyRAM.
+// Loader VerifyRAM snippet.
 static uint8_t verifyRAM[] = {
     0x49,0xBC,0xBC,0xA0,0x45,0xBC,0xBC,0x84,0x02,0xBC,0xFC,0x2A,0x45,0x8C,0x14,0x08,
     0x04,0x8A,0xD4,0x80,0x66,0xBC,0xD4,0xE4,0x0A,0xBC,0xFC,0x04,0x04,0xBC,0xFC,0x84,
@@ -259,7 +259,7 @@ static uint8_t verifyRAM[] = {
     0x45,0xBE,0xBC,0x00,0x5F,0x8C,0xBC,0x80,0x6E,0x8A,0x7C,0xE8,0x46,0xB2,0xBC,0xA4,
     0x09,0x00,0x7C,0x5C};
     
-// Loader ProgramVerifyEEPROM snippet; use with ltProgramEEPROM.
+// Loader ProgramVerifyEEPROM snippet.
 static uint8_t programVerifyEEPROM[] = {
     0x03,0x8C,0xFC,0x2C,0x4F,0xEC,0xBF,0x68,0x82,0x18,0xFD,0x5C,0x40,0xBE,0xFC,0xA0,
     0x45,0xBA,0xBC,0x00,0xA0,0x62,0xFD,0x5C,0x79,0x00,0x70,0x5C,0x01,0x8A,0xFC,0x80,
@@ -282,15 +282,15 @@ static uint8_t programVerifyEEPROM[] = {
     0x57,0xB8,0xBC,0xF8,0x4F,0xE8,0xBF,0x68,0xF2,0x9D,0x3C,0x61,0x58,0xB8,0xBC,0xF8,
     0xA7,0xC0,0xFC,0xE4,0xFF,0xBA,0xFC,0x60,0x00,0x00,0x7C,0x5C};
 
-// Loader LaunchStart snippet; use with ltLaunchStart.
-static uint8_t launchStart[] = {
+// Loader readyToLaunch snippet.
+static uint8_t readyToLaunch[] = {
     0xB8,0x72,0xFC,0x58,0x66,0x72,0xFC,0x50,0x09,0x00,0x7C,0x5C,0x06,0xBE,0xFC,0x04,
     0x10,0xBE,0x7C,0x86,0x00,0x8E,0x54,0x0C,0x04,0xBE,0xFC,0x00,0x78,0xBE,0xFC,0x60,
     0x50,0xBE,0xBC,0x68,0x00,0xBE,0x7C,0x0C,0x40,0xAE,0xFC,0x2C,0x6E,0xAE,0xFC,0xE4,
     0x04,0xBE,0xFC,0x00,0x00,0xBE,0x7C,0x0C,0x02,0x96,0x7C,0x0C};
 
-// Loader LaunchFinal snippet; use with ltLaunchFinal.
-static uint8_t launchFinal[] = {
+// Loader LaunchNow snippet.
+static uint8_t launchNow[] = {
     0x66,0x00,0x7C,0x5C};
 
 static uint8_t initCallFrame[] = {0xFF, 0xFF, 0xF9, 0xFF, 0xFF, 0xFF, 0xF9, 0xFF};
@@ -684,6 +684,21 @@ int Loader::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
         --packetID;
     }
     
+    /*
+        When we're doing a download that does not include an EEPROM write, the Packet IDs end up as:
+
+        ltVerifyRAM: zero
+        ltReadyToLaunch: -Checksum
+        ltLaunchNow: -Checksum - 1
+
+        ... and when we're doing a download that includes an EEPROM write, the Packet IDs end up as:
+
+        ltVerifyRAM: zero
+        ltProgramEEPROM: -Checksum
+        ltReadyToLaunch: -Checksum*2
+        ltLaunchNow: -Checksum*2 - 1
+    */
+    
     /* transmit the RAM verify packet and verify the checksum */
     transmitPacket(packetID, verifyRAM, sizeof(verifyRAM), &result);
     if (result != -checksum)
@@ -699,14 +714,15 @@ int Loader::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
     }
     
     /* transmit the final launch packets */
-    //printf("Sending launch start packet\n");
-    transmitPacket(packetID, launchStart, sizeof(launchStart), &result);
+    
+    //printf("Sending readyToLaunch packet\n");
+    transmitPacket(packetID, readyToLaunch, sizeof(readyToLaunch), &result);
     if (result != packetID - 1)
-        printf("Launch failed\n");
+        printf("ReadyToLaunch failed\n");
     --packetID;
     
-    //printf("Sending launch final packet\n");
-    transmitPacket(0, launchFinal, sizeof(launchFinal), &result);
+    //printf("Sending launchNow packet\n");
+    transmitPacket(packetID, launchNow, sizeof(launchNow), NULL);
     
     /* return successfully */
     return 0;
@@ -736,11 +752,19 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
         sendData(packet, packetSize);
     
         /* receive the response */
-        cnt = receiveDataExact(response, sizeof(response), timeout);
-        result = getLong(&response[0]);
-        if (cnt == 8 && getLong(&response[4]) == tag && result != id) {
+        if (pResult) {
+            cnt = receiveDataExact(response, sizeof(response), timeout);
+            result = getLong(&response[0]);
+            if (cnt == 8 && getLong(&response[4]) == tag && result != id) {
+                free(packet);
+                *pResult = result;
+                return 0;
+            }
+        }
+        
+        /* don't wait for a result */
+        else {
             free(packet);
-            *pResult = result;
             return 0;
         }
     }
