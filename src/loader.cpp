@@ -11,9 +11,6 @@
 #include "loader.h"
 #include "loadelf.h"
 
-static uint8_t *LoadElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize);
-static uint8_t *LoadSpinBinaryFile(FILE *fp, int *pLength);
-
 void Loader::setBaudrate(int baudrate)
 {
     m_baudrate = baudrate;
@@ -21,29 +18,12 @@ void Loader::setBaudrate(int baudrate)
 
 int Loader::loadFile(const char *file, LoadType loadType)
 {
-    int imageSize, sts;
     uint8_t *image;
-    ElfHdr elfHdr;
-    FILE *fp;
-
-    /* open the binary */
-    if (!(fp = fopen(file, "rb"))) {
-        printf("error: can't open '%s'\n", file);
-        return -1;
-    }
-    
-    /* check for an elf file */
-    if (ReadAndCheckElfHdr(fp, &elfHdr)) {
-        image = LoadElfFile(fp, &elfHdr, &imageSize);
-        fclose(fp);
-    }
-    else {
-        image = LoadSpinBinaryFile(fp, &imageSize);
-        fclose(fp);
-    }
+    int imageSize;
+    int sts;
     
     /* make sure the image was loaded into memory */
-    if (!image) {
+    if (!(image = readFile(file, &imageSize))) {
         printf("error: failed to load image '%s'\n", file);
         return -1;
     }
@@ -56,15 +36,65 @@ int Loader::loadFile(const char *file, LoadType loadType)
     return sts;
 }
 
+int Loader::fastLoadFile(const char *file, LoadType loadType)
+{
+    uint8_t *image;
+    int imageSize;
+    int sts;
+    
+    /* make sure the image was loaded into memory */
+    if (!(image = readFile(file, &imageSize))) {
+        printf("error: failed to load image '%s'\n", file);
+        return -1;
+    }
+    
+    /* load the file */
+    sts = fastLoadImage(image, imageSize, loadType);
+    free(image);
+    
+    /* return load result */
+    return sts;
+}
+
 int Loader::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
 {
     return m_connection->loadImage(image, imageSize, loadType);
 }
 
+uint8_t *Loader::readFile(const char *file, int *pImageSize)
+{
+    uint8_t *image;
+    int imageSize;
+    ElfHdr elfHdr;
+    FILE *fp;
+
+    /* open the binary */
+    if (!(fp = fopen(file, "rb"))) {
+        printf("error: can't open '%s'\n", file);
+        return NULL;
+    }
+    
+    /* check for an elf file */
+    if (ReadAndCheckElfHdr(fp, &elfHdr)) {
+        image = readElfFile(fp, &elfHdr, &imageSize);
+        fclose(fp);
+    }
+
+    /* otherwise, assume a Spin binary */
+    else {
+        image = readSpinBinaryFile(fp, &imageSize);
+        fclose(fp);
+    }
+
+    /* return the image */
+    if (image) *pImageSize = imageSize;
+    return image;
+}
+
 /* target checksum for a binary file */
 #define SPIN_TARGET_CHECKSUM    0x14
 
-static uint8_t *LoadSpinBinaryFile(FILE *fp, int *pLength)
+uint8_t *Loader::readSpinBinaryFile(FILE *fp, int *pLength)
 {
     uint8_t *image;
     int imageSize;
@@ -101,7 +131,7 @@ typedef struct {
     uint16_t dcurr;
 } SpinHdr;
 
-static uint8_t *LoadElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize)
+uint8_t *Loader::readElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize)
 {
     uint32_t start, imageSize, cogImagesSize;
     uint8_t *image, *buf, *p;

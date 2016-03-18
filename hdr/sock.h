@@ -53,6 +53,8 @@ int ReceiveSocketDataTimeout(SOCKET sock, void *buf, int len, int timeout);
 int ReceiveSocketDataExactTimeout(SOCKET sock, void *buf, int len, int timeout);
 int SendSocketDataTo(SOCKET sock, const void *buf, int len, SOCKADDR_IN *addr);
 int ReceiveSocketDataFrom(SOCKET sock, void *buf, int len, SOCKADDR_IN *addr);
+int ReceiveSocketDataAndAddress(SOCKET sock, void *buf, int len, SOCKADDR_IN *addr);
+const char *AddressToString(SOCKADDR_IN *addr);
 void SocketTerminal(SOCKET sock, int check_for_exit, int pst_mode);
 
 #ifdef __cplusplus

@@ -1,6 +1,8 @@
 #include <string.h>
 #include "config.h"
 
+/* this is a hack that only works for the ActivityBoard at present */
+
 int GetNumericConfigField(BoardConfig *config, const char *tag, int *pValue)
 {
     if (strcmp(tag, "clkfreq") == 0)

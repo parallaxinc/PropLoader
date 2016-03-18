@@ -128,9 +128,10 @@ int SerialPropConnection::setBaudRate(int baudRate)
     return 0;
 }
 
-void SerialPropConnection::terminal(bool checkForExit, bool pstMode)
+int SerialPropConnection::terminal(bool checkForExit, bool pstMode)
 {
     SerialTerminal(m_serialPort, checkForExit, pstMode);
+    return 0;
 }
 
 

@@ -28,7 +28,7 @@ public:
     virtual int initialBaudRate() = 0;
     virtual int setBaudRate(int baudRate) = 0;
     virtual int maxDataSize() = 0;
-    virtual void terminal(bool checkForExit, bool pstMode) = 0;
+    virtual int terminal(bool checkForExit, bool pstMode) = 0;
 };
 
 #endif // PROPCONNECTION_H

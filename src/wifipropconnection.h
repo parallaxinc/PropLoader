@@ -38,13 +38,12 @@ public:
     int initialBaudRate() { return WIFI_INITIAL_BAUD_RATE; }
     int setBaudRate(int baudRate);
     int maxDataSize() { return 1024; }
-    void terminal(bool checkForExit, bool pstMode);
-    int findModules(const char *prefix, bool check, WiFiInfoList &list);
+    int terminal(bool checkForExit, bool pstMode);
+    static int findModules(const char *prefix, bool check, WiFiInfoList &list);
 private:
     int sendRequest(uint8_t *req, int reqSize, uint8_t *res, int resMax, int *pResult);
     static void dumpHdr(const uint8_t *buf, int size);
     static void dumpResponse(const uint8_t *buf, int size);
-    static int addPort(const char *port, void *data);
     char *m_ipaddr;
     SOCKADDR_IN m_addr;
     bool m_readyToConnect;

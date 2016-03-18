@@ -109,25 +109,73 @@ Content-Length: %d\r\n\
     return 0;
 }
 
-struct FindState {
-    WiFiInfoList *list;
-};
+#define DEF_DISCOVER_PORT   2000
+#define MAX_IF_ADDRS        10
 
-int WiFiPropConnection::addPort(const char *port, void *data)
+int discover1(IFADDR *ifaddr, WiFiInfoList &list, int timeout)
 {
-    FindState *state = (FindState *)data;
+    uint8_t txBuf[1024]; // BUG: get rid of this magic number!
+    uint8_t rxBuf[1024]; // BUG: get rid of this magic number!
+    SOCKADDR_IN bcastaddr;
+    SOCKADDR_IN addr;
+    SOCKET sock;
+    int cnt;
     
-    WiFiInfo info(port);
-    state->list->push_back(info);
+    /* create a broadcast socket */
+    if (OpenBroadcastSocket(DEF_DISCOVER_PORT, &sock) != 0) {
+        printf("error: OpenBroadcastSocket failed\n");
+        return -2;
+    }
+        
+    /* build a broadcast address */
+    bcastaddr = ifaddr->bcast;
+    bcastaddr.sin_port = htons(DEF_DISCOVER_PORT);
     
-    return 1;
+    /* send the broadcast packet */
+    sprintf((char *)txBuf, "Me here! Ignore this message.\n");
+    if ((cnt = SendSocketDataTo(sock, txBuf, strlen((char *)txBuf), &bcastaddr)) != (int)strlen((char *)txBuf)) {
+        perror("error: SendSocketDataTo failed");
+        CloseSocket(sock);
+        return -1;
+    }
+
+    /* receive Xbee responses */
+    while (SocketDataAvailableP(sock, timeout)) {
+
+        /* get the next response */
+        memset(rxBuf, 0, sizeof(rxBuf));
+        if ((cnt = ReceiveSocketDataAndAddress(sock, rxBuf, sizeof(rxBuf) - 1, &addr)) < 0) {
+            printf("error: ReceiveSocketData failed\n");
+            CloseSocket(sock);
+            return -3;
+        }
+        rxBuf[cnt] = '\0';
+        
+        if (!strstr((char *)rxBuf, "Me here!"))
+            printf("from %s got: %s", AddressToString(&addr), rxBuf);
+    }
+    
+    /* close the socket */
+    CloseSocket(sock);
+    
+    /* return successfully */
+    return 0;
 }
 
 int WiFiPropConnection::findModules(const char *prefix, bool check, WiFiInfoList &list)
 {
-    FindState state;
-    state.list = &list;
-//    WiFiFind(prefix, addPort, &state);
+    IFADDR ifaddrs[MAX_IF_ADDRS];
+    int cnt, i;
+    
+    if ((cnt = GetInterfaceAddresses(ifaddrs, MAX_IF_ADDRS)) < 0)
+        return -1;
+    
+    for (i = 0; i < cnt; ++i) {
+        int ret;
+        if ((ret = discover1(&ifaddrs[i], list, 2000)) < 0)
+            return ret;
+    }
+    
     return 0;
 }
 
@@ -154,7 +202,6 @@ int WiFiPropConnection::receiveDataTimeout(uint8_t *buf, int len, int timeout)
 {
     if (!isOpen())
         return -1;
-printf("Receiving data: %d %d %d\n", m_socket, len, timeout);
     return ReceiveSocketDataTimeout(m_socket, buf, len, timeout);
 }
 
@@ -187,9 +234,13 @@ POST /propeller/set-baud-rate?baud-rate=%d HTTP/1.1\r\n\
     return 0;
 }
 
-void WiFiPropConnection::terminal(bool checkForExit, bool pstMode)
+int WiFiPropConnection::terminal(bool checkForExit, bool pstMode)
 {
-//    SocketTerminal(m_serial, checkForExit, pstMode);
+    if (!setPort(23) || !connect())
+        return -1;
+    SocketTerminal(m_socket, checkForExit, pstMode);
+    disconnect();
+    return 0;
 }
 
 int WiFiPropConnection::sendRequest(uint8_t *req, int reqSize, uint8_t *res, int resMax, int *pResult)

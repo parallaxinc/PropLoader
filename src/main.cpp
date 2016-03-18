@@ -278,6 +278,8 @@ static void ShowPorts(const char *prefix, bool check)
 
 static void ShowWiFiModules(bool check)
 {
+    WiFiInfoList list;
+    WiFiPropConnection::findModules(PORT_PREFIX, false, list);
 }
 
 static void SetFriendlyName(const char *ipaddr, const char *name)
