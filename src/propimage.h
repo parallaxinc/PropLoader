@@ -22,12 +22,21 @@ typedef struct {
     uint16_t dcurr;
 } SpinHdr;
 
-class PropellerImage
+/* spin object */
+typedef struct {
+    uint16_t next;
+    uint8_t pubcnt;
+    uint8_t objcnt;
+    uint16_t pcurr;
+    uint16_t numlocals;
+} SpinObj;
+
+class PropImage
 {
 public:
-    PropellerImage();
-    PropellerImage(uint8_t *imageData, int imageSize);
-    ~PropellerImage();
+    PropImage();
+    PropImage(uint8_t *imageData, int imageSize);
+    ~PropImage();
     int load(const char *file);
     int setImage(uint8_t *imageData, int imageSize);
     void free();

@@ -67,20 +67,22 @@ OBJDIR=$(BUILD)/obj
 BINDIR=$(BUILD)/bin
 
 HDRS=\
-$(HDRDIR)/loader.hpp \
-$(HDRDIR)/serial-loader.hpp \
-$(HDRDIR)/xbee-loader.hpp \
-$(HDRDIR)/xbee.hpp \
 $(HDRDIR)/sock.h \
 $(HDRDIR)/serial.h
 
 OBJS=\
 $(OBJDIR)/main.o \
 $(OBJDIR)/loader.o \
-$(OBJDIR)/xbee-loader.o \
-$(OBJDIR)/serial-loader.o \
-$(OBJDIR)/xbee.o \
+$(OBJDIR)/fastloader.o \
+$(OBJDIR)/propimage.o \
+$(OBJDIR)/packet.o \
+$(OBJDIR)/propconnection.o \
+$(OBJDIR)/serialpropconnection.o \
+$(OBJDIR)/serialloader.o \
+$(OBJDIR)/wifipropconnection.o \
 $(OBJDIR)/loadelf.o \
+$(OBJDIR)/sd_helper.o \
+$(OBJDIR)/config.o \
 $(OSINT)
 
 CFLAGS+=-I$(HDRDIR)

@@ -52,7 +52,7 @@ int SendSerialData(SERIAL *serial, const void *buf, int len);
 int FlushSerialData(SERIAL *serial);
 int ReceiveSerialData(SERIAL *serial, void *buf, int len);
 int ReceiveSerialDataTimeout(SERIAL *serial, void *buf, int len, int timeout);
-int ReceiveSerialDataExact(SERIAL *serial, void *buf, int len, int timeout);
+int ReceiveSerialDataExactTimeout(SERIAL *serial, void *buf, int len, int timeout);
 int SerialFind(const char *prefix, int (*check)(const char *port, void *data), void *data);
 void SerialTerminal(SERIAL *serial, int check_for_exit, int pst_mode);
 

@@ -1,6 +1,7 @@
 *.o
 *.binary
 *.elf
+*~
 obj/
 bin/
 build-proploader-*

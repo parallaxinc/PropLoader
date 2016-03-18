@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
 #include <limits.h>
 #include <ctype.h>
@@ -7,8 +8,12 @@
 #include <iostream>
 
 #include "loadelf.h"
-#include "xbee-loader.hpp"
-#include "serial-loader.hpp"
+#include "propimage.h"
+#include "packet.h"
+#include "loader.h"
+#include "serialpropconnection.h"
+#include "wifipropconnection.h"
+#include "config.h"
 
 /* port prefix */
 #if defined(CYGWIN) || defined(WIN32) || defined(MINGW)
@@ -40,18 +45,16 @@ usage: %s\n\
          [ -R ]             reset the Propeller\n\
          [ -s ]             do a serial download\n\
          [ -t ]             enter terminal mode after the load is complete\n\
-         [ -X ]             show all discovered xbee modules with propellers connected\n\
-         [ -X0 ]            show all discovered xbee modules\n\
+         [ -W ]             show all discovered wifi modules with propellers connected\n\
+         [ -W0 ]            show all discovered wifi modules\n\
          [ -? ]             display a usage message and exit\n\
          <file>             spin binary file to load\n", progname, DEFAULT_BAUDRATE);
     exit(1);
 }
 
-void ShowPorts(const char *prefix, bool check);
-void ShowXbeeModules(bool check);
-void SetFriendlyName(const char *ipaddr, const char *name);
-uint8_t *LoadSpinBinaryFile(FILE *fp, int *pLength);
-uint8_t *LoadElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize);
+static void ShowPorts(const char *prefix, bool check);
+static void ShowWiFiModules(bool check);
+static void SetFriendlyName(const char *ipaddr, const char *name);
 
 int main(int argc, char *argv[])
 {
@@ -62,12 +65,11 @@ int main(int argc, char *argv[])
     const char *port = NULL;
     const char *name = NULL;
     int baudrate = DEFAULT_BAUDRATE;
-    int loadType = ltNone;
+    int loadType = ltShutdown;
     bool useSerial = false;
     char *file = NULL;
-    XbeeLoader xbeeLoader;
-    SerialLoader serialLoader;
-    Loader *loader;
+    PropConnection *connection;
+    Loader loader;
     int sts, i;
     
     /* get the arguments */
@@ -85,7 +87,7 @@ int main(int argc, char *argv[])
                     usage(argv[0]);
                 break;
             case 'e':
-                loadType |= ltDownloadAndProgramEeprom;
+                loadType |= ltDownloadAndProgram;
                 break;
             case 'i':   // set the ip address
                 if (argv[i][2])
@@ -153,8 +155,8 @@ int main(int argc, char *argv[])
             case 't':
                 terminalMode = true;
                 break;
-            case 'X':
-                ShowXbeeModules(argv[i][2] == '0' ? false : true);
+            case 'W':
+                ShowWiFiModules(argv[i][2] == '0' ? false : true);
                 done = true;
                 break;
             default:
@@ -180,15 +182,22 @@ int main(int argc, char *argv[])
         goto finish;
 
     /* default to 'download and run' if neither -e nor -r are specified */
-    if (loadType == ltNone)
+    if (loadType == ltShutdown)
         loadType = ltDownloadAndRun;
         
     /* do a serial download */
     if (useSerial) {
-        SerialInfo info;
+        SerialPropConnection *serialConnection;
+        SerialInfo info; // needs to stay in scope as long as we're using port
+        if (!(serialConnection = new SerialPropConnection)) {
+            printf("error: insufficient memory\n");
+            return 1;
+        }
         if (!port) {
             SerialInfoList ports;
-            if (serialLoader.findPorts(PORT_PREFIX, true, ports) == 0) {
+            if (SerialPropConnection::findPorts(PORT_PREFIX, true, ports) != 0) {
+                printf("error: serial port discovery failed\n");
+                return 1;
             }
             if (ports.size() == 0) {
                 printf("error: no serial ports found\n");
@@ -197,29 +206,22 @@ int main(int argc, char *argv[])
             info = ports.front();
             port = info.port();
         }
-        if ((sts = serialLoader.connect(port, baudrate)) != 0) {
+        if ((sts = serialConnection->open(port, baudrate)) != 0) {
             printf("error: loader initialization failed: %d\n", sts);
             return 1;
         }
-        loader = &serialLoader;
+        connection = serialConnection;
     }
     
-    /* do an xbee download */
+    /* do a wifi download */
     else {
-        XbeeAddr addr(0, 0);
-        if (ipaddr) {
-            uint32_t xbeeAddr;
-            if (StringToAddr(ipaddr, &xbeeAddr) != 0) {
-                printf("error: invalid IP address '%s'\n", ipaddr);
-                return 1;
-            }
-            addr.set(0, xbeeAddr);
-            if (addr.determineHostAddr() != 0) {
-                printf("error: can't determine host IP address for '%s'\n", ipaddr);
-                return 1;
-            }
+        WiFiPropConnection *wifiConnection;
+        if (!(wifiConnection = new WiFiPropConnection)) {
+            printf("error: insufficient memory\n");
+            return 1;
         }
-        else {
+        if (!ipaddr) {
+#if 0
             XbeeInfoList addrs;
             if (xbeeLoader.discover(false, addrs) != 0)
                 printf("error: discover failed\n");
@@ -228,21 +230,21 @@ int main(int argc, char *argv[])
                 return 1;
             }
             addr.set(addrs.front().hostAddr(), addrs.front().xbeeAddr());
+#endif
         }
-        
-        if ((sts = xbeeLoader.connect(addr)) != 0) {
-            printf("error: loader initialization failed: %d\n", sts);
+        if ((sts = wifiConnection->setAddress(ipaddr)) != 0) {
+            printf("error: setAddress failed: %d\n", sts);
             return 1;
         }
-        
-        loader = &xbeeLoader;
+        connection = wifiConnection;
     }
     
     if (reset)
-        loader->generateResetSignal();
+        connection->generateResetSignal();
     
     /* load the file */
-    if (file && (sts = loader->loadFile(file, (LoadType)loadType)) != 0) {
+    loader.setConnection(connection);
+    if (file && (sts = loader.loadFile(file, (LoadType)loadType)) != 0) {
         printf("error: load failed: %d\n", sts);
         return 1;
     }
@@ -250,23 +252,22 @@ int main(int argc, char *argv[])
     /* enter terminal mode */
     if (terminalMode) {
         printf("[ Entering terminal mode. Type ESC or Control-C to exit. ]\n");
-        loader->setBaudRate(115200);
-        loader->terminal(false, false);
+        connection->setBaudRate(115200);
+        connection->terminal(false, false);
     }
     
     /* disconnect from the target */
-    loader->disconnect();
+    connection->disconnect();
     
 finish:
     /* return successfully */
     return 0;
 }
 
-void ShowPorts(const char *prefix, bool check)
+static void ShowPorts(const char *prefix, bool check)
 {
-    SerialLoader ldr;
     SerialInfoList ports;
-    if (ldr.findPorts(prefix, check, ports) == 0) {
+    if (SerialPropConnection::findPorts(prefix, check, ports) == 0) {
         SerialInfoList::iterator i = ports.begin();
         while (i != ports.end()) {
             std::cout << i->port() << std::endl;
@@ -275,59 +276,191 @@ void ShowPorts(const char *prefix, bool check)
     }
 }
 
-void ShowXbeeModules(bool check)
+static void ShowWiFiModules(bool check)
 {
-    XbeeLoader ldr;
-    XbeeInfoList addrs;
-    if (ldr.discover(check, addrs) != 0)
-        printf("Discover failed\n");
-    else {
-        XbeeInfoList::iterator i;
-        for (i = addrs.begin(); i != addrs.end(); ++i) {
-            printf("host:            %s\n", AddrToString(i->hostAddr()));
-            printf("xbee:            %s\n", AddrToString(i->xbeeAddr()));
-            printf("macAddrHigh:     %08x\n", i->macAddrHigh());
-            printf("macAddrLow:      %08x\n", i->macAddrLow());
-            printf("xbeePort:        %08x\n", i->xbeePort());
-            printf("firmwareVersion: %08x\n", i->firmwareVersion());
-            printf("cfgChecksum:     %08x\n", i->cfgChecksum());
-            printf("nodeId:          '%s'\n", i->nodeID().c_str());
-            printf("\n");
-        }
-    }
 }
 
-void SetFriendlyName(const char *ipaddr, const char *name)
+static void SetFriendlyName(const char *ipaddr, const char *name)
 {
-    /* make sure an IP address was specified */
-    if (!ipaddr) {
-        printf("error: must specify IP address with -i when using -n\n");
-        return;
-    }
-    
-    /* convert the IP address string to an integer address */
-    uint32_t xbeeAddr;
-    if (StringToAddr(ipaddr, &xbeeAddr) != 0) {
-        printf("error: invalid IP address '%s'\n", ipaddr);
-        return;
-    }
-        
-    /* connect to the Xbee module */
-    Xbee xbee;
-    if (xbee.connect(xbeeAddr) != 0) {
-        printf("error: failed to connect to %s\n", ipaddr);
-        return;
-    }
-    
-    if (xbee.setItem(xbNodeID, std::string(name)) != 0) {
-        printf("error: can't set nodeID\n");
-        return;
-    }
-    
-    if (xbee.setItem(xbWrite) != 0) {
-        printf("error: writing parameters\n");
-        return;
-    }
-    
-    xbee.disconnect();
 }
+
+int Error(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    printf("error: ");
+    vprintf(fmt, ap);
+    printf("\n");
+    va_end(ap);
+    return -1;
+}
+
+extern "C" {
+    extern uint8_t sd_helper_array[];
+    extern int sd_helper_size;
+}
+
+/* DAT header in sd_helper.spin */
+typedef struct {
+    uint32_t baudrate;
+    uint8_t rxpin;
+    uint8_t txpin;
+    uint8_t tvpin;
+    uint8_t dopin;
+    uint8_t clkpin;
+    uint8_t dipin;
+    uint8_t cspin;
+    uint8_t select_address;
+    uint32_t select_inc_mask;
+    uint32_t select_mask;
+} SDHelperDatHdr;
+
+int LoadSDHelper(BoardConfig *config, PropConnection *connection)
+{
+    Loader loader(connection);
+    PropImage image(sd_helper_array, sd_helper_size);
+    SpinHdr *hdr = (SpinHdr *)image.imageData();
+    SpinObj *obj = (SpinObj *)(image.imageData() + hdr->pbase);
+    SDHelperDatHdr *dat = (SDHelperDatHdr *)((uint8_t *)obj + (obj->pubcnt + obj->objcnt) * sizeof(uint32_t));
+    int ivalue;
+
+    /* patch SD helper */
+    if (GetNumericConfigField(config, "clkfreq", &ivalue))
+        hdr->clkfreq = ivalue;
+    if (GetNumericConfigField(config, "clkmode", &ivalue))
+        hdr->clkmode = ivalue;
+    if (GetNumericConfigField(config, "baudrate", &ivalue))
+        dat->baudrate = ivalue;
+    if (GetNumericConfigField(config, "rxpin", &ivalue))
+        dat->rxpin = ivalue;
+    if (GetNumericConfigField(config, "txpin", &ivalue))
+        dat->txpin = ivalue;
+    if (GetNumericConfigField(config, "tvpin", &ivalue))
+        dat->tvpin = ivalue;
+
+    if (GetNumericConfigField(config, "sdspi-do", &ivalue))
+        dat->dopin = ivalue;
+    else
+        return Error("missing sdspi-do pin configuration");
+
+    if (GetNumericConfigField(config, "sdspi-clk", &ivalue))
+        dat->clkpin = ivalue;
+    else
+        return Error("missing sdspi-clk pin configuration");
+
+    if (GetNumericConfigField(config, "sdspi-di", &ivalue))
+        dat->dipin = ivalue;
+    else
+        return Error("missing sdspi-di pin configuration");
+
+    if (GetNumericConfigField(config, "sdspi-cs", &ivalue))
+        dat->cspin = ivalue;
+    else if (GetNumericConfigField(config, "sdspi-clr", &ivalue))
+        dat->cspin = ivalue;
+    else
+        return Error("missing sdspi-cs or sdspi-clr pin configuration");
+
+    if (GetNumericConfigField(config, "sdspi-sel", &ivalue))
+        dat->select_inc_mask = ivalue;
+    else if (GetNumericConfigField(config, "sdspi-inc", &ivalue))
+        dat->select_inc_mask = 1 << ivalue;
+
+    if (GetNumericConfigField(config, "sdspi-msk", &ivalue))
+        dat->select_mask = ivalue;
+
+    if (GetNumericConfigField(config, "sdspi-addr", &ivalue))
+        dat->select_address = (uint8_t)ivalue;
+
+    /* recompute the checksum */
+    image.updateChecksum();
+
+    /* load the SD helper program */
+    if (loader.fastLoadImage(image.imageData(), image.imageSize(), ltDownloadAndRun) != 0)
+        return Error("helper load failed");
+
+    return 0;
+}
+
+#define TYPE_FILE_WRITE     0
+#define TYPE_DATA           1
+#define TYPE_EOF            2
+
+int WriteFileToSDCard(BoardConfig *config, PropConnection *connection, const char *path, const char *target)
+{
+    PacketDriver packetDriver(*connection);
+    uint8_t buf[PKTMAXLEN];
+    size_t size, remaining, cnt;
+    FILE *fp;
+
+    /* open the file */
+    printf("Opening '%s'\n", path);
+    if ((fp = fopen(path, "rb")) == NULL)
+        return Error("can't open %s", path);
+
+    if (!target) {
+        if (!(target = strrchr(path, '/')))
+            target = path;
+        else
+            ++target; // skip past the slash
+    }
+    printf("Target is '%s'\n", target);
+
+    fseek(fp, 0, SEEK_END);
+    size = remaining = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    printf("Loading SD helper\n");
+    if (LoadSDHelper(config, connection) != 0) {
+        fclose(fp);
+        return Error("loading SD helper");
+    }
+
+    /* switch to the final baud rate */
+    int baudRate = 115200;
+//    GetNumericConfigField(config, "baudrate", &baudRate);
+    printf("Switching to %d baud\n", baudRate);
+    if (connection->setBaudRate(baudRate) != 0) {
+        printf("error: setting baud rate failed\n");
+        return -1;
+    }
+
+    /* wait for the SD helper to complete initialization */
+    printf("Waiting for SD helper to start\n");
+    if (!packetDriver.waitForInitialAck())
+        return Error("failed to connect to helper");
+
+    printf("Starting file write\n");
+    if (!packetDriver.sendPacket(TYPE_FILE_WRITE, (uint8_t *)target, strlen(target) + 1)) {
+        fclose(fp);
+        return Error("SendPacket FILE_WRITE failed");
+    }
+
+    printf("Loading '%s' to SD card\n", path);
+    while ((cnt = fread(buf, 1, PKTMAXLEN, fp)) > 0) {
+        printf("%ld bytes remaining             \r", remaining); fflush(stdout);
+        if (!packetDriver.sendPacket(TYPE_DATA, buf, cnt)) {
+            fclose(fp);
+            return Error("SendPacket DATA failed");
+        }
+        remaining -= cnt;
+    }
+    printf("%ld bytes sent             \n", size);
+
+    fclose(fp);
+
+    if (!packetDriver.sendPacket(TYPE_EOF, (uint8_t *)"", 0))
+        return Error("SendPacket EOF failed");
+
+    /*
+       We send two EOF packets for SD card writes.  The reason is that the EOF
+       packet does actual work, and that work takes time.  The packet
+       transmission protocol uses read-ahead buffering on the receiving end.
+       Therefore, we need to make sure the first EOF packet was received and
+       processed before resetting the Prop!
+    */
+    if (!packetDriver.sendPacket(TYPE_EOF, (uint8_t *)"", 0))
+        return Error("Second SendPacket EOF failed");
+
+    return 0;
+}
+

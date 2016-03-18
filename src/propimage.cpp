@@ -1,22 +1,22 @@
-#include "propellerimage.h"
+#include "propimage.h"
 
-PropellerImage::PropellerImage()
+PropImage::PropImage()
     : m_imageData(NULL)
 {
 }
 
-PropellerImage::PropellerImage(uint8_t *imageData, int imageSize)
+PropImage::PropImage(uint8_t *imageData, int imageSize)
     : m_imageData(NULL)
 {
     setImage(imageData, imageSize);
 }
 
-PropellerImage::~PropellerImage()
+PropImage::~PropImage()
 {
     free();
 }
 
-int PropellerImage::setImage(uint8_t *imageData, int imageSize)
+int PropImage::setImage(uint8_t *imageData, int imageSize)
 {
     free();
     if (!(m_imageData = (uint8_t *)malloc(imageSize)))
@@ -26,7 +26,7 @@ int PropellerImage::setImage(uint8_t *imageData, int imageSize)
     return 0;
 }
 
-void PropellerImage::free()
+void PropImage::free()
 {
     if (m_imageData) {
         ::free(m_imageData);
@@ -34,27 +34,27 @@ void PropellerImage::free()
     }
 }
 
-uint32_t PropellerImage::clkFreq()
+uint32_t PropImage::clkFreq()
 {
     return getLong((uint8_t *)&((SpinHdr *)m_imageData)->clkfreq);
 }
 
-void PropellerImage::setClkFreq(uint32_t clkFreq)
+void PropImage::setClkFreq(uint32_t clkFreq)
 {
     setLong((uint8_t *)&((SpinHdr *)m_imageData)->clkfreq, clkFreq);
 }
 
-uint8_t PropellerImage::clkMode()
+uint8_t PropImage::clkMode()
 {
     return *(uint8_t *)&((SpinHdr *)m_imageData)->clkfreq;
 }
 
-void PropellerImage::setClkMode(uint8_t clkMode)
+void PropImage::setClkMode(uint8_t clkMode)
 {
     *(uint8_t *)&((SpinHdr *)m_imageData)->clkfreq = clkMode;
 }
 
-void PropellerImage::updateChecksum()
+void PropImage::updateChecksum()
 {
     SpinHdr *spinHdr = (SpinHdr *)m_imageData;
     uint8_t *p = m_imageData;
@@ -65,7 +65,7 @@ void PropellerImage::updateChecksum()
     spinHdr->chksum = SPIN_TARGET_CHECKSUM - chksum;
 }
 
-int PropellerImage::load(const char *file)
+int PropImage::load(const char *file)
 {
     ElfHdr elfHdr;
     FILE *fp;
@@ -92,7 +92,7 @@ int PropellerImage::load(const char *file)
     return 0;
 }
 
-int PropellerImage::loadSpinBinaryFile(FILE *fp)
+int PropImage::loadSpinBinaryFile(FILE *fp)
 {
     /* free any existing image */
     free();
@@ -117,7 +117,7 @@ int PropellerImage::loadSpinBinaryFile(FILE *fp)
     return 0;
 }
 
-int PropellerImage::loadElfFile(FILE *fp, ElfHdr *hdr)
+int PropImage::loadElfFile(FILE *fp, ElfHdr *hdr)
 {
     uint32_t start, imageSize, cogImagesSize;
     ElfProgramHdr program;
@@ -177,23 +177,23 @@ fail:
     return -1;
 }
 
-uint16_t PropellerImage::getWord(const uint8_t *buf)
+uint16_t PropImage::getWord(const uint8_t *buf)
 {
      return (buf[1] << 8) | buf[0];
 }
 
-void PropellerImage::setWord(uint8_t *buf, uint16_t value)
+void PropImage::setWord(uint8_t *buf, uint16_t value)
 {
      buf[1] = value >>  8;
      buf[0] = value;
 }
 
-uint32_t PropellerImage::getLong(const uint8_t *buf)
+uint32_t PropImage::getLong(const uint8_t *buf)
 {
      return (buf[3] << 24) | (buf[2] << 16) | (buf[1] << 8) | buf[0];
 }
 
-void PropellerImage::setLong(uint8_t *buf, uint32_t value)
+void PropImage::setLong(uint8_t *buf, uint32_t value)
 {
      buf[3] = value >> 24;
      buf[2] = value >> 16;

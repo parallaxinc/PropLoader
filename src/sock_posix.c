@@ -106,9 +106,8 @@ int OpenBroadcastSocket(short port, SOCKET *pSocket)
 }
 
 /* ConnectSocket - connect to the server */
-int ConnectSocket(uint32_t ipaddr, short port, SOCKET *pSocket)
+int ConnectSocket(SOCKADDR_IN *addr, SOCKET *pSocket)
 {
-    SOCKADDR_IN addr;
     SOCKET sock;
     
 #ifdef __MINGW32__
@@ -117,29 +116,11 @@ int ConnectSocket(uint32_t ipaddr, short port, SOCKET *pSocket)
 #endif
 
     /* create the socket */
-    if ((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
+    if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
         return -1;
 
-    /* setup the address */
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(port);
-
-    /* bind the socket to the port (responses are always sent to 0xBEE) */
-    if (bind(sock, (SOCKADDR *)&addr, sizeof(addr)) != 0) {
-    printf("bind failed\n");
-        closesocket(sock);
-        return -1;
-    }
-
-    /* setup the address */
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = ipaddr;
-        
     /* connect to the server */
-    if (connect(sock, (SOCKADDR *)&addr, sizeof(addr)) != 0) {
+    if (connect(sock, (SOCKADDR *)addr, sizeof(*addr)) != 0) {
     printf("connect failed\n");
         closesocket(sock);
         return -1;
@@ -231,9 +212,15 @@ int SocketDataAvailableP(SOCKET sock, int timeout)
 }
 
 /* SendSocketData - send socket data */
-int SendSocketData(SOCKET sock, void *buf, int len)
+int SendSocketData(SOCKET sock, const void *buf, int len)
 {
     return send(sock, buf, len, 0);
+}
+
+/* SendSocketDataTo - send socket data to a specified address */
+int SendSocketDataTo(SOCKET sock, const void *buf, int len, SOCKADDR_IN *addr)
+{
+    return sendto(sock, buf, len, 0, (SOCKADDR *)addr, sizeof(SOCKADDR));
 }
 
 /* ReceiveSocketData - receive socket data */
@@ -263,10 +250,12 @@ int ReceiveSocketDataTimeout(SOCKET sock, void *buf, int len, int timeout)
     return (int)(bytes > 0 ? bytes : -1);
 }
 
-/* SendSocketDataTo - send socket data to a specified address */
-int SendSocketDataTo(SOCKET sock, void *buf, int len, SOCKADDR_IN *addr)
+/* ReceiveSocketDataExactTimeout - receive an exact amount of socket data */
+int ReceiveSocketDataExactTimeout(SOCKET sock, void *buf, int len, int timeout)
 {
-    return sendto(sock, buf, len, 0, (SOCKADDR *)addr, sizeof(SOCKADDR));
+    if (ReceiveSocketDataTimeout(sock, buf, len, timeout) != len)
+        return -1;
+    return len;
 }
 
 /* escape from terminal mode */

@@ -1,10 +1,11 @@
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <unistd.h>
+#include "loader.h"
 
-#include "fastpropellerloader.h"
-
-//#define FINAL_BAUD              921600      /* Final XBee-to-Propeller baud rate. */
-#define FINAL_BAUD              115200      /* Final XBee-to-Propeller baud rate. */
+#define FINAL_BAUD              921600      /* Final XBee-to-Propeller baud rate. */
 #define MAX_RX_SENSE_ERROR      23          /* Maximum number of cycles by which the detection of a start bit could be off (as affected by the Loader code) */
 
 // Offset (in bytes) from end of Loader Image pointing to where most host-initialized values exist.
@@ -46,16 +47,16 @@ static uint8_t rawLoaderImage[] = {
     0x56,0x00,0x00,0x00,0x82,0x00,0x00,0x00,0x55,0x73,0xCB,0x00,0x18,0x51,0x00,0x00,
     0x30,0x00,0x00,0x00,0x30,0x00,0x00,0x00,0x68,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
     0x35,0xC7,0x08,0x35,0x2C,0x32,0x00,0x00};
-
-// Loader VerifyRAM snippet; use with ltVerifyRAM.
+    
+// Loader VerifyRAM snippet.
 static uint8_t verifyRAM[] = {
     0x49,0xBC,0xBC,0xA0,0x45,0xBC,0xBC,0x84,0x02,0xBC,0xFC,0x2A,0x45,0x8C,0x14,0x08,
     0x04,0x8A,0xD4,0x80,0x66,0xBC,0xD4,0xE4,0x0A,0xBC,0xFC,0x04,0x04,0xBC,0xFC,0x84,
     0x5E,0x94,0x3C,0x08,0x04,0xBC,0xFC,0x84,0x5E,0x94,0x3C,0x08,0x01,0x8A,0xFC,0x84,
     0x45,0xBE,0xBC,0x00,0x5F,0x8C,0xBC,0x80,0x6E,0x8A,0x7C,0xE8,0x46,0xB2,0xBC,0xA4,
     0x09,0x00,0x7C,0x5C};
-
-// Loader ProgramVerifyEEPROM snippet; use with ltProgramEEPROM.
+    
+// Loader ProgramVerifyEEPROM snippet.
 static uint8_t programVerifyEEPROM[] = {
     0x03,0x8C,0xFC,0x2C,0x4F,0xEC,0xBF,0x68,0x82,0x18,0xFD,0x5C,0x40,0xBE,0xFC,0xA0,
     0x45,0xBA,0xBC,0x00,0xA0,0x62,0xFD,0x5C,0x79,0x00,0x70,0x5C,0x01,0x8A,0xFC,0x80,
@@ -78,94 +79,177 @@ static uint8_t programVerifyEEPROM[] = {
     0x57,0xB8,0xBC,0xF8,0x4F,0xE8,0xBF,0x68,0xF2,0x9D,0x3C,0x61,0x58,0xB8,0xBC,0xF8,
     0xA7,0xC0,0xFC,0xE4,0xFF,0xBA,0xFC,0x60,0x00,0x00,0x7C,0x5C};
 
-// Loader LaunchStart snippet; use with ltLaunchStart.
-static uint8_t launchStart[] = {
+// Loader readyToLaunch snippet.
+static uint8_t readyToLaunch[] = {
     0xB8,0x72,0xFC,0x58,0x66,0x72,0xFC,0x50,0x09,0x00,0x7C,0x5C,0x06,0xBE,0xFC,0x04,
     0x10,0xBE,0x7C,0x86,0x00,0x8E,0x54,0x0C,0x04,0xBE,0xFC,0x00,0x78,0xBE,0xFC,0x60,
     0x50,0xBE,0xBC,0x68,0x00,0xBE,0x7C,0x0C,0x40,0xAE,0xFC,0x2C,0x6E,0xAE,0xFC,0xE4,
     0x04,0xBE,0xFC,0x00,0x00,0xBE,0x7C,0x0C,0x02,0x96,0x7C,0x0C};
 
-// Loader LaunchFinal snippet; use with ltLaunchFinal.
-static uint8_t launchFinal[] = {
+// Loader LaunchNow snippet.
+static uint8_t launchNow[] = {
     0x66,0x00,0x7C,0x5C};
+
+double ClockSpeed = 80000000.0;
+int FinalBaud = FINAL_BAUD;
 
 static uint8_t initCallFrame[] = {0xFF, 0xFF, 0xF9, 0xFF, 0xFF, 0xFF, 0xF9, 0xFF};
 
-FastPropellerLoader::FastPropellerLoader(PropellerConnection &connection)
-    : m_connection(connection)
+static void SetHostInitializedValue(uint8_t *bytes, int offset, int value)
 {
+    for (int i = 0; i < 4; ++i)
+        bytes[offset + i] = (value >> (i * 8)) & 0xFF;
 }
 
-FastPropellerLoader::~FastPropellerLoader()
+static int32_t getLong(const uint8_t *buf)
 {
+     return (buf[3] << 24) | (buf[2] << 16) | (buf[1] << 8) | buf[0];
 }
 
-int FastPropellerLoader::load(PropellerImage &image, LoadType loadType)
+static void setLong(uint8_t *buf, uint32_t value)
 {
-    PropellerLoader slowLoader(m_connection);
-    uint8_t *imageData = image.imageData();
-    int imageSize = image.imageSize();
-    PropellerImage loaderImage;
+     buf[3] = value >> 24;
+     buf[2] = value >> 16;
+     buf[1] = value >>  8;
+     buf[0] = value;
+}
+
+uint8_t *Loader::generateInitialLoaderImage(int packetID, int *pLength)
+{
+    int initAreaOffset = sizeof(rawLoaderImage) + RAW_LOADER_INIT_OFFSET_FROM_END;
+    uint8_t *loaderImage;
+    int checksum, i;
+
+    // Allocate space for the image
+    if (!(loaderImage = (uint8_t *)malloc(sizeof(rawLoaderImage))))
+        return NULL;
+
+    // Make a copy of the loader template
+    memcpy(loaderImage, rawLoaderImage, sizeof(rawLoaderImage));
+    
+    // Clock mode
+    //SetHostInitializedValue(loaderImage, initAreaOffset +  0, 0);
+
+    // Initial Bit Time.
+    SetHostInitializedValue(loaderImage, initAreaOffset +  4, (int)trunc(80000000.0 / m_baudrate + 0.5));
+
+    // Final Bit Time.
+    SetHostInitializedValue(loaderImage, initAreaOffset +  8, (int)trunc(80000000.0 / FinalBaud + 0.5));
+    
+    // 1.5x Final Bit Time minus maximum start bit sense error.
+    SetHostInitializedValue(loaderImage, initAreaOffset + 12, (int)trunc(1.5 * ClockSpeed / FinalBaud - MAX_RX_SENSE_ERROR + 0.5));
+    
+    // Failsafe Timeout (seconds-worth of Loader's Receive loop iterations).
+    SetHostInitializedValue(loaderImage, initAreaOffset + 16, (int)trunc(2.0 * ClockSpeed / (3 * 4) + 0.5));
+    
+    // EndOfPacket Timeout (2 bytes worth of Loader's Receive loop iterations).
+    SetHostInitializedValue(loaderImage, initAreaOffset + 20, (int)trunc((2.0 * ClockSpeed / FinalBaud) * (10.0 / 12.0) + 0.5));
+    
+    // PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 24, Max(Round(ClockSpeed * SSSHTime), 14));
+    // PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 28, Max(Round(ClockSpeed * SCLHighTime), 14));
+    // PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 32, Max(Round(ClockSpeed * SCLLowTime), 26));
+
+    // Minimum EEPROM Start/Stop Condition setup/hold time (400 KHz = 1/0.6 µS); Minimum 14 cycles
+    //SetHostInitializedValue(loaderImage, initAreaOffset + 24, 14);
+
+    // Minimum EEPROM SCL high time (400 KHz = 1/0.6 µS); Minimum 14 cycles
+    //SetHostInitializedValue(loaderImage, initAreaOffset + 28, 14);
+
+    // Minimum EEPROM SCL low time (400 KHz = 1/1.3 µS); Minimum 26 cycles
+    //SetHostInitializedValue(loaderImage, initAreaOffset + 32, 26);
+
+    // First Expected Packet ID; total packet count.
+    SetHostInitializedValue(loaderImage, initAreaOffset + 36, packetID);
+
+    // Recalculate and update checksum so low byte of checksum calculates to 0.
+    checksum = 0;
+    loaderImage[5] = 0; // start with a zero checksum
+    for (i = 0; i < (int)sizeof(rawLoaderImage); ++i)
+        checksum += loaderImage[i];
+    for (i = 0; i < (int)sizeof(initCallFrame); ++i)
+        checksum += initCallFrame[i];
+    loaderImage[5] = 256 - (checksum & 0xFF);
+    
+    /* return the loader image */
+    return loaderImage;
+}
+
+int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType)
+{
+    uint8_t *loaderImage, response[8];
+    int loaderImageSize, result, cnt, i;
     int32_t packetID, checksum;
-    uint8_t response[8];
-    int result, cnt, i;
-
+    
     /* compute the packet ID (number of packets to be sent) */
-    packetID = (imageSize + maxDataSize() - 1) / maxDataSize();
+    packetID = (imageSize + m_connection->maxDataSize() - 1) / m_connection->maxDataSize();
 
-    /* generate a loader packet */
-    if (generateInitialLoaderImage(loaderImage, packetID, 115200) != 0)
+    /* generate a loader image */
+    loaderImage = generateInitialLoaderImage(packetID, &loaderImageSize);
+    if (!loaderImage)
         return -1;
+        
+    /* compute the image checksum */
+    checksum = 0;
+    for (i = 0; i < imageSize; ++i)
+        checksum += image[i];
+    for (i = 0; i < (int)sizeof(initCallFrame); ++i)
+        checksum += initCallFrame[i];
 
     /* load the second-stage loader using the propeller ROM protocol */
-    if (slowLoader.load(loaderImage, ltDownloadAndRun) != 0)
+    result = m_connection->loadImage(loaderImage, loaderImageSize, ltDownloadAndRun);
+    free(loaderImage);
+    if (result != 0)
         return -1;
-
-    /* wait for the second-stage loader to start */
-    cnt = m_connection.receiveDataExactTimeout(response, sizeof(response), 2000);
+            
+    //printf("Waiting for second-stage loader initial response\n");
+    cnt = m_connection->receiveDataExactTimeout(response, sizeof(response), 2000);
     result = getLong(&response[0]);
     if (cnt != 8 || result != packetID) {
         printf("error: second-stage loader failed to start - cnt %d, packetID %d, result %d\n", cnt, packetID, result);
         return -1;
     }
-
+    //printf("Got initial second-stage loader response\n");
+    
     /* switch to the final baud rate */
-    if (m_connection.setBaudRate(FINAL_BAUD) != 0)
-        return -1;
-
+    m_connection->setBaudRate(FINAL_BAUD);
+    
     /* transmit the image */
-    uint8_t *p = imageData;
-    int remaining = imageSize;
-    while (remaining > 0) {
+    while (imageSize > 0) {
         int size;
-        //printf("Sending packet %d\n", packetID);
-        if ((size = remaining) > maxDataSize())
-            size = maxDataSize();
-        if (transmitPacket(packetID, p, size, &result) != 0) {
+        if ((size = imageSize) > m_connection->maxDataSize())
+            size = m_connection->maxDataSize();
+        if (transmitPacket(packetID, image, size, &result) != 0) {
             printf("error: transmitPacket failed\n");
             return -1;
         }
         if (result != packetID - 1)
             printf("Unexpected result: expected %d, received %d\n", packetID - 1, result);
-        remaining -= size;
-        p += size;
+        imageSize -= size;
+        image += size;
         --packetID;
     }
+    
+    /*
+        When we're doing a download that does not include an EEPROM write, the Packet IDs end up as:
 
-    /* compute the image checksum */
-    checksum = 0;
-    for (i = 0; i < imageSize; ++i)
-        checksum += imageData[i];
-    for (i = 0; i < (int)sizeof(initCallFrame); ++i)
-        checksum += initCallFrame[i];
+        ltVerifyRAM: zero
+        ltReadyToLaunch: -Checksum
+        ltLaunchNow: -Checksum - 1
 
+        ... and when we're doing a download that includes an EEPROM write, the Packet IDs end up as:
+
+        ltVerifyRAM: zero
+        ltProgramEEPROM: -Checksum
+        ltReadyToLaunch: -Checksum*2
+        ltLaunchNow: -Checksum*2 - 1
+    */
+    
     /* transmit the RAM verify packet and verify the checksum */
     transmitPacket(packetID, verifyRAM, sizeof(verifyRAM), &result);
     if (result != -checksum)
         printf("Checksum error\n");
     packetID = -checksum;
-
-    /* programe the eeprom if requested */
+    
     if (loadType & ltDownloadAndProgram) {
         //printf("Programming EEPROM\n");
         transmitPacket(packetID, programVerifyEEPROM, sizeof(programVerifyEEPROM), &result, 8000);
@@ -173,133 +257,68 @@ int FastPropellerLoader::load(PropellerImage &image, LoadType loadType)
             printf("Checksum error: expected %08x, got %08x\n", -checksum, result);
         packetID = -checksum*2;
     }
-
+    
     /* transmit the final launch packets */
-    transmitPacket(packetID, launchStart, sizeof(launchStart), &result);
+    
+    //printf("Sending readyToLaunch packet\n");
+    transmitPacket(packetID, readyToLaunch, sizeof(readyToLaunch), &result);
     if (result != packetID - 1)
-        printf("Launch failed\n");
-    transmitPacket(0, launchFinal, sizeof(launchFinal), &result);
-
+        printf("ReadyToLaunch failed\n");
+    --packetID;
+    
+    //printf("Sending launchNow packet\n");
+    transmitPacket(packetID, launchNow, sizeof(launchNow), NULL);
+    
     /* return successfully */
     return 0;
 }
 
-int FastPropellerLoader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int *pResult, int timeout)
+int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int *pResult, int timeout)
 {
     int packetSize = 2*sizeof(uint32_t) + payloadSize;
     uint8_t *packet, response[8];
     int retries, result, cnt;
     int32_t tag;
-
+    
     /* build the packet to transmit */
     if (!(packet = (uint8_t *)malloc(packetSize)))
         return -1;
     setLong(&packet[0], id);
     memcpy(&packet[8], payload, payloadSize);
-
+    
     /* send the packet */
     retries = 3;
     while (--retries >= 0) {
-
+    
         /* setup the packet header */
         tag = (int32_t)rand();
         setLong(&packet[4], tag);
-        m_connection.sendData(packet, packetSize);
-
+        //printf("transmit packet %d\n", id);
+        m_connection->sendData(packet, packetSize);
+    
         /* receive the response */
-        cnt = m_connection.receiveDataExactTimeout(response, sizeof(response), timeout);
-        result = getLong(&response[0]);
-        if (cnt == 8 && getLong(&response[4]) == tag && result != id) {
+        if (pResult) {
+            cnt = m_connection->receiveDataExactTimeout(response, sizeof(response), timeout);
+            result = getLong(&response[0]);
+            if (cnt == 8 && getLong(&response[4]) == tag && result != id) {
+                free(packet);
+                *pResult = result;
+                return 0;
+            }
+        }
+        
+        /* don't wait for a result */
+        else {
             free(packet);
-            *pResult = result;
             return 0;
         }
     }
-
+    
     /* free the packet */
     free(packet);
-
+    
     /* return timeout */
-    printf("error: transmitPacket timed out\n");
+    printf("error: transmitPacket %d failed\n", id);
     return -1;
 }
 
-double ClockSpeed = 80000000.0;
-int FinalBaud = FINAL_BAUD;
-
-int FastPropellerLoader::generateInitialLoaderImage(PropellerImage &image, int packetID, int baudRate)
-{
-    int initAreaOffset = sizeof(rawLoaderImage) + RAW_LOADER_INIT_OFFSET_FROM_END;
-    uint8_t *imagePtr;
-    int checksum, i;
-
-    // Make an image from the loader template
-    if (image.setImage(rawLoaderImage, sizeof(rawLoaderImage)) != 0)
-        return -1;
-    imagePtr = (uint8_t *)image.imageData();
-
-    // Clock mode
-    //setHostInitializedValue(imagePtr, initAreaOffset +  0, 0);
-
-    // Initial Bit Time.
-    setHostInitializedValue(imagePtr, initAreaOffset +  4, (int)trunc(80000000.0 / baudRate + 0.5));
-
-    // Final Bit Time.
-    setHostInitializedValue(imagePtr, initAreaOffset +  8, (int)trunc(80000000.0 / FinalBaud + 0.5));
-
-    // 1.5x Final Bit Time minus maximum start bit sense error.
-    setHostInitializedValue(imagePtr, initAreaOffset + 12, (int)trunc(1.5 * ClockSpeed / FinalBaud - MAX_RX_SENSE_ERROR + 0.5));
-
-    // Failsafe Timeout (seconds-worth of Loader's Receive loop iterations).
-    setHostInitializedValue(imagePtr, initAreaOffset + 16, (int)trunc(2.0 * ClockSpeed / (3 * 4) + 0.5));
-
-    // EndOfPacket Timeout (2 bytes worth of Loader's Receive loop iterations).
-    setHostInitializedValue(imagePtr, initAreaOffset + 20, (int)trunc((2.0 * ClockSpeed / FinalBaud) * (10.0 / 12.0) + 0.5));
-
-    // PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 24, Max(Round(ClockSpeed * SSSHTime), 14));
-    // PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 28, Max(Round(ClockSpeed * SCLHighTime), 14));
-    // PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 32, Max(Round(ClockSpeed * SCLLowTime), 26));
-
-    // Minimum EEPROM Start/Stop Condition setup/hold time (400 KHz = 1/0.6 µS); Minimum 14 cycles
-    //setHostInitializedValue(imagePtr, initAreaOffset + 24, 14);
-
-    // Minimum EEPROM SCL high time (400 KHz = 1/0.6 µS); Minimum 14 cycles
-    //setHostInitializedValue(imagePtr, initAreaOffset + 28, 14);
-
-    // Minimum EEPROM SCL low time (400 KHz = 1/1.3 µS); Minimum 26 cycles
-    //setHostInitializedValue(imagePtr, initAreaOffset + 32, 26);
-
-    // First Expected Packet ID; total packet count.
-    setHostInitializedValue(imagePtr, initAreaOffset + 36, packetID);
-
-    // Recalculate and update checksum so low byte of checksum calculates to 0.
-    checksum = 0;
-    imagePtr[5] = 0; // start with a zero checksum
-    for (i = 0; i < (int)sizeof(rawLoaderImage); ++i)
-        checksum += imagePtr[i];
-    for (i = 0; i < (int)sizeof(initCallFrame); ++i)
-        checksum += initCallFrame[i];
-    imagePtr[5] = 256 - (checksum & 0xFF);
-
-    /* return successfully */
-    return 0;
-}
-
-void FastPropellerLoader::setHostInitializedValue(uint8_t *bytes, int offset, int value)
-{
-    for (int i = 0; i < 4; ++i)
-        bytes[offset + i] = (value >> (i * 8)) & 0xFF;
-}
-
-int32_t FastPropellerLoader::getLong(const uint8_t *buf)
-{
-     return (buf[3] << 24) | (buf[2] << 16) | (buf[1] << 8) | buf[0];
-}
-
-void FastPropellerLoader::setLong(uint8_t *buf, uint32_t value)
-{
-     buf[3] = value >> 24;
-     buf[2] = value >> 16;
-     buf[1] = value >>  8;
-     buf[0] = value;
-}

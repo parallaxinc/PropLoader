@@ -239,7 +239,7 @@ int ReceiveSerialDataTimeout(SERIAL *serial, void *buf, int len, int timeout)
     return dwBytes;
 }
 
-int ReceiveSerialDataExact(SERIAL *serial, void *buf, int len, int timeout)
+int ReceiveSerialDataExactTimeout(SERIAL *serial, void *buf, int len, int timeout)
 {
     uint8_t *ptr = (uint8_t *)buf;
     int remaining = len;

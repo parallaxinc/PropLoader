@@ -1,19 +1,17 @@
-#include <QFile>
-#include <QTextStream>
+/* Propeller WiFi loader
 
-#include "propellerloader.h"
+  Based on Jeff Martin's Pascal loader and Mike Westerfield's iOS loader.
+*/
 
-#define LENGTH_FIELD_SIZE       11          /* number of bytes in the length field */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <unistd.h>
+#include "serialpropconnection.h"
 
-#define DEBUG
-
-#ifdef DEBUG
-#define INFO(fmt, args...)  do { printf(fmt, ##args); } while (0)
-#else
-#define INFO(fmt, args...)
-#endif
-
-#define ERROR(fmt, args...) do { printf("error: " fmt, ##args); } while (0)
+#define MAX_BUFFER_SIZE         32768   /* The maximum buffer size. (BUG: git rid of this magic number) */
+#define LENGTH_FIELD_SIZE       11      /* number of bytes in the length field */
 
 // Propeller Download Stream Translator array.  Index into this array using the "Binary Value" (usually 5 bits) to translate,
 // the incoming bit size (again, usually 5), and the desired data element to retrieve (encoding = translation, bitCount = bit count
@@ -118,7 +116,7 @@ static uint8_t txHandshake[] = {
     0x29,0x29,0x29,0x29,0x29,0x29,0x29,0x29,0x29,0x29,0x29,0x29,0x29,
     // 8 timing templates ('1' and '0') to receive 8-bit Propeller version; two pairs per byte; 4 bytes.
     0x29,0x29,0x29,0x29};
-
+    
 // Shutdown command (0); 11 bytes.
 static uint8_t shutdownCmd[] = {0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0x92, 0xf2};
 
@@ -143,174 +141,238 @@ static uint8_t rxHandshake[] = {
     0xEE,0xCE,0xCF,0xCE,0xCE,0xCF,0xCE,0xEE,0xEF,0xEE,0xEF,0xEF,0xCF,0xEF,0xCE,0xCE,
     0xEF,0xCE,0xEE,0xCE,0xEF,0xCE,0xCE,0xEE,0xCF,0xCF,0xCE,0xCF,0xCF};
 
-PropellerLoader::PropellerLoader(PropellerConnection &connection)
-    : m_connection(connection)
-{
-}
-
-PropellerLoader::~PropellerLoader()
-{
-}
-
-int PropellerLoader::load(PropellerImage &image, LoadType loadType)
-{
-    QByteArray packet;
-    QByteArray verificationPacket(1024, 0xF9);
-    uint8_t buf[sizeof(rxHandshake) + 4];
-    int version, cnt, i;
-
-    /* generate a single packet containing the tx handshake and the image to load */
-    if (generateLoaderPacket(packet, image.imageData(), image.imageSize(), loadType) != 0)
-        return -1;
-
-    /* reset the Propeller */
-    INFO("Reset Propeller\n");
-    if (m_connection.generateResetSignal() != 0)
-        return -1;
-
-    /* send the packet */
-    INFO("Send image\n");
-    if (m_connection.sendData((uint8_t *)packet.data(), packet.size()) != packet.size()) {
-        ERROR("sendData failed\n");
-        return -1;
-    }
-
-    /* receive the handshake response and the hardware version */
-    INFO("Receive handshake response");
-    cnt = m_connection.receiveDataExactTimeout(buf, sizeof(rxHandshake) + 4, 2000);
-    if (cnt == -1) {
-        ERROR("receiveDataExactTimeout failed\n");
-        return -1;
-    }
-    INFO(" -- got %d bytes\n", cnt);
-
-    /* verify the rx handshake */
-    INFO("Verify handshake response\n");
-    if (cnt != sizeof(rxHandshake) + 4 || memcmp(buf, rxHandshake, sizeof(rxHandshake)) != 0) {
-        ERROR("handshake failed\n");
-        return -1;
-    }
-
-    /* verify the hardware version */
-    INFO("Verify hardware version\n");
-    version = 0;
-    for (i = sizeof(rxHandshake); i < cnt; ++i)
-        version = ((version >> 2) & 0x3F) | ((buf[i] & 0x01) << 6) | ((buf[i] & 0x20) << 2);
-    if (version != 1) {
-        ERROR("wrong propeller version\n");
-        return -1;
-    }
-
-    /* receive and verify the checksum */
-    INFO("Receive checksum\n");
-    if (m_connection.receiveChecksumAck(packet.size(), 250) != 0) {
-        ERROR("checksum verification failed");
-        return -1;
-    }
-
-    /* wait for eeprom programming and verification */
-    if (loadType == ltDownloadAndProgram || loadType == ltDownloadAndProgramAndRun) {
-
-        INFO("Receive EEPROM programming ACK\n");
-        /* wait for an ACK indicating a successful EEPROM programming */
-        if (m_connection.receiveChecksumAck(0, 5000) != 0) {
-            ERROR("EEPROM programming failed\n");
-            return -1;
-        }
-
-        INFO("Receive EEPROM verification ACK\n");
-        /* wait for an ACK indicating a successful EEPROM verification */
-        if (m_connection.receiveChecksumAck(0, 2000) != 0) {
-            ERROR("EEPROM verification failed\n");
-            return -1;
-        }
-    }
-
-    /* return successfully */
-    INFO("Load completed\n");
-    return 0;
-}
-
-void PropellerLoader::generateIdentifyPacket(QByteArray &packet)
-{
-    /* initialize the packet */
-    packet.clear();
-
-    /* copy the handshake image and the shutdown command to the packet */
-    packet.append((char *)txHandshake, sizeof(txHandshake));
-    packet.append((char *)shutdownCmd, sizeof(shutdownCmd));
-}
-
-int PropellerLoader::generateLoaderPacket(QByteArray &packet, const uint8_t *image, int imageSize, LoadType loadType)
-{
-    int imageSizeInLongs = (imageSize + 3) / 4;
-    int tmp, i;
-
-    /* initialize the packet */
-    packet.clear();
-
-    /* copy the handshake image and the command to the packet */
-    packet.append((char *)txHandshake, sizeof(txHandshake));
-
-    /* append the loader command */
-    switch (loadType) {
-    case ltDownloadAndRun:
-        packet.append((char *)loadRunCmd, sizeof(loadRunCmd));
-        break;
-    case ltDownloadAndProgram:
-        packet.append((char *)programShutdownCmd, sizeof(loadRunCmd));
-        break;
-    case ltDownloadAndProgramAndRun:
-        packet.append((char *)programRunCmd, sizeof(loadRunCmd));
-        break;
-    default:
-        return -1;
-    }
-
-    /* add the image size in longs */
-    tmp = imageSizeInLongs;
-    for (i = 0; i < LENGTH_FIELD_SIZE; ++i) {
-        packet.append(0x92 | (i == 10 ? 0x60 : 0x00) | (tmp & 1) | ((tmp & 2) << 2) | ((tmp & 4) << 4));
-        tmp >>= 3;
-    }
-
-    /* encode the image and insert it into the packet */
-    encodeBytes(packet, image, imageSize);
-
-    /* return successfully */
-    return 0;
-}
-
-/* encodeBytes
+/* EncodeBytes
     parameters:
-        packet is a packet to receive the encoded bytes
         inBytes is a pointer to a buffer of bytes to be encoded
         inCount is the number of bytes in inBytes
+        outBytes is a pointer to a buffer to receive the encoded bytes
+        outSize is the size of the outBytes buffer
     returns the number of bytes written to the outBytes buffer or -1 if the encoded data does not fit
 */
-void PropellerLoader::encodeBytes(QByteArray &packet, const uint8_t *inBytes, int inCount)
+static int EncodeBytes(const uint8_t *inBytes, int inCount, uint8_t *outBytes, int outSize)
 {
     static uint8_t masks[] = { 0x00, 0x01, 0x03, 0x07, 0x0f, 0x1f };
     int bitCount = inCount * 8;
     int nextBit = 0;
-
+    int outCount = 0;
+    
     /* encode all bits in the input buffer */
     while (nextBit < bitCount) {
         int bits, bitsIn;
-
+    
         /* encode 5 bits or whatever remains in inBytes, whichever is smaller */
         bitsIn = bitCount - nextBit;
         if (bitsIn > 5)
             bitsIn = 5;
-
+            
         /* extract the next 'bitsIn' bits from the input buffer */
         bits = ((inBytes[nextBit / 8] >> (nextBit % 8)) | (inBytes[nextBit / 8 + 1] << (8 - (nextBit % 8)))) & masks[bitsIn];
-
+    
+        /* make sure there is enough space in the output buffer */
+        if (outCount >= outSize)
+            return -1;
+            
         /* store the encoded value */
-        packet.append(PDSTx[bits][bitsIn - 1].encoding);
-
+        outBytes[outCount++] = PDSTx[bits][bitsIn - 1].encoding;
+        
         /* advance to the next group of bits */
         nextBit += PDSTx[bits][bitsIn - 1].bitCount;
     }
+    
+    /* return the number of encoded bytes */
+    return outCount;
+}
+
+static uint8_t *GenerateIdentifyPacket(int *pLength)
+{
+    uint8_t *packet;
+    int packetSize;
+    
+    /* determine the size of the packet */
+    packetSize = sizeof(txHandshake) + sizeof(shutdownCmd);
+    
+    /* allocate space for the full packet */
+    if (!(packet = (uint8_t *)malloc(packetSize)))
+        return NULL;
+        
+    /* copy the handshake image and the command to the packet */
+    memcpy(packet, txHandshake, sizeof(txHandshake));
+    memcpy(packet + sizeof(txHandshake), shutdownCmd, sizeof(shutdownCmd));
+        
+    /* return the packet and its length */
+    *pLength = packetSize;
+    return packet;
+}
+
+static uint8_t *GenerateLoaderPacket(const uint8_t *image, int imageSize, int *pLength, LoadType loadType)
+{
+    int imageSizeInLongs = (imageSize + 3) / 4;
+    uint8_t encodedImage[MAX_BUFFER_SIZE * 8]; // worst case assuming one byte per bit encoding
+    int encodedImageSize, packetSize, cmdLen, tmp, i;
+    uint8_t *packet, *cmd, *p;
+    
+    /* encode the image */
+    encodedImageSize = EncodeBytes(image, imageSize, encodedImage, sizeof(encodedImage));
+    if (encodedImageSize < 0)
+        return NULL;
+    
+    /* select command */
+    switch (loadType) {
+    case ltShutdown:
+        cmd = shutdownCmd;
+        cmdLen = sizeof(shutdownCmd);
+        break;
+    case ltDownloadAndRun:
+        cmd = loadRunCmd;
+        cmdLen = sizeof(loadRunCmd);
+        break;
+    case ltDownloadAndProgram:
+        cmd = programShutdownCmd;
+        cmdLen = sizeof(programShutdownCmd);
+        break;
+    case ltDownloadAndProgramAndRun:
+        cmd = programRunCmd;
+        cmdLen = sizeof(programRunCmd);
+        break;
+    default:
+        return NULL;
+    }
+        
+    /* determine the size of the packet */
+    packetSize = sizeof(txHandshake) + cmdLen + LENGTH_FIELD_SIZE + encodedImageSize;
+    
+    /* allocate space for the full packet */
+    if (!(packet = (uint8_t *)malloc(packetSize)))
+        return NULL;
+        
+    /* copy the handshake image and the command to the packet */
+    memcpy(packet, txHandshake, sizeof(txHandshake));
+
+    /* copy the command to the packet */
+    memcpy(packet + sizeof(txHandshake), cmd, cmdLen);
+    
+    /* build the packet from the handshake data, the image length and the encoded image */
+    p = packet + sizeof(txHandshake) + cmdLen;
+    tmp = imageSizeInLongs;
+    for (i = 0; i < LENGTH_FIELD_SIZE; ++i) {
+        *p++ = 0x92 | (i == 10 ? 0x60 : 0x00) | (tmp & 1) | ((tmp & 2) << 2) | ((tmp & 4) << 4);
+        tmp >>= 3;
+    }
+    memcpy(p, encodedImage, encodedImageSize);
+    
+    /* return the packet and its length */
+    *pLength = packetSize;
+    return packet;
+}
+
+int SerialPropConnection::identify(int *pVersion)
+{
+    uint8_t packet2[MAX_BUFFER_SIZE]; // must be at least as big as maxDataSize()
+    int version, cnt, i;
+    uint8_t *packet;
+    int packetSize;
+    
+    /* generate the identify packet */
+    if (!(packet = GenerateIdentifyPacket(&packetSize))) {
+        printf("error: generating identify packet\n");
+        goto fail;
+    }
+
+    /* reset the Propeller */
+    generateResetSignal();
+    
+    /* send the identify packet */
+    sendData(packet, packetSize);
+    
+    /* send the verification packet (all timing templates) */
+    memset(packet2, 0xF9, maxDataSize());
+    sendData(packet2, maxDataSize());
+    
+    /* receive the handshake response and the hardware version */
+    cnt = receiveDataExactTimeout(packet2, sizeof(rxHandshake) + 4, 2000);
+    if (cnt < 0)
+        goto fail;
+    
+    /* verify the handshake response */
+    if (cnt != sizeof(rxHandshake) + 4 || memcmp(packet2, rxHandshake, sizeof(rxHandshake)) != 0) {
+        printf("error: handshake failed\n");
+        goto fail;
+    }
+    
+    /* verify the hardware version */
+    version = 0;
+    for (i = sizeof(rxHandshake); i < cnt; ++i)
+        version = ((version >> 2) & 0x3F) | ((packet2[i] & 0x01) << 6) | ((packet2[i] & 0x20) << 2);
+    
+    /* return successfully */
+    *pVersion = version;
+    return 0;
+    
+    /* return failure */
+fail:
+    disconnect();
+    return -1;
+}
+
+int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
+{
+    uint8_t packet2[MAX_BUFFER_SIZE]; // must be at least as big as maxDataSize()
+    int packetSize, version, cnt, i;
+    uint8_t *packet;
+
+    /* generate a loader packet */
+    packet = GenerateLoaderPacket(image, imageSize, &packetSize, loadType);
+    if (!packet)
+        return -1;
+
+    /* reset the Propeller */
+    printf("Reset the Propeller\n");
+    generateResetSignal();
+    
+    /* send the packet including the image */
+    printf("Send the packet includign the image\n");
+    sendData(packet, packetSize);
+    free(packet);
+    
+    /* send the verification packet (all timing templates) */
+    printf("Send the verification packet\n");
+    memset(packet2, 0xF9, maxDataSize());
+    sendData(packet2, maxDataSize());
+    
+    /* receive the handshake response and the hardware version */
+    printf("Receive handshake response\n");
+    cnt = receiveDataExactTimeout(packet2, sizeof(rxHandshake) + 4, 2000);
+    
+    /* verify the handshake response */
+    if (cnt != sizeof(rxHandshake) + 4 || memcmp(packet2, rxHandshake, sizeof(rxHandshake)) != 0) {
+        printf("error: handshake failed\n");
+        return -1;
+    }
+    
+    /* verify the hardware version */
+    version = 0;
+    for (i = sizeof(rxHandshake); i < cnt; ++i)
+        version = ((version >> 2) & 0x3F) | ((packet2[i] & 0x01) << 6) | ((packet2[i] & 0x20) << 2);
+    if (version != 1) {
+        printf("error: wrong propeller version\n");
+        return -1;
+    }
+    printf("Found Propeller version %d\n", version);
+    
+    /* verify the checksum */
+    printf("Receive checksum\n");
+    cnt = receiveDataExactTimeout(packet2, 1, 2000);
+    if (cnt != 1) {
+        printf("error: timeout waiting for checksum\n");
+        return -1;
+    }
+    else if (packet2[0] != 0xFE) {
+        printf("error: loader checksum failed\n");
+        return -1;
+    }
+       
+    /* return successfully */
+    printf("Load complete\n");
+    return 0;
 }
 

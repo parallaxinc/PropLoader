@@ -382,21 +382,26 @@ int ReceiveSerialDataTimeout(SERIAL *serial, void *buf, int len, int timeout)
     struct timeval toval;
     fd_set set;
 
+    /* initialize the socket set */
     FD_ZERO(&set);
     FD_SET(serial->fd, &set);
 
+    /* setup the timeout */
     toval.tv_sec = timeout / 1000;
     toval.tv_usec = (timeout % 1000) * 1000;
 
-    if (select(serial->fd + 1, &set, NULL, NULL, &toval) > 0) {
-        if (FD_ISSET(serial->fd, &set))
-            bytes = read(serial->fd, buf, len);
-    }
+    /* wait for data to be available on the port */
+    if (select(serial->fd + 1, &set, NULL, NULL, &toval) <= 0)
+        return -1;
+
+    /* read the incoming data */
+    if (FD_ISSET(serial->fd, &set))
+        bytes = read(serial->fd, buf, len);
 
     return (int)(bytes > 0 ? bytes : -1);
 }
 
-int ReceiveSerialDataExact(SERIAL *serial, void *buf, int len, int timeout)
+int ReceiveSerialDataExactTimeout(SERIAL *serial, void *buf, int len, int timeout)
 {
     uint8_t *ptr = (uint8_t *)buf;
     int remaining = len;
@@ -416,17 +421,19 @@ int ReceiveSerialDataExact(SERIAL *serial, void *buf, int len, int timeout)
         toval.tv_usec = (timeout % 1000) * 1000;
 
         /* wait for data to be available on the port */
-        if (select(serial->fd + 1, &set, NULL, NULL, &toval) > 0) {
-            if (FD_ISSET(serial->fd, &set)) {
-            
-                /* read the next bit of data */
-                if ((cnt = read(serial->fd, ptr, remaining)) < 0)
-                    return -1;
-                    
-                /* update the buffer pointer */
-                remaining -= cnt;
-                ptr += cnt;
-            }
+        if (select(serial->fd + 1, &set, NULL, NULL, &toval) <= 0)
+            return -1;
+
+        /* read the incoming data */
+        if (FD_ISSET(serial->fd, &set)) {
+        
+            /* read the next bit of data */
+            if ((cnt = read(serial->fd, ptr, remaining)) < 0)
+                return -1;
+                
+            /* update the buffer pointer */
+            remaining -= cnt;
+            ptr += cnt;
         }
     }
 
