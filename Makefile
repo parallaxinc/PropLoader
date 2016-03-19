@@ -20,6 +20,7 @@ endif
 
 CC=$(PREFIX)gcc
 CPP=$(PREFIX)g++
+SPINCMP=openspin
 
 CFLAGS=-Wall
 
@@ -65,6 +66,8 @@ HDRDIR=hdr
 SRCDIR=src
 OBJDIR=$(BUILD)/obj
 BINDIR=$(BUILD)/bin
+SPINDIR=spin
+TOOLDIR=tools
 
 HDRS=\
 $(HDRDIR)/sock.h \
@@ -85,12 +88,12 @@ $(OBJDIR)/sd_helper.o \
 $(OBJDIR)/config.o \
 $(OSINT)
 
-CFLAGS+=-I$(HDRDIR)
+CFLAGS+=-I$(HDRDIR) -I$(OBJDIR)
 CPPFLAGS=$(CFLAGS)
 
-all:	 $(BINDIR)/proploader$(EXT) $(BUILD)/blink.binary $(BUILD)/blink-slow.binary $(BUILD)/toggle.elf
+all:	 $(BINDIR)/proploader$(EXT) $(BUILD)/blink-fast.binary $(BUILD)/blink-slow.binary $(BUILD)/toggle.elf
 
-$(OBJS):	$(OBJDIR)/created $(HDRS) Makefile
+$(OBJS):	$(OBJDIR)/created $(HDRS) $(OBJDIR)/IP_Loader.h Makefile
 
 $(BINDIR)/proploader$(EXT):	$(BINDIR)/created $(OBJS)
 	$(CPP) -o $@ $(OBJS) $(LIBS) -lstdc++
@@ -98,23 +101,36 @@ $(BINDIR)/proploader$(EXT):	$(BINDIR)/created $(OBJS)
 $(BUILD)/%.elf:	%.c
 	propeller-elf-gcc -Os -mlmm -o $@ $<
     
-$(BUILD)/%.binary:	%.spin
-	openspin -o $@ $<
+$(BUILD)/%-fast.binary:	%.spin
+	$(SPINCMP) -o $@ $<
 
 $(BUILD)/%-slow.binary:	%.spin
-	openspin -DSLOW -o $@ $<
+	$(SPINCMP) -DSLOW -o $@ $<
+
+$(OBJDIR)/%.binary:	$(SPINDIR)/%.spin
+	$(SPINCMP) -o $@ $<
+
+$(OBJDIR)/%.c:	$(OBJDIR)/%.binary $(BINDIR)/bin2c$(EXT)
+	$(BINDIR)/bin2c$(EXT) $< $@
+
+$(OBJDIR)/%.o:	$(OBJDIR)/%.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJDIR)/IP_Loader.h:   $(SPINDIR)/IP_Loader.spin $(BINDIR)/split$(EXT)
+	$(SPINCMP) -o $(OBJDIR)/IP_Loader.binary $<
+	$(BINDIR)/split$(EXT) $(OBJDIR)/IP_Loader.binary $(OBJDIR)/IP_Loader.h
 
 setup:	$(BUILD)/blink-slow.binary
 	propeller-load -e $(BUILD)/blink-slow.binary
 
-run:	$(BINDIR)/proploader$(EXT) $(BUILD)/blink.binary
-	$(BINDIR)/proploader$(EXT) $(BUILD)/blink.binary -t
+run:	$(BINDIR)/proploader$(EXT) $(BUILD)/blink-fast.binary
+	$(BINDIR)/proploader$(EXT) $(BUILD)/blink-fast.binary -t
 
 runbig:	$(BINDIR)/proploader$(EXT) $(BUILD)/toggle.elf
 	$(BINDIR)/proploader$(EXT) $(BUILD)/toggle.elf -t
 
-E:	$(BINDIR)/proploader$(EXT) $(BUILD)/blink.binary
-	$(BINDIR)/proploader$(EXT) $(BUILD)/blink.binary -e
+E:	$(BINDIR)/proploader$(EXT) $(BUILD)/blink-fast.binary
+	$(BINDIR)/proploader$(EXT) $(BUILD)/blink-fast.binary -e
 
 Ebig:	$(BINDIR)/proploader$(EXT) $(BUILD)/toggle.elf
 	$(BINDIR)/proploader$(EXT) $(BUILD)/toggle.elf -e
@@ -137,8 +153,11 @@ $(OBJDIR)/%.o:	$(SRCDIR)/%.c $(HDRS)
 $(OBJDIR)/%.o:	$(SRCDIR)/%.cpp $(HDRS)
 	$(CPP) $(CPPFLAGS) -c $< -o $@
 
+$(BINDIR)/%$(EXT):	$(TOOLDIR)/%.c
+	$(CC) $(CFLAGS) $< -o $@
+
 clean:
-	$(RM) $(BUILD)
+	$(RM) $(BUILD) *.binary *.elf
 
 %/created:
 	@$(MKDIR) -p $(@D)

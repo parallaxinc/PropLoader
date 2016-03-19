@@ -21,6 +21,7 @@
 // download, it is first adjusted to contain special values assigned by this host (communication timing and
 // synchronization values) and then is translated into an optimized Propeller Download Stream understandable by the
 // Propeller ROM-based boot loader.
+#if 0
 static uint8_t rawLoaderImage[] = {
     0x00,0xB4,0xC4,0x04,0x6F,0x2B,0x10,0x00,0x88,0x01,0x90,0x01,0x80,0x01,0x94,0x01,
     0x78,0x01,0x02,0x00,0x70,0x01,0x00,0x00,0x4D,0xE8,0xBF,0xA0,0x4D,0xEC,0xBF,0xA0,
@@ -89,6 +90,9 @@ static uint8_t readyToLaunch[] = {
 // Loader LaunchNow snippet.
 static uint8_t launchNow[] = {
     0x66,0x00,0x7C,0x5C};
+#else
+#include "IP_Loader.h"
+#endif
 
 double ClockSpeed = 80000000.0;
 int FinalBaud = FINAL_BAUD;
