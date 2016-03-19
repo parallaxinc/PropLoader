@@ -11,11 +11,6 @@
 #include "loader.h"
 #include "loadelf.h"
 
-void Loader::setBaudrate(int baudrate)
-{
-    m_baudrate = baudrate;
-}
-
 int Loader::loadFile(const char *file, LoadType loadType)
 {
     uint8_t *image;
@@ -29,6 +24,7 @@ int Loader::loadFile(const char *file, LoadType loadType)
     }
     
     /* load the file */
+    printf("Loading '%s', %d bytes\n", file, imageSize);
     sts = loadImage(image, imageSize, loadType);
     free(image);
     
@@ -68,23 +64,22 @@ uint8_t *Loader::readFile(const char *file, int *pImageSize)
     ElfHdr elfHdr;
     FILE *fp;
 
-    /* open the binary */
+    /* open the binary file */
     if (!(fp = fopen(file, "rb"))) {
         printf("error: can't open '%s'\n", file);
         return NULL;
     }
     
     /* check for an elf file */
-    if (ReadAndCheckElfHdr(fp, &elfHdr)) {
+    if (ReadAndCheckElfHdr(fp, &elfHdr))
         image = readElfFile(fp, &elfHdr, &imageSize);
-        fclose(fp);
-    }
 
     /* otherwise, assume a Spin binary */
-    else {
+    else
         image = readSpinBinaryFile(fp, &imageSize);
-        fclose(fp);
-    }
+        
+    /* close the binary file */
+    fclose(fp);
 
     /* return the image */
     if (image) *pImageSize = imageSize;
@@ -94,7 +89,7 @@ uint8_t *Loader::readFile(const char *file, int *pImageSize)
 /* target checksum for a binary file */
 #define SPIN_TARGET_CHECKSUM    0x14
 
-uint8_t *Loader::readSpinBinaryFile(FILE *fp, int *pLength)
+uint8_t *Loader::readSpinBinaryFile(FILE *fp, int *pImageSize)
 {
     uint8_t *image;
     int imageSize;
@@ -115,7 +110,7 @@ uint8_t *Loader::readSpinBinaryFile(FILE *fp, int *pLength)
     }
     
     /* return the buffer containing the file contents */
-    *pLength = imageSize;
+    *pImageSize = imageSize;
     return image;
 }
 

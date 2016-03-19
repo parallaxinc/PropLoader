@@ -317,12 +317,11 @@ fail:
 int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
 {
     uint8_t packet2[MAX_BUFFER_SIZE]; // must be at least as big as maxDataSize()
-    int packetSize, version, cnt, i;
+    int packetSize, version, retries, cnt, i;
     uint8_t *packet;
 
     /* generate a loader packet */
-    packet = GenerateLoaderPacket(image, imageSize, &packetSize, loadType);
-    if (!packet)
+    if (!(packet = GenerateLoaderPacket(image, imageSize, &packetSize, loadType)))
         return -1;
 
     /* reset the Propeller */
@@ -330,14 +329,14 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
     generateResetSignal();
     
     /* send the packet including the image */
-    printf("Send the packet includign the image\n");
+    printf("Send the packet including the image\n");
     sendData(packet, packetSize);
     free(packet);
     
-    /* send the verification packet (all timing templates) */
+    /* clock out the handshake response */
     printf("Send the verification packet\n");
-    memset(packet2, 0xF9, maxDataSize());
-    sendData(packet2, maxDataSize());
+    memset(packet2, 0xF9, sizeof(rxHandshake) + 4);
+    sendData(packet2, sizeof(rxHandshake) + 4);
     
     /* receive the handshake response and the hardware version */
     printf("Receive handshake response\n");
@@ -361,14 +360,21 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
     
     /* receive the checksum response */
     printf("Receive checksum\n");
-    cnt = receiveDataExactTimeout(packet2, 1, 2000);
+    packet2[0] = 0xF9;
+    retries = 1000;
+    do {
+        sendData(packet2, 1);
+        cnt = receiveDataExactTimeout(packet2, 1, 10);
+    } while (cnt <= 0 && --retries > 0);
 
-    /* verify the checksum response */
-    if (cnt != 1) {
+    /* check for timeout */
+    if (cnt <= 0) {
         printf("error: timeout waiting for checksum\n");
         return -1;
     }
-    else if (packet2[0] != 0xFE) {
+    
+    /* verify the checksum response */
+    if (packet2[0] != 0xFE) {
         printf("error: loader checksum failed: %02x\n", packet2[0]);
         return -1;
     }
