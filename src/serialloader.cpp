@@ -359,15 +359,17 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
     }
     printf("Found Propeller version %d\n", version);
     
-    /* verify the checksum */
+    /* receive the checksum response */
     printf("Receive checksum\n");
     cnt = receiveDataExactTimeout(packet2, 1, 2000);
+
+    /* verify the checksum response */
     if (cnt != 1) {
         printf("error: timeout waiting for checksum\n");
         return -1;
     }
     else if (packet2[0] != 0xFE) {
-        printf("error: loader checksum failed\n");
+        printf("error: loader checksum failed: %02x\n", packet2[0]);
         return -1;
     }
        
