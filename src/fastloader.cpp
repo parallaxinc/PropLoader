@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include "loader.h"
 
-#define FINAL_BAUD              921600      /* Final XBee-to-Propeller baud rate. */
+#define FINAL_BAUD              115200 //921600      /* Final XBee-to-Propeller baud rate. */
 #define MAX_RX_SENSE_ERROR      23          /* Maximum number of cycles by which the detection of a start bit could be off (as affected by the Loader code) */
 
 // Offset (in bytes) from end of Loader Image pointing to where most host-initialized values exist.
@@ -171,7 +171,28 @@ uint8_t *Loader::generateInitialLoaderImage(int packetID, int *pLength)
     loaderImage[5] = 256 - (checksum & 0xFF);
     
     /* return the loader image */
+    *pLength = sizeof(rawLoaderImage);
     return loaderImage;
+}
+
+int Loader::fastLoadFile(const char *file, LoadType loadType)
+{
+    uint8_t *image;
+    int imageSize;
+    int sts;
+    
+    /* make sure the image was loaded into memory */
+    if (!(image = readFile(file, &imageSize))) {
+        printf("error: failed to load image '%s'\n", file);
+        return -1;
+    }
+    
+    /* load the file */
+    sts = fastLoadImage(image, imageSize, loadType);
+    free(image);
+    
+    /* return load result */
+    return sts;
 }
 
 int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType)
@@ -192,23 +213,22 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     checksum = 0;
     for (i = 0; i < imageSize; ++i)
         checksum += image[i];
-    for (i = 0; i < (int)sizeof(initCallFrame); ++i)
-        checksum += initCallFrame[i];
 
     /* load the second-stage loader using the propeller ROM protocol */
+    printf("Loading second-stage loader\n");
     result = m_connection->loadImage(loaderImage, loaderImageSize, ltDownloadAndRun);
     free(loaderImage);
     if (result != 0)
         return -1;
             
-    //printf("Waiting for second-stage loader initial response\n");
+    printf("Waiting for second-stage loader initial response\n");
     cnt = m_connection->receiveDataExactTimeout(response, sizeof(response), 2000);
     result = getLong(&response[0]);
     if (cnt != 8 || result != packetID) {
         printf("error: second-stage loader failed to start - cnt %d, packetID %d, result %d\n", cnt, packetID, result);
         return -1;
     }
-    //printf("Got initial second-stage loader response\n");
+    printf("Got initial second-stage loader response\n");
     
     /* switch to the final baud rate */
     m_connection->setBaudRate(FINAL_BAUD);
@@ -245,28 +265,29 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     */
     
     /* transmit the RAM verify packet and verify the checksum */
+    printf("Verifying RAM\n");
     transmitPacket(packetID, verifyRAM, sizeof(verifyRAM), &result);
     if (result != -checksum)
-        printf("Checksum error\n");
+        printf("Checksum error: expected %08x, got %08x\n", -checksum, result);
     packetID = -checksum;
     
     if (loadType & ltDownloadAndProgram) {
-        //printf("Programming EEPROM\n");
+        printf("Programming EEPROM\n");
         transmitPacket(packetID, programVerifyEEPROM, sizeof(programVerifyEEPROM), &result, 8000);
         if (result != -checksum*2)
-            printf("Checksum error: expected %08x, got %08x\n", -checksum, result);
+            printf("EEPROM programming error: expected %08x, got %08x\n", -checksum*2, result);
         packetID = -checksum*2;
     }
     
     /* transmit the final launch packets */
     
-    //printf("Sending readyToLaunch packet\n");
+    printf("Sending readyToLaunch packet\n");
     transmitPacket(packetID, readyToLaunch, sizeof(readyToLaunch), &result);
     if (result != packetID - 1)
-        printf("ReadyToLaunch failed\n");
+        printf("ReadyToLaunch failed: expected %08x, got %08x\n", packetID - 1, result);
     --packetID;
     
-    //printf("Sending launchNow packet\n");
+    printf("Sending launchNow packet\n");
     transmitPacket(packetID, launchNow, sizeof(launchNow), NULL);
     
     /* return successfully */

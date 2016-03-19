@@ -244,7 +244,7 @@ int main(int argc, char *argv[])
     
     /* load the file */
     loader.setConnection(connection);
-    if (file && (sts = loader.loadFile(file, (LoadType)loadType)) != 0) {
+    if (file && (sts = loader.fastLoadFile(file, (LoadType)loadType)) != 0) {
         printf("error: load failed: %d\n", sts);
         return 1;
     }

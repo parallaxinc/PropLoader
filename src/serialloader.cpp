@@ -321,6 +321,7 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
     uint8_t *packet;
 
     /* generate a loader packet */
+    printf("Generating loader packet: imageSize %d\n", imageSize);
     if (!(packet = GenerateLoaderPacket(image, imageSize, &packetSize, loadType)))
         return -1;
 

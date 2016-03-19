@@ -32,26 +32,6 @@ int Loader::loadFile(const char *file, LoadType loadType)
     return sts;
 }
 
-int Loader::fastLoadFile(const char *file, LoadType loadType)
-{
-    uint8_t *image;
-    int imageSize;
-    int sts;
-    
-    /* make sure the image was loaded into memory */
-    if (!(image = readFile(file, &imageSize))) {
-        printf("error: failed to load image '%s'\n", file);
-        return -1;
-    }
-    
-    /* load the file */
-    sts = fastLoadImage(image, imageSize, loadType);
-    free(image);
-    
-    /* return load result */
-    return sts;
-}
-
 int Loader::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
 {
     return m_connection->loadImage(image, imageSize, loadType);
