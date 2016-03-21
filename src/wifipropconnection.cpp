@@ -195,12 +195,9 @@ int WiFiPropConnection::generateResetSignal()
     uint8_t buffer[1024];
     int hdrCnt, result;
     
-    if (!isOpen())
-        return -1;
-        
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
-POST /propeller/reset HTTP/1.1\r\n\
-\r\n");
+POST /propeller/reset?reset-pin=%d HTTP/1.1\r\n\
+\r\n", resetPin);
 
     if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
         printf("error: reset request failed\n");
@@ -240,9 +237,6 @@ int WiFiPropConnection::setBaudRate(int baudRate)
     uint8_t buffer[1024];
     int hdrCnt, result;
     
-    if (!isOpen())
-        return -1;
-        
     if (baudRate != m_baudRate) {
 
         hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
