@@ -157,7 +157,7 @@ $(BINDIR)/%$(EXT):	$(TOOLDIR)/%.c
 	$(CC) $(CFLAGS) $< -o $@
 
 clean:
-	$(RM) $(BUILD) *.binary *.elf
+	$(RM) $(BUILD)
 
 %/created:
 	@$(MKDIR) -p $(@D)

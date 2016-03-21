@@ -319,7 +319,11 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
     uint8_t packet2[MAX_BUFFER_SIZE]; // must be at least as big as maxDataSize()
     int packetSize, version, retries, cnt, i;
     uint8_t *packet;
-
+    
+    /* use the initial loader baud rate */
+    if (setBaudRate(initialBaudRate()) != 0) 
+        return -1;
+        
     /* generate a loader packet */
     printf("Generating loader packet: imageSize %d\n", imageSize);
     if (!(packet = GenerateLoaderPacket(image, imageSize, &packetSize, loadType)))

@@ -36,6 +36,7 @@ printf("\
 usage: %s\n\
          [ -b <baudrate> ]  initial baud rate (default is %d)\n\
          [ -e ]             program eeprom\n\
+         [ -f <file> ]      write a file to the SD card\n\
          [ -i <ip-addr> ]   IP address of the Xbee Wi-Fi module\n\
          [ -n <name> ]      set the friendly name of an Xbee Wi-Fi module\n\
          [ -p <port> ]      serial port\n\
@@ -55,6 +56,8 @@ usage: %s\n\
 static void ShowPorts(const char *prefix, bool check);
 static void ShowWiFiModules(bool check);
 static void SetFriendlyName(const char *ipaddr, const char *name);
+static int WriteFileToSDCard(BoardConfig *config, PropConnection *connection, const char *path, const char *target);
+static int LoadSDHelper(BoardConfig *config, PropConnection *connection);
 
 int main(int argc, char *argv[])
 {
@@ -64,10 +67,11 @@ int main(int argc, char *argv[])
     const char *ipaddr = NULL;
     const char *port = NULL;
     const char *name = NULL;
+    const char *file = NULL;
     int baudrate = DEFAULT_BAUDRATE;
     int loadType = ltShutdown;
     bool useSerial = false;
-    char *file = NULL;
+    bool writeFile = false;
     PropConnection *connection;
     Loader loader;
     int sts, i;
@@ -88,6 +92,15 @@ int main(int argc, char *argv[])
                 break;
             case 'e':
                 loadType |= ltDownloadAndProgram;
+                break;
+            case 'f':
+                if (argv[i][2])
+                    file = &argv[i][2];
+                else if (++i < argc)
+                    file = argv[i];
+                else
+                    usage(argv[0]);
+                writeFile = true;
                 break;
             case 'i':   // set the ip address
                 if (argv[i][2])
@@ -178,7 +191,7 @@ int main(int argc, char *argv[])
         usage(argv[0]);
         
     /* check to see if a reset was requested or there is a file to load */
-    if (!reset && !file)
+    if (!reset && !file && !terminalMode)
         goto finish;
 
     /* default to 'download and run' if neither -e nor -r are specified */
@@ -221,16 +234,16 @@ int main(int argc, char *argv[])
             return 1;
         }
         if (!ipaddr) {
-#if 0
-            XbeeInfoList addrs;
-            if (xbeeLoader.discover(false, addrs) != 0)
-                printf("error: discover failed\n");
-            if (addrs.size() == 0) {
-                printf("error: no Xbee module found\n");
+            WiFiInfoList addrs;
+            if (WiFiPropConnection::findModules(false, addrs) != 0) {
+                printf("error: wifi module discovery failed\n");
                 return 1;
             }
-            addr.set(addrs.front().hostAddr(), addrs.front().xbeeAddr());
-#endif
+            if (addrs.size() == 0) {
+                printf("error: no wifi module found\n");
+                return 1;
+            }
+//            addr.set(addrs.front().hostAddr(), addrs.front().xbeeAddr());
         }
         if ((sts = wifiConnection->setAddress(ipaddr)) != 0) {
             printf("error: setAddress failed: %d\n", sts);
@@ -239,20 +252,33 @@ int main(int argc, char *argv[])
         connection = wifiConnection;
     }
     
+    /* reset the Propeller */
     if (reset)
         connection->generateResetSignal();
     
-    /* load the file */
-    loader.setConnection(connection);
-    if (file && (sts = loader.fastLoadFile(file, (LoadType)loadType)) != 0) {
-        printf("error: load failed: %d\n", sts);
-        return 1;
+    /* write a file to the SD card */
+    if (writeFile) {
+        printf("Writing '%s' to the SD card\n", file);
+        if (WriteFileToSDCard(NULL, connection, file, file) != 0) {
+            printf("error: writing '%s'\n", file);
+            return 1;
+        }
+    }
+    
+    /* load a file */
+    else if (file) {
+        printf("Loading '%s'\n", file);
+        loader.setConnection(connection);
+        if (file && (sts = loader.fastLoadFile(file, (LoadType)loadType)) != 0) {
+            printf("error: load failed: %d\n", sts);
+            return 1;
+        }
     }
     
     /* enter terminal mode */
     if (terminalMode) {
         printf("[ Entering terminal mode. Type ESC or Control-C to exit. ]\n");
-        connection->setBaudRate(115200);
+        connection->setBaudRate(connection->terminalBaudRate());
         connection->terminal(false, false);
     }
     
@@ -279,7 +305,7 @@ static void ShowPorts(const char *prefix, bool check)
 static void ShowWiFiModules(bool check)
 {
     WiFiInfoList list;
-    WiFiPropConnection::findModules(PORT_PREFIX, false, list);
+    WiFiPropConnection::findModules(false, list);
 }
 
 static void SetFriendlyName(const char *ipaddr, const char *name)
@@ -297,97 +323,11 @@ int Error(const char *fmt, ...)
     return -1;
 }
 
-extern "C" {
-    extern uint8_t sd_helper_array[];
-    extern int sd_helper_size;
-}
-
-/* DAT header in sd_helper.spin */
-typedef struct {
-    uint32_t baudrate;
-    uint8_t rxpin;
-    uint8_t txpin;
-    uint8_t tvpin;
-    uint8_t dopin;
-    uint8_t clkpin;
-    uint8_t dipin;
-    uint8_t cspin;
-    uint8_t select_address;
-    uint32_t select_inc_mask;
-    uint32_t select_mask;
-} SDHelperDatHdr;
-
-int LoadSDHelper(BoardConfig *config, PropConnection *connection)
-{
-    Loader loader(connection);
-    PropImage image(sd_helper_array, sd_helper_size);
-    SpinHdr *hdr = (SpinHdr *)image.imageData();
-    SpinObj *obj = (SpinObj *)(image.imageData() + hdr->pbase);
-    SDHelperDatHdr *dat = (SDHelperDatHdr *)((uint8_t *)obj + (obj->pubcnt + obj->objcnt) * sizeof(uint32_t));
-    int ivalue;
-
-    /* patch SD helper */
-    if (GetNumericConfigField(config, "clkfreq", &ivalue))
-        hdr->clkfreq = ivalue;
-    if (GetNumericConfigField(config, "clkmode", &ivalue))
-        hdr->clkmode = ivalue;
-    if (GetNumericConfigField(config, "baudrate", &ivalue))
-        dat->baudrate = ivalue;
-    if (GetNumericConfigField(config, "rxpin", &ivalue))
-        dat->rxpin = ivalue;
-    if (GetNumericConfigField(config, "txpin", &ivalue))
-        dat->txpin = ivalue;
-    if (GetNumericConfigField(config, "tvpin", &ivalue))
-        dat->tvpin = ivalue;
-
-    if (GetNumericConfigField(config, "sdspi-do", &ivalue))
-        dat->dopin = ivalue;
-    else
-        return Error("missing sdspi-do pin configuration");
-
-    if (GetNumericConfigField(config, "sdspi-clk", &ivalue))
-        dat->clkpin = ivalue;
-    else
-        return Error("missing sdspi-clk pin configuration");
-
-    if (GetNumericConfigField(config, "sdspi-di", &ivalue))
-        dat->dipin = ivalue;
-    else
-        return Error("missing sdspi-di pin configuration");
-
-    if (GetNumericConfigField(config, "sdspi-cs", &ivalue))
-        dat->cspin = ivalue;
-    else if (GetNumericConfigField(config, "sdspi-clr", &ivalue))
-        dat->cspin = ivalue;
-    else
-        return Error("missing sdspi-cs or sdspi-clr pin configuration");
-
-    if (GetNumericConfigField(config, "sdspi-sel", &ivalue))
-        dat->select_inc_mask = ivalue;
-    else if (GetNumericConfigField(config, "sdspi-inc", &ivalue))
-        dat->select_inc_mask = 1 << ivalue;
-
-    if (GetNumericConfigField(config, "sdspi-msk", &ivalue))
-        dat->select_mask = ivalue;
-
-    if (GetNumericConfigField(config, "sdspi-addr", &ivalue))
-        dat->select_address = (uint8_t)ivalue;
-
-    /* recompute the checksum */
-    image.updateChecksum();
-
-    /* load the SD helper program */
-    if (loader.fastLoadImage(image.imageData(), image.imageSize(), ltDownloadAndRun) != 0)
-        return Error("helper load failed");
-
-    return 0;
-}
-
 #define TYPE_FILE_WRITE     0
 #define TYPE_DATA           1
 #define TYPE_EOF            2
 
-int WriteFileToSDCard(BoardConfig *config, PropConnection *connection, const char *path, const char *target)
+static int WriteFileToSDCard(BoardConfig *config, PropConnection *connection, const char *path, const char *target)
 {
     PacketDriver packetDriver(*connection);
     uint8_t buf[PKTMAXLEN];
@@ -465,4 +405,91 @@ int WriteFileToSDCard(BoardConfig *config, PropConnection *connection, const cha
 
     return 0;
 }
+
+extern "C" {
+    extern uint8_t sd_helper_array[];
+    extern int sd_helper_size;
+}
+
+/* DAT header in sd_helper.spin */
+typedef struct {
+    uint32_t baudrate;
+    uint8_t rxpin;
+    uint8_t txpin;
+    uint8_t tvpin;
+    uint8_t dopin;
+    uint8_t clkpin;
+    uint8_t dipin;
+    uint8_t cspin;
+    uint8_t select_address;
+    uint32_t select_inc_mask;
+    uint32_t select_mask;
+} SDHelperDatHdr;
+
+static int LoadSDHelper(BoardConfig *config, PropConnection *connection)
+{
+    Loader loader(connection);
+    PropImage image(sd_helper_array, sd_helper_size);
+    SpinHdr *hdr = (SpinHdr *)image.imageData();
+    SpinObj *obj = (SpinObj *)(image.imageData() + hdr->pbase);
+    SDHelperDatHdr *dat = (SDHelperDatHdr *)((uint8_t *)obj + (obj->pubcnt + obj->objcnt) * sizeof(uint32_t));
+    int ivalue;
+
+    /* patch SD helper */
+    if (GetNumericConfigField(config, "clkfreq", &ivalue))
+        hdr->clkfreq = ivalue;
+    if (GetNumericConfigField(config, "clkmode", &ivalue))
+        hdr->clkmode = ivalue;
+    if (GetNumericConfigField(config, "baudrate", &ivalue))
+        dat->baudrate = ivalue;
+    if (GetNumericConfigField(config, "rxpin", &ivalue))
+        dat->rxpin = ivalue;
+    if (GetNumericConfigField(config, "txpin", &ivalue))
+        dat->txpin = ivalue;
+    if (GetNumericConfigField(config, "tvpin", &ivalue))
+        dat->tvpin = ivalue;
+
+    if (GetNumericConfigField(config, "sdspi-do", &ivalue))
+        dat->dopin = ivalue;
+    else
+        return Error("missing sdspi-do pin configuration");
+
+    if (GetNumericConfigField(config, "sdspi-clk", &ivalue))
+        dat->clkpin = ivalue;
+    else
+        return Error("missing sdspi-clk pin configuration");
+
+    if (GetNumericConfigField(config, "sdspi-di", &ivalue))
+        dat->dipin = ivalue;
+    else
+        return Error("missing sdspi-di pin configuration");
+
+    if (GetNumericConfigField(config, "sdspi-cs", &ivalue))
+        dat->cspin = ivalue;
+    else if (GetNumericConfigField(config, "sdspi-clr", &ivalue))
+        dat->cspin = ivalue;
+    else
+        return Error("missing sdspi-cs or sdspi-clr pin configuration");
+
+    if (GetNumericConfigField(config, "sdspi-sel", &ivalue))
+        dat->select_inc_mask = ivalue;
+    else if (GetNumericConfigField(config, "sdspi-inc", &ivalue))
+        dat->select_inc_mask = 1 << ivalue;
+
+    if (GetNumericConfigField(config, "sdspi-msk", &ivalue))
+        dat->select_mask = ivalue;
+
+    if (GetNumericConfigField(config, "sdspi-addr", &ivalue))
+        dat->select_address = (uint8_t)ivalue;
+
+    /* recompute the checksum */
+    image.updateChecksum();
+
+    /* load the SD helper program */
+    if (loader.fastLoadImage(image.imageData(), image.imageSize(), ltDownloadAndRun) != 0)
+        return Error("helper load failed");
+
+    return 0;
+}
+
 

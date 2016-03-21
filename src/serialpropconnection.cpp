@@ -1,15 +1,19 @@
+#include <stdio.h>
 #include "serialpropconnection.h"
 
 #define CALIBRATE_DELAY         10
 
 SerialPropConnection::SerialPropConnection()
-    : m_serialPort(0), m_baudRate(SERIAL_INITIAL_BAUD_RATE)
+    : m_serialPort(NULL)
 {
+    m_initialBaudRate = SERIAL_INITIAL_BAUD_RATE;
+    m_finalBaudRate = SERIAL_FINAL_BAUD_RATE;
+    m_terminalBaudRate = SERIAL_TERMINAL_BAUD_RATE;
 }
 
 SerialPropConnection::~SerialPropConnection()
 {
-    disconnect();
+    close();
 }
 
 // this is in serialloader.cpp
@@ -44,6 +48,8 @@ int SerialPropConnection::open(const char *port, int baudRate)
 
     if (OpenSerial(port, baudRate, &m_serialPort) != 0)
         return -1;
+        
+    m_baudRate = baudRate;
 
     return 0;
 }
@@ -51,6 +57,17 @@ int SerialPropConnection::open(const char *port, int baudRate)
 bool SerialPropConnection::isOpen()
 {
     return m_serialPort ? true : false;
+}
+
+int SerialPropConnection::close()
+{
+    if (!isOpen())
+        return -1;
+
+    CloseSerial(m_serialPort);
+    m_serialPort = NULL;
+
+    return 0;
 }
 
 int SerialPropConnection::connect()
@@ -65,9 +82,6 @@ int SerialPropConnection::disconnect()
 {
     if (!isOpen())
         return -1;
-
-    CloseSerial(m_serialPort);
-    m_serialPort = NULL;
 
     return 0;
 }
@@ -121,10 +135,12 @@ int SerialPropConnection::receiveChecksumAck(int byteCount, int delay)
 
 int SerialPropConnection::setBaudRate(int baudRate)
 {
-     FlushSerialData(m_serialPort);
-     if (SetSerialBaud(m_serialPort, baudRate) != 0)
-        return -1;
-    m_baudRate = baudRate;
+     if (baudRate != m_baudRate) {
+        FlushSerialData(m_serialPort);
+        if (SetSerialBaud(m_serialPort, baudRate) != 0)
+            return -1;
+        m_baudRate = baudRate;
+    }
     return 0;
 }
 

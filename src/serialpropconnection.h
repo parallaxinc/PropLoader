@@ -7,6 +7,8 @@
 #include "serial.h"
 
 #define SERIAL_INITIAL_BAUD_RATE    115200
+#define SERIAL_FINAL_BAUD_RATE      921600
+#define SERIAL_TERMINAL_BAUD_RATE   115200
 
 class SerialInfo {
 public:
@@ -26,6 +28,7 @@ public:
     ~SerialPropConnection();
     int open(const char *port, int baudRate = SERIAL_INITIAL_BAUD_RATE);
     bool isOpen();
+    int close();
     int connect();
     int disconnect();
     int generateResetSignal();
@@ -34,7 +37,6 @@ public:
     int sendData(const uint8_t *buf, int len);
     int receiveDataTimeout(uint8_t *buf, int len, int timeout);
     int receiveDataExactTimeout(uint8_t *buf, int len, int timeout);
-    int initialBaudRate() { return SERIAL_INITIAL_BAUD_RATE; }
     int setBaudRate(int baudRate);
     int maxDataSize() { return 1024; }
     int terminal(bool checkForExit, bool pstMode);
@@ -43,7 +45,6 @@ private:
     int receiveChecksumAck(int byteCount, int delay);
     static int addPort(const char *port, void *data);
     SERIAL *m_serialPort;
-    int m_baudRate;
 };
 
 #endif // SERIALPROPELLERCONNECTION_H

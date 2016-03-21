@@ -5,7 +5,6 @@
 #include <unistd.h>
 #include "loader.h"
 
-#define FINAL_BAUD              115200 //921600      /* Final XBee-to-Propeller baud rate. */
 #define MAX_RX_SENSE_ERROR      23          /* Maximum number of cycles by which the detection of a start bit could be off (as affected by the Loader code) */
 
 // Offset (in bytes) from end of Loader Image pointing to where most host-initialized values exist.
@@ -24,7 +23,6 @@
 #include "IP_Loader.h"
 
 double ClockSpeed = 80000000.0;
-int FinalBaud = FINAL_BAUD;
 
 static uint8_t initCallFrame[] = {0xFF, 0xFF, 0xF9, 0xFF, 0xFF, 0xFF, 0xF9, 0xFF};
 
@@ -67,16 +65,16 @@ uint8_t *Loader::generateInitialLoaderImage(int packetID, int *pLength)
     SetHostInitializedValue(loaderImage, initAreaOffset +  4, (int)trunc(80000000.0 / m_baudrate + 0.5));
 
     // Final Bit Time.
-    SetHostInitializedValue(loaderImage, initAreaOffset +  8, (int)trunc(80000000.0 / FinalBaud + 0.5));
+    SetHostInitializedValue(loaderImage, initAreaOffset +  8, (int)trunc(80000000.0 / m_connection->finalBaudRate() + 0.5));
     
     // 1.5x Final Bit Time minus maximum start bit sense error.
-    SetHostInitializedValue(loaderImage, initAreaOffset + 12, (int)trunc(1.5 * ClockSpeed / FinalBaud - MAX_RX_SENSE_ERROR + 0.5));
+    SetHostInitializedValue(loaderImage, initAreaOffset + 12, (int)trunc(1.5 * ClockSpeed / m_connection->finalBaudRate() - MAX_RX_SENSE_ERROR + 0.5));
     
     // Failsafe Timeout (seconds-worth of Loader's Receive loop iterations).
     SetHostInitializedValue(loaderImage, initAreaOffset + 16, (int)trunc(2.0 * ClockSpeed / (3 * 4) + 0.5));
     
     // EndOfPacket Timeout (2 bytes worth of Loader's Receive loop iterations).
-    SetHostInitializedValue(loaderImage, initAreaOffset + 20, (int)trunc((2.0 * ClockSpeed / FinalBaud) * (10.0 / 12.0) + 0.5));
+    SetHostInitializedValue(loaderImage, initAreaOffset + 20, (int)trunc((2.0 * ClockSpeed / m_connection->finalBaudRate()) * (10.0 / 12.0) + 0.5));
     
     // PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 24, Max(Round(ClockSpeed * SSSHTime), 14));
     // PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 28, Max(Round(ClockSpeed * SCLHighTime), 14));
@@ -146,6 +144,11 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     checksum = 0;
     for (i = 0; i < imageSize; ++i)
         checksum += image[i];
+    for (i = 0; i < (int)sizeof(initCallFrame); ++i)
+        checksum += initCallFrame[i];
+        
+    /* open the transparent serial connection that will be used for the second-stage loader */
+    m_connection->connect();
 
     /* load the second-stage loader using the propeller ROM protocol */
     printf("Loading second-stage loader\n");
@@ -153,7 +156,7 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     free(loaderImage);
     if (result != 0)
         return -1;
-            
+
     printf("Waiting for second-stage loader initial response\n");
     cnt = m_connection->receiveDataExactTimeout(response, sizeof(response), 2000);
     result = getLong(&response[0]);
@@ -164,13 +167,14 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     printf("Got initial second-stage loader response\n");
     
     /* switch to the final baud rate */
-    m_connection->setBaudRate(FINAL_BAUD);
+    m_connection->setBaudRate(m_connection->finalBaudRate());
     
     /* transmit the image */
     while (imageSize > 0) {
         int size;
         if ((size = imageSize) > m_connection->maxDataSize())
             size = m_connection->maxDataSize();
+        printf("Transmitting packet %d\n", packetID);
         if (transmitPacket(packetID, image, size, &result) != 0) {
             printf("error: transmitPacket failed\n");
             return -1;

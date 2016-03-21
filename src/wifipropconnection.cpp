@@ -3,19 +3,22 @@
 #include <string.h>
 #include "wifipropconnection.h"
 
-#define CALIBRATE_DELAY         10
+#define CALIBRATE_DELAY 10
 
-#ifndef TRUE
-#define TRUE    1
-#define FALSE   0
-#endif
+#define HTTP_PORT       80
+#define TELNET_PORT     23
+#define DISCOVER_PORT   2000
 
 int resetPin = 12;
 int verbose = 1;
 
 WiFiPropConnection::WiFiPropConnection()
-    : m_ipaddr(0), m_readyToConnect(false), m_socket(INVALID_SOCKET), m_baudRate(WIFI_INITIAL_BAUD_RATE)
+    : m_ipaddr(NULL),
+      m_socket(INVALID_SOCKET)
 {
+    m_initialBaudRate = WIFI_INITIAL_BAUD_RATE;
+    m_finalBaudRate = WIFI_FINAL_BAUD_RATE;
+    m_terminalBaudRate = WIFI_TERMINAL_BAUD_RATE;
 }
 
 WiFiPropConnection::~WiFiPropConnection()
@@ -34,31 +37,33 @@ int WiFiPropConnection::setAddress(const char *ipaddr)
         return -1;
     strcpy(m_ipaddr, ipaddr);
 
+    if (GetInternetAddress(m_ipaddr, HTTP_PORT, &m_httpAddr) != 0)
+        return -1;
+
+    if (GetInternetAddress(m_ipaddr, TELNET_PORT, &m_telnetAddr) != 0)
+        return -1;
+
     return 0;
 }
 
-int WiFiPropConnection::setPort(short port)
+int WiFiPropConnection::close()
 {
-    if (!m_ipaddr)
+    if (!isOpen())
         return -1;
-
-    if (GetInternetAddress(m_ipaddr, port, &m_addr) != 0)
-        return -1;
-
-    m_readyToConnect = true;
 
     return 0;
 }
 
 int WiFiPropConnection::connect()
 {
-    if (!m_readyToConnect)
+    if (!m_ipaddr)
         return -1;
 
-    if (ConnectSocket(&m_addr, &m_socket) != 0)
+    if (m_socket != INVALID_SOCKET)
         return -1;
-
-    m_readyToConnect = false;
+        
+    if (ConnectSocket(&m_telnetAddr, &m_socket) != 0)
+        return -1;
 
     return 0;
 }
@@ -67,9 +72,10 @@ int WiFiPropConnection::disconnect()
 {
     if (m_socket == INVALID_SOCKET)
         return -1;
+        
     CloseSocket(m_socket);
     m_socket = INVALID_SOCKET;
-    m_readyToConnect = true;
+    
     return 0;
 }
 
@@ -83,9 +89,10 @@ int WiFiPropConnection::loadImage(const uint8_t *image, int imageSize, LoadType 
     uint8_t buffer[1024], *packet;
     int hdrCnt, result;
     
-    if (setPort(80) != 0)
+    /* use the initial loader baud rate */
+    if (setBaudRate(initialBaudRate()) != 0) 
         return -1;
-
+        
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
 POST /propeller/load?reset-pin=%d&baud-rate=%d HTTP/1.1\r\n\
 Content-Length: %d\r\n\
@@ -109,7 +116,6 @@ Content-Length: %d\r\n\
     return 0;
 }
 
-#define DEF_DISCOVER_PORT   2000
 #define MAX_IF_ADDRS        10
 
 int discover1(IFADDR *ifaddr, WiFiInfoList &list, int timeout)
@@ -122,14 +128,14 @@ int discover1(IFADDR *ifaddr, WiFiInfoList &list, int timeout)
     int cnt;
     
     /* create a broadcast socket */
-    if (OpenBroadcastSocket(DEF_DISCOVER_PORT, &sock) != 0) {
+    if (OpenBroadcastSocket(DISCOVER_PORT, &sock) != 0) {
         printf("error: OpenBroadcastSocket failed\n");
         return -2;
     }
         
     /* build a broadcast address */
     bcastaddr = ifaddr->bcast;
-    bcastaddr.sin_port = htons(DEF_DISCOVER_PORT);
+    bcastaddr.sin_port = htons(DISCOVER_PORT);
     
     /* send the broadcast packet */
     sprintf((char *)txBuf, "Me here! Ignore this message.\n");
@@ -162,7 +168,7 @@ int discover1(IFADDR *ifaddr, WiFiInfoList &list, int timeout)
     return 0;
 }
 
-int WiFiPropConnection::findModules(const char *prefix, bool check, WiFiInfoList &list)
+int WiFiPropConnection::findModules(bool check, WiFiInfoList &list)
 {
     IFADDR ifaddrs[MAX_IF_ADDRS];
     int cnt, i;
@@ -186,8 +192,25 @@ bool WiFiPropConnection::isOpen()
 
 int WiFiPropConnection::generateResetSignal()
 {
+    uint8_t buffer[1024];
+    int hdrCnt, result;
+    
     if (!isOpen())
         return -1;
+        
+    hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
+POST /propeller/reset HTTP/1.1\r\n\
+\r\n");
+
+    if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
+        printf("error: reset request failed\n");
+        return -1;
+    }
+    else if (result != 200) {
+        printf("error: reset returned %d\n", result);
+        return -1;
+    }
+
     return 0;
 }
 
@@ -216,27 +239,34 @@ int WiFiPropConnection::setBaudRate(int baudRate)
 {
     uint8_t buffer[1024];
     int hdrCnt, result;
+    
+    if (!isOpen())
+        return -1;
+        
+    if (baudRate != m_baudRate) {
 
-    hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
+        hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
 POST /propeller/set-baud-rate?baud-rate=%d HTTP/1.1\r\n\
 \r\n", baudRate);
 
-    if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
-        printf("error: set-baud-rate request failed\n");
-        return -1;
-    }
-    else if (result != 200) {
-        printf("error: set-baud-rate returned %d\n", result);
-        return -1;
+        if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
+            printf("error: set-baud-rate request failed\n");
+            return -1;
+        }
+        else if (result != 200) {
+            printf("error: set-baud-rate returned %d\n", result);
+            return -1;
+        }
+    
+        m_baudRate = baudRate;
     }
     
-    m_baudRate = baudRate;
     return 0;
 }
 
 int WiFiPropConnection::terminal(bool checkForExit, bool pstMode)
 {
-    if (!setPort(23) || !connect())
+    if (!connect())
         return -1;
     SocketTerminal(m_socket, checkForExit, pstMode);
     disconnect();
@@ -245,10 +275,11 @@ int WiFiPropConnection::terminal(bool checkForExit, bool pstMode)
 
 int WiFiPropConnection::sendRequest(uint8_t *req, int reqSize, uint8_t *res, int resMax, int *pResult)
 {
+    SOCKET sock;
     char buf[80];
     int cnt;
     
-    if (connect() != 0) {
+    if (ConnectSocket(&m_httpAddr, &sock) != 0) {
         printf("error: connect failed\n");
         return -1;
     }
@@ -258,15 +289,17 @@ int WiFiPropConnection::sendRequest(uint8_t *req, int reqSize, uint8_t *res, int
         dumpHdr(req, reqSize);
     }
     
-    if (sendData(req, reqSize) != reqSize) {
+    if (SendSocketData(sock, req, reqSize) != reqSize) {
         printf("error: send request failed\n");
-        disconnect();
+        CloseSocket(sock);
         return -1;
     }
     
-    if ((cnt = receiveDataTimeout(res, resMax, 10000)) == -1) {
+    cnt = ReceiveSocketDataTimeout(sock, res, resMax, 10000);
+    CloseSocket(sock);
+
+    if (cnt == -1) {
         printf("error: receive response failed\n");
-        disconnect();
         return -1;
     }
     
@@ -275,13 +308,9 @@ int WiFiPropConnection::sendRequest(uint8_t *req, int reqSize, uint8_t *res, int
         dumpResponse(res, cnt);
     }
     
-    if (sscanf((char *)res, "%s %d", buf, pResult) != 2) {
-        disconnect();
+    if (sscanf((char *)res, "%s %d", buf, pResult) != 2)
         return -1;
-    }
         
-    disconnect();
-    
     return cnt;
 }
     

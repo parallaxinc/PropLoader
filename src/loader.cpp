@@ -1,8 +1,3 @@
-/* Propeller WiFi loader
-
-  Based on Jeff Martin's Pascal loader and Mike Westerfield's iOS loader.
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

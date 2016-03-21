@@ -6,7 +6,9 @@
 #include "propconnection.h"
 #include "sock.h"
 
-#define WIFI_INITIAL_BAUD_RATE  115200
+#define WIFI_INITIAL_BAUD_RATE      115200
+#define WIFI_FINAL_BAUD_RATE        921600
+#define WIFI_TERMINAL_BAUD_RATE     115200
 
 class WiFiInfo {
 public:
@@ -25,8 +27,8 @@ public:
     WiFiPropConnection();
     ~WiFiPropConnection();
     int setAddress(const char *ipaddr);
-    int setPort(short port);
     bool isOpen();
+    int close();
     int connect();
     int disconnect();
     int generateResetSignal();
@@ -35,20 +37,18 @@ public:
     int sendData(const uint8_t *buf, int len);
     int receiveDataTimeout(uint8_t *buf, int len, int timeout);
     int receiveDataExactTimeout(uint8_t *buf, int len, int timeout);
-    int initialBaudRate() { return WIFI_INITIAL_BAUD_RATE; }
     int setBaudRate(int baudRate);
     int maxDataSize() { return 1024; }
     int terminal(bool checkForExit, bool pstMode);
-    static int findModules(const char *prefix, bool check, WiFiInfoList &list);
+    static int findModules(bool check, WiFiInfoList &list);
 private:
     int sendRequest(uint8_t *req, int reqSize, uint8_t *res, int resMax, int *pResult);
     static void dumpHdr(const uint8_t *buf, int size);
     static void dumpResponse(const uint8_t *buf, int size);
     char *m_ipaddr;
-    SOCKADDR_IN m_addr;
-    bool m_readyToConnect;
+    SOCKADDR_IN m_httpAddr;
+    SOCKADDR_IN m_telnetAddr;
     SOCKET m_socket;
-    int m_baudRate;
 };
 
 #endif // WIFIPROPELLERCONNECTION_H
