@@ -54,7 +54,21 @@ usage: %s\n\
          [ -W ]             show all discovered wifi modules with propellers connected\n\
          [ -W0 ]            show all discovered wifi modules\n\
          [ -? ]             display a usage message and exit\n\
-         <file>             spin binary file to load\n", progname);
+         <file>             binary file to load\n\
+\n\
+Target board type can be either a single identifier like 'propboe' in which case the subtype\n\
+defaults to 'default' or it can be of the form <type>:<subtype> like 'c3:ram'.\n\
+\n\
+Variables that can be set with -D are:\n\
+  clkfreq clkmode baudrate reset rxpin txpin tvpin\n\
+  sd-driver sdspi-do sdspi-clk sdspi-di sdspi-cs\n\
+  sdspi-clr sdspi-inc sdspi-start sdspi-width spdspi-addr\n\
+  sdspi-config1 sdspi-config2\n\
+\n\
+Value expressions for -D can include:\n\
+  rcfast rcslow xinput xtal1 xtal2 xtal3 pll1x pll2x pll4x pll8x pll16x k m mhz true false\n\
+  an integer or two operands with a binary operator + - * / %% & | or unary + or -\n\
+  or a parenthesized expresion.\n", progname);
     exit(1);
 }
 
@@ -85,7 +99,7 @@ int main(int argc, char *argv[])
     WiFiPropConnection *wifiConnection = NULL;
     PropConnection *connection;
     Loader loader;
-    char *p, *p2;
+    const char *p;
     int sts, i;
     
     /* setup a configuration to collect command line -D settings */
@@ -122,10 +136,19 @@ int main(int argc, char *argv[])
                     p = argv[i];
                 else
                     usage(argv[0]);
-                if ((p2 = strchr(p, '=')) == NULL)
-                    usage(argv[0]);
-                *p2++ = '\0';
-                SetConfigField(configSettings, p, p2);
+                {
+                    const char *p2;
+                    char var[128];
+                    if ((p2 = strchr(p, '=')) == NULL)
+                        usage(argv[0]);
+                    if (p2 - p > sizeof(var) - 1) {
+                        printf("error: variable name too long");
+                        return 1;
+                    }
+                    strncpy(var, p, p2 - p);
+                    var[p2 - p] = '\0';
+                    SetConfigField(configSettings, var, p2 + 1);
+                }
                 break;
             case 'e':   // program eeprom
                 loadType |= ltDownloadAndProgram;
@@ -252,12 +275,19 @@ int main(int argc, char *argv[])
 #endif
     
     /* parse the board option */
+    char boardBuffer[128];
     if (board) {
     
         /* split the board type from the subtype */
         if ((p = strchr(board, ':')) != NULL) {
-            *p++ = '\0';
-            subtype = p;
+            if (p - board >= sizeof(boardBuffer)) {
+                printf("error: board type name too long\n");
+                return 1;
+            }
+            strncpy(boardBuffer, board, p - board);
+            boardBuffer[p - board] = '\0';
+            board = boardBuffer;
+            subtype = p + 1;
         }
         
         /* no subtype */
