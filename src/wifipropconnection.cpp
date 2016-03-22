@@ -173,7 +173,7 @@ int discover1(IFADDR *ifaddr, WiFiInfoList &list, int count, int timeout)
                     CloseSocket(sock);
                     return -1;
                 }
-                else if (p2 - p >= sizeof(nameBuffer)) {
+                else if (p2 - p >= (int)sizeof(nameBuffer)) {
                     CloseSocket(sock);
                     return -1;
                 }
@@ -212,7 +212,7 @@ int WiFiPropConnection::findModules(bool check, WiFiInfoList &list, int count)
         int ret;
         if ((ret = discover1(&ifaddrs[i], list, remainingCount, 2000)) < 0)
             return ret;
-        if (count > 0 && list.size() == count)
+        if (count > 0 && (int)list.size() == count)
             break;
     }
     
