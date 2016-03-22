@@ -62,7 +62,6 @@ int verbose = false;
 
 static void ShowPorts(const char *prefix, bool check);
 static void ShowWiFiModules(bool check);
-static void SetFriendlyName(const char *ipaddr, const char *name);
 static int WriteFileToSDCard(BoardConfig *config, PropConnection *connection, const char *path, const char *target);
 static int LoadSDHelper(BoardConfig *config, PropConnection *connection);
 
@@ -165,7 +164,6 @@ int main(int argc, char *argv[])
                     name = argv[i];
                 else
                     usage(argv[0]);
-                SetFriendlyName(ipaddr, name);
                 done = true;
                 break;
             case 'p':   // select a serial port
@@ -347,7 +345,7 @@ int main(int argc, char *argv[])
                 printf("error: no wifi module found\n");
                 return 1;
             }
-//            addr.set(addrs.front().hostAddr(), addrs.front().xbeeAddr());
+            ipaddr = addrs.front().address();
         }
         if ((sts = wifiConnection->setAddress(ipaddr)) != 0) {
             printf("error: setAddress failed: %d\n", sts);
@@ -420,12 +418,16 @@ static void ShowPorts(const char *prefix, bool check)
 
 static void ShowWiFiModules(bool check)
 {
-    WiFiInfoList list;
-    WiFiPropConnection::findModules(false, list);
-}
-
-static void SetFriendlyName(const char *ipaddr, const char *name)
-{
+    WiFiInfoList modules;
+    if (WiFiPropConnection::findModules(false, modules) == 0) {
+        WiFiInfoList::iterator i = modules.begin();
+        while (i != modules.end()) {
+            if (i->name() && i->name()[0])
+                std::cout << "Name: '" << i->name() << "', ";
+            std::cout << "IP: " << i->address() << std::endl;
+            ++i;
+        }
+    }
 }
 
 int Error(const char *fmt, ...)

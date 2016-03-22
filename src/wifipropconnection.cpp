@@ -157,8 +157,12 @@ int discover1(IFADDR *ifaddr, WiFiInfoList &list, int timeout)
         }
         rxBuf[cnt] = '\0';
         
-        if (!strstr((char *)rxBuf, "Me here!"))
-            printf("from %s got: %s", AddressToString(&addr), rxBuf);
+        if (!strstr((char *)rxBuf, "Me here!")) {
+            WiFiInfo info("", AddressToString(&addr));
+            list.push_back(info);
+            if (verbose)
+                printf("from %s got: %s", AddressToString(&addr), rxBuf);
+        }
     }
     
     /* close the socket */
