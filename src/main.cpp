@@ -50,6 +50,7 @@ usage: %s\n\
          [ -R ]             reset the Propeller\n\
          [ -s ]             do a serial download\n\
          [ -t ]             enter terminal mode after the load is complete\n\
+         [ -T ]             enter pst-compatible terminal mode after the load is complete\n\
          [ -v ]             enable verbose debugging output\n\
          [ -W ]             show all discovered wifi modules with propellers connected\n\
          [ -W0 ]            show all discovered wifi modules\n\
@@ -85,6 +86,7 @@ int main(int argc, char *argv[])
     bool done = false;
     bool reset = false;
     bool terminalMode = false;
+    bool pstTerminalMode = false;
     const char *board = NULL;
     const char *subtype = NULL;
     const char *ipaddr = NULL;
@@ -235,6 +237,11 @@ int main(int argc, char *argv[])
                 break;
             case 't':   // enter terminal emulator mode after loading
                 terminalMode = true;
+                pstTerminalMode = false;
+                break;
+            case 'T':   // enter pst-compatible terminal emulator mode after loading
+                terminalMode = true;
+                pstTerminalMode = true;
                 break;
             case 'v':   // enable verbose debugging output
                 verbose = true;
@@ -423,7 +430,7 @@ int main(int argc, char *argv[])
     if (terminalMode) {
         printf("[ Entering terminal mode. Type ESC or Control-C to exit. ]\n");
         connection->setBaudRate(connection->terminalBaudRate());
-        connection->terminal(false, false);
+        connection->terminal(false, pstTerminalMode);
     }
     
     /* disconnect from the target */
