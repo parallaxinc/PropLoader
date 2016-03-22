@@ -116,9 +116,10 @@ Content-Length: %d\r\n\
     return 0;
 }
 
-#define MAX_IF_ADDRS        10
+#define MAX_IF_ADDRS    10
+#define NAME_TAG        "\"name\": \""
 
-int discover1(IFADDR *ifaddr, WiFiInfoList &list, int timeout)
+int discover1(IFADDR *ifaddr, WiFiInfoList &list, int count, int timeout)
 {
     uint8_t txBuf[1024]; // BUG: get rid of this magic number!
     uint8_t rxBuf[1024]; // BUG: get rid of this magic number!
@@ -158,10 +159,36 @@ int discover1(IFADDR *ifaddr, WiFiInfoList &list, int timeout)
         rxBuf[cnt] = '\0';
         
         if (!strstr((char *)rxBuf, "Me here!")) {
-            WiFiInfo info("", AddressToString(&addr));
-            list.push_back(info);
+            const char *name, *p, *p2;
+            char nameBuffer[128];
+            
             if (verbose)
                 printf("from %s got: %s", AddressToString(&addr), rxBuf);
+                
+            if (!(p = strstr((char *)rxBuf, NAME_TAG)))
+                name = "";
+            else {
+                p += strlen(NAME_TAG);
+                if (!(p2 = strchr(p, '"'))) {
+                    CloseSocket(sock);
+                    return -1;
+                }
+                else if (p2 - p >= sizeof(nameBuffer)) {
+                    CloseSocket(sock);
+                    return -1;
+                }
+                strncpy(nameBuffer, p, p2 - p);
+                nameBuffer[p2 - p] = '\0';
+                name = nameBuffer;
+            }
+            
+            WiFiInfo info(name, AddressToString(&addr));
+            list.push_back(info);
+            
+            if (count > 0 && --count == 0) {
+                CloseSocket(sock);
+                return 0;
+            }
         }
     }
     
@@ -172,9 +199,10 @@ int discover1(IFADDR *ifaddr, WiFiInfoList &list, int timeout)
     return 0;
 }
 
-int WiFiPropConnection::findModules(bool check, WiFiInfoList &list)
+int WiFiPropConnection::findModules(bool check, WiFiInfoList &list, int count)
 {
     IFADDR ifaddrs[MAX_IF_ADDRS];
+    int remainingCount = count;
     int cnt, i;
     
     if ((cnt = GetInterfaceAddresses(ifaddrs, MAX_IF_ADDRS)) < 0)
@@ -182,8 +210,10 @@ int WiFiPropConnection::findModules(bool check, WiFiInfoList &list)
     
     for (i = 0; i < cnt; ++i) {
         int ret;
-        if ((ret = discover1(&ifaddrs[i], list, 2000)) < 0)
+        if ((ret = discover1(&ifaddrs[i], list, remainingCount, 2000)) < 0)
             return ret;
+        if (count > 0 && list.size() == count)
+            break;
     }
     
     return 0;

@@ -367,7 +367,7 @@ int main(int argc, char *argv[])
         }
         if (!ipaddr) {
             WiFiInfoList addrs;
-            if (WiFiPropConnection::findModules(false, addrs) != 0) {
+            if (WiFiPropConnection::findModules(false, addrs, 1) != 0) {
                 printf("error: wifi module discovery failed\n");
                 return 1;
             }
