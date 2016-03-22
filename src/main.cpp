@@ -141,7 +141,7 @@ int main(int argc, char *argv[])
                     char var[128];
                     if ((p2 = strchr(p, '=')) == NULL)
                         usage(argv[0]);
-                    if (p2 - p > sizeof(var) - 1) {
+                    if (p2 - p > (int)sizeof(var) - 1) {
                         printf("error: variable name too long");
                         return 1;
                     }
@@ -280,7 +280,7 @@ int main(int argc, char *argv[])
     
         /* split the board type from the subtype */
         if ((p = strchr(board, ':')) != NULL) {
-            if (p - board >= sizeof(boardBuffer)) {
+            if (p - board >= (int)sizeof(boardBuffer)) {
                 printf("error: board type name too long\n");
                 return 1;
             }
