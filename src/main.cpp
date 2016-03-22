@@ -30,14 +30,18 @@
   #define PORT_PREFIX ""
 #endif
 
+//         [ -b <baudrate> ]  initial baud rate (default is %d)\n
+
 static void usage(const char *progname)
 {
 printf("\
 usage: %s\n\
-         [ -b <baudrate> ]  initial baud rate (default is %d)\n\
+         [ -b <type> ]      select target board and subtype (default is 'default:default')\n\
+         [ -D var=value ]   define a board configuration variable\n\
          [ -e ]             program eeprom\n\
          [ -f <file> ]      write a file to the SD card\n\
          [ -i <ip-addr> ]   IP address of the Xbee Wi-Fi module\n\
+         [ -I <path> ]      add a directory to the include path\n\
          [ -n <name> ]      set the friendly name of an Xbee Wi-Fi module\n\
          [ -p <port> ]      serial port\n\
          [ -P ]             show all serial ports with propellers connected\n\
@@ -49,7 +53,7 @@ usage: %s\n\
          [ -W ]             show all discovered wifi modules with propellers connected\n\
          [ -W0 ]            show all discovered wifi modules\n\
          [ -? ]             display a usage message and exit\n\
-         <file>             spin binary file to load\n", progname, DEFAULT_BAUDRATE);
+         <file>             spin binary file to load\n", progname);
     exit(1);
 }
 
@@ -61,9 +65,12 @@ static int LoadSDHelper(BoardConfig *config, PropConnection *connection);
 
 int main(int argc, char *argv[])
 {
+    BoardConfig *config, *configSettings;
     bool done = false;
     bool reset = false;
     bool terminalMode = false;
+    const char *board = NULL;
+    const char *subtype = NULL;
     const char *ipaddr = NULL;
     const char *port = NULL;
     const char *name = NULL;
@@ -74,15 +81,20 @@ int main(int argc, char *argv[])
     bool writeFile = false;
     PropConnection *connection;
     Loader loader;
+    char *p, *p2;
     int sts, i;
     
+    /* setup a configuration to collect command line -D settings */
+    configSettings = NewBoardConfig(NULL, "");
+
     /* get the arguments */
     for(i = 1; i < argc; ++i) {
 
         /* handle switches */
         if(argv[i][0] == '-') {
             switch(argv[i][1]) {
-            case 'b':
+#if 0
+            case 'b':   // select the baud rate
                 if (argv[i][2])
                     baudrate = atoi(&argv[i][2]);
                 else if (++i < argc)
@@ -90,10 +102,31 @@ int main(int argc, char *argv[])
                 else
                     usage(argv[0]);
                 break;
-            case 'e':
+#endif
+            case 'b':   // select a target board
+                if (argv[i][2])
+                    board = &argv[i][2];
+                else if (++i < argc)
+                    board = argv[i];
+                else
+                    usage(argv[0]);
+                break;
+            case 'D':
+                if(argv[i][2])
+                    p = &argv[i][2];
+                else if(++i < argc)
+                    p = argv[i];
+                else
+                    usage(argv[0]);
+                if ((p2 = strchr(p, '=')) == NULL)
+                    usage(argv[0]);
+                *p2++ = '\0';
+                SetConfigField(configSettings, p, p2);
+                break;
+            case 'e':   // program eeprom
                 loadType |= ltDownloadAndProgram;
                 break;
-            case 'f':
+            case 'f':   // write a file to the SD card
                 if (argv[i][2])
                     file = &argv[i][2];
                 else if (++i < argc)
@@ -111,7 +144,16 @@ int main(int argc, char *argv[])
                     usage(argv[0]);
                 useSerial = false;
                 break;
-            case 'n':
+            case 'I':   // add a directory to the .cfg include path
+                if(argv[i][2])
+                    p = &argv[i][2];
+                else if(++i < argc)
+                    p = argv[i];
+                else
+                    usage(argv[0]);
+                xbAddPath(p);
+                break;
+            case 'n':   // name a wifi module
                 if (argv[i][2])
                     name = &argv[i][2];
                 else if (++i < argc)
@@ -121,7 +163,7 @@ int main(int argc, char *argv[])
                 SetFriendlyName(ipaddr, name);
                 done = true;
                 break;
-            case 'p':
+            case 'p':   // select a serial port
                 if (argv[i][2])
                     port = &argv[i][2];
                 else if (++i < argc)
@@ -151,24 +193,24 @@ int main(int argc, char *argv[])
 #endif
                 useSerial = true;
                 break;
-            case 'P':
+            case 'P':   // show serial ports
                 ShowPorts(PORT_PREFIX, argv[i][2] == '0' ? false : true);
                 done = true;
                 break;
-            case 'r':
+            case 'r':   // run program after loading
                 loadType |= ltDownloadAndRun;
                 break;
-            case 'R':
+            case 'R':   // reset the Propeller
                 reset = true;
                 done = true;
                 break;
-            case 's':
+            case 's':   // use the serial loader instead of the wifi loader
                 useSerial = true;
                 break;
-            case 't':
+            case 't':   // enter terminal emulator mode after loading
                 terminalMode = true;
                 break;
-            case 'W':
+            case 'W':   // show wifi modules
                 ShowWiFiModules(argv[i][2] == '0' ? false : true);
                 done = true;
                 break;
@@ -186,6 +228,59 @@ int main(int argc, char *argv[])
         }
     }
     
+/*
+1) look in the directory specified by the -I command line option (added above)
+2) look in the directory where the elf file resides
+3) look in the directory pointed to by the environment variable PROPELLER_ELF_LOAD
+4) look in the directory where the loader executable resides if possible
+5) look in /opt/parallax/propeller-load
+*/
+
+    /* finish the include path */
+    if (file)
+        xbAddFilePath(file);
+    xbAddEnvironmentPath("PROPELLER_LOAD_PATH");
+    xbAddProgramPath(argv);
+#if defined(LINUX) || defined(MACOSX) || defined(CYGWIN)
+    xbAddPath("/opt/parallax/propeller-load");
+#endif
+    
+    /* parse the board option */
+    if (board) {
+    
+        /* split the board type from the subtype */
+        if ((p = strchr(board, ':')) != NULL) {
+            *p++ = '\0';
+            subtype = p;
+        }
+        
+        /* no subtype */
+        else
+            subtype = DEF_SUBTYPE;
+    }
+    
+    else {
+        board = DEF_BOARD;
+        subtype = DEF_SUBTYPE;
+    }
+
+    /* setup for the selected board */
+    if (!(config = ParseConfigurationFile(board))) {
+        printf("error: can't find board configuration '%s'\n", board);
+        return 1;
+    }
+    
+    /* select the subtype */
+    if (subtype) {
+        if (!(config = GetConfigSubtype(config, subtype))) {
+            printf("error: can't find board configuration subtype '%s'\n", subtype);
+            return 1;
+        }
+    }
+    
+    /* override with any command line settings */
+    config = MergeConfigs(config, configSettings);
+        
     /* make sure a file to load was specified */
     if (!done && !reset && !file && !terminalMode)
         usage(argv[0]);

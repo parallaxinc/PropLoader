@@ -62,16 +62,11 @@ endif
 
 BUILD=$(realpath ..)/proploader-$(OS)-build
 
-HDRDIR=hdr
 SRCDIR=src
 OBJDIR=$(BUILD)/obj
 BINDIR=$(BUILD)/bin
 SPINDIR=spin
 TOOLDIR=tools
-
-HDRS=\
-$(HDRDIR)/sock.h \
-$(HDRDIR)/serial.h
 
 OBJS=\
 $(OBJDIR)/main.o \
@@ -86,9 +81,11 @@ $(OBJDIR)/wifipropconnection.o \
 $(OBJDIR)/loadelf.o \
 $(OBJDIR)/sd_helper.o \
 $(OBJDIR)/config.o \
+$(OBJDIR)/expr.o \
+$(OBJDIR)/system.o \
 $(OSINT)
 
-CFLAGS+=-I$(HDRDIR) -I$(OBJDIR)
+CFLAGS+=-I$(OBJDIR)
 CPPFLAGS=$(CFLAGS)
 
 all:	 $(BINDIR)/proploader$(EXT) $(BUILD)/blink-fast.binary $(BUILD)/blink-slow.binary $(BUILD)/toggle.elf
