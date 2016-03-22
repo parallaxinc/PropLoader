@@ -50,12 +50,15 @@ usage: %s\n\
          [ -R ]             reset the Propeller\n\
          [ -s ]             do a serial download\n\
          [ -t ]             enter terminal mode after the load is complete\n\
+         [ -v ]             enable verbose debugging output\n\
          [ -W ]             show all discovered wifi modules with propellers connected\n\
          [ -W0 ]            show all discovered wifi modules\n\
          [ -? ]             display a usage message and exit\n\
          <file>             spin binary file to load\n", progname);
     exit(1);
 }
+
+int verbose = false;
 
 static void ShowPorts(const char *prefix, bool check);
 static void ShowWiFiModules(bool check);
@@ -75,7 +78,7 @@ int main(int argc, char *argv[])
     const char *port = NULL;
     const char *name = NULL;
     const char *file = NULL;
-    int baudrate = DEFAULT_BAUDRATE;
+    int baudRate = DEFAULT_BAUDRATE;
     int loadType = ltShutdown;
     bool useSerial = false;
     bool writeFile = false;
@@ -96,9 +99,9 @@ int main(int argc, char *argv[])
 #if 0
             case 'b':   // select the baud rate
                 if (argv[i][2])
-                    baudrate = atoi(&argv[i][2]);
+                    baudRate = atoi(&argv[i][2]);
                 else if (++i < argc)
-                    baudrate = atoi(argv[i]);
+                    baudRate = atoi(argv[i]);
                 else
                     usage(argv[0]);
                 break;
@@ -210,6 +213,9 @@ int main(int argc, char *argv[])
             case 't':   // enter terminal emulator mode after loading
                 terminalMode = true;
                 break;
+            case 'v':   // enable verbose debugging output
+                verbose = true;
+                break;
             case 'W':   // show wifi modules
                 ShowWiFiModules(argv[i][2] == '0' ? false : true);
                 done = true;
@@ -281,6 +287,9 @@ int main(int argc, char *argv[])
     /* override with any command line settings */
     config = MergeConfigs(config, configSettings);
         
+    /* use the baud rate from the configuration */
+    GetNumericConfigField(config, "baudrate", &baudRate);
+
     /* make sure a file to load was specified */
     if (!done && !reset && !file && !terminalMode)
         usage(argv[0]);
@@ -314,7 +323,7 @@ int main(int argc, char *argv[])
             info = ports.front();
             port = info.port();
         }
-        if ((sts = serialConnection->open(port, baudrate)) != 0) {
+        if ((sts = serialConnection->open(port, baudRate)) != 0) {
             printf("error: loader initialization failed: %d\n", sts);
             return 1;
         }
@@ -450,15 +459,6 @@ static int WriteFileToSDCard(BoardConfig *config, PropConnection *connection, co
     if (LoadSDHelper(config, connection) != 0) {
         fclose(fp);
         return Error("loading SD helper");
-    }
-
-    /* switch to the final baud rate */
-    int baudRate = 115200;
-//    GetNumericConfigField(config, "baudrate", &baudRate);
-    printf("Switching to %d baud\n", baudRate);
-    if (connection->setBaudRate(baudRate) != 0) {
-        printf("error: setting baud rate failed\n");
-        return -1;
     }
 
     /* wait for the SD helper to complete initialization */

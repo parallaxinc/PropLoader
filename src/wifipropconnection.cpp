@@ -10,7 +10,7 @@
 #define DISCOVER_PORT   2000
 
 int resetPin = 12;
-int verbose = 1;
+extern int verbose;
 
 WiFiPropConnection::WiFiPropConnection()
     : m_ipaddr(NULL),
