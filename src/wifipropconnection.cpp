@@ -190,6 +190,27 @@ bool WiFiPropConnection::isOpen()
     return m_socket != INVALID_SOCKET;
 }
 
+int WiFiPropConnection::setName(const char *name)
+{
+    uint8_t buffer[1024];
+    int hdrCnt, result;
+    
+    hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
+POST /system/update?name=%s HTTP/1.1\r\n\
+\r\n", name);
+
+    if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
+        printf("error: name update request failed\n");
+        return -1;
+    }
+    else if (result != 204) {
+        printf("error: name update returned %d\n", result);
+        return -1;
+    }
+
+    return 0;
+}
+
 int WiFiPropConnection::generateResetSignal()
 {
     uint8_t buffer[1024];

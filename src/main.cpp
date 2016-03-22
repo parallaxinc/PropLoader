@@ -82,6 +82,8 @@ int main(int argc, char *argv[])
     int loadType = ltShutdown;
     bool useSerial = false;
     bool writeFile = false;
+    SerialPropConnection *serialConnection = NULL;
+    WiFiPropConnection *wifiConnection = NULL;
     PropConnection *connection;
     Loader loader;
     char *p, *p2;
@@ -295,7 +297,7 @@ int main(int argc, char *argv[])
         usage(argv[0]);
         
     /* check to see if a reset was requested or there is a file to load */
-    if (!reset && !file && !terminalMode)
+    if (!reset && !file && !name && !terminalMode)
         goto finish;
 
     /* default to 'download and run' if neither -e nor -r are specified */
@@ -304,7 +306,6 @@ int main(int argc, char *argv[])
         
     /* do a serial download */
     if (useSerial) {
-        SerialPropConnection *serialConnection;
         SerialInfo info; // needs to stay in scope as long as we're using port
         if (!(serialConnection = new SerialPropConnection)) {
             printf("error: insufficient memory\n");
@@ -332,7 +333,6 @@ int main(int argc, char *argv[])
     
     /* do a wifi download */
     else {
-        WiFiPropConnection *wifiConnection;
         if (!(wifiConnection = new WiFiPropConnection)) {
             printf("error: insufficient memory\n");
             return 1;
@@ -359,6 +359,18 @@ int main(int argc, char *argv[])
     /* reset the Propeller */
     if (reset)
         connection->generateResetSignal();
+    
+    /* set the wifi module name */
+    if (name) {
+        if (!wifiConnection) {
+            printf("error: -n can only be used to name wifi modules\n");
+            return 1;
+        }
+        if (wifiConnection->setName(name) != 0) {
+            printf("error: failed to set module name\n");
+            return 1;
+        }
+    }
     
     /* write a file to the SD card */
     if (writeFile) {

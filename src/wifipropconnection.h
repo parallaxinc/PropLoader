@@ -31,6 +31,7 @@ public:
     int close();
     int connect();
     int disconnect();
+    int setName(const char *name);
     int generateResetSignal();
     int identify(int *pVersion);
     int loadImage(const uint8_t *image, int imageSize, LoadType loadType = ltDownloadAndRun);
