@@ -34,6 +34,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 #include <mach-o/dyld.h>
 #endif
 
+#if defined(LINUX)
+#include <unistd.h>
+#endif
+
 typedef struct PathEntry PathEntry;
 struct PathEntry {
     PathEntry *next;
