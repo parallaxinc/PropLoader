@@ -40,20 +40,18 @@ usage: %s\n\
          [ -D var=value ]   define a board configuration variable\n\
          [ -e ]             program eeprom\n\
          [ -f <file> ]      write a file to the SD card\n\
-         [ -i <ip-addr> ]   IP address of the Xbee Wi-Fi module\n\
+         [ -i <ip-addr> ]   IP address of the Parallax Wi-Fi module\n\
          [ -I <path> ]      add a directory to the include path\n\
-         [ -n <name> ]      set the friendly name of an Xbee Wi-Fi module\n\
+         [ -n <name> ]      set the name of a Parallax Wi-Fi module\n\
          [ -p <port> ]      serial port\n\
-         [ -P ]             show all serial ports with propellers connected\n\
-         [ -P0 ]            show all serial ports\n\
+         [ -P ]             show all serial ports\n\
          [ -r ]             run program after downloading\n\
          [ -R ]             reset the Propeller\n\
          [ -s ]             do a serial download\n\
          [ -t ]             enter terminal mode after the load is complete\n\
          [ -T ]             enter pst-compatible terminal mode after the load is complete\n\
          [ -v ]             enable verbose debugging output\n\
-         [ -W ]             show all discovered wifi modules with propellers connected\n\
-         [ -W0 ]            show all discovered wifi modules\n\
+         [ -W ]             show all discovered wifi modules\n\
          [ -? ]             display a usage message and exit\n\
          <file>             binary file to load\n\
 \n\
@@ -62,7 +60,7 @@ defaults to 'default' or it can be of the form <type>:<subtype> like 'c3:ram'.\n
 \n\
 Variables that can be set with -D are:\n\
   clkfreq clkmode baudrate reset rxpin txpin tvpin\n\
-  sd-driver sdspi-do sdspi-clk sdspi-di sdspi-cs\n\
+  sdspi-do sdspi-clk sdspi-di sdspi-cs\n\
   sdspi-clr sdspi-inc sdspi-start sdspi-width spdspi-addr\n\
   sdspi-config1 sdspi-config2\n\
 \n\
