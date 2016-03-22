@@ -21,6 +21,7 @@ endif
 CC=$(PREFIX)gcc
 CPP=$(PREFIX)g++
 SPINCMP=openspin
+TOOLCC=gcc
 
 CFLAGS=-Wall
 
@@ -151,7 +152,7 @@ $(OBJDIR)/%.o:	$(SRCDIR)/%.cpp $(HDRS)
 	$(CPP) $(CPPFLAGS) -c $< -o $@
 
 $(BINDIR)/%$(EXT):	$(TOOLDIR)/%.c
-	$(CC) $(CFLAGS) $< -o $@
+	$(TOOLCC) $(CFLAGS) $< -o $@
 
 clean:
 	$(RM) $(BUILD)
