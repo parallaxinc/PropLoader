@@ -164,7 +164,6 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
         printf("error: second-stage loader failed to start - cnt %d, packetID %d, result %d\n", cnt, packetID, result);
         return -1;
     }
-    printf("Got initial second-stage loader response\n");
     
     /* switch to the final baud rate */
     m_connection->setBaudRate(m_connection->finalBaudRate());
@@ -174,7 +173,7 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
         int size;
         if ((size = imageSize) > m_connection->maxDataSize())
             size = m_connection->maxDataSize();
-        printf("Transmitting packet %d\n", packetID);
+        putchar('.'); fflush(stdout);
         if (transmitPacket(packetID, image, size, &result) != 0) {
             printf("error: transmitPacket failed\n");
             return -1;
@@ -185,6 +184,7 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
         image += size;
         --packetID;
     }
+    putchar('\n');
     
     /*
         When we're doing a download that does not include an EEPROM write, the Packet IDs end up as:
