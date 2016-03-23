@@ -62,19 +62,19 @@ uint8_t *Loader::generateInitialLoaderImage(int packetID, int *pLength)
     //SetHostInitializedValue(loaderImage, initAreaOffset +  0, 0);
 
     // Initial Bit Time.
-    SetHostInitializedValue(loaderImage, initAreaOffset +  4, (int)trunc(80000000.0 / m_baudrate + 0.5));
+    SetHostInitializedValue(loaderImage, initAreaOffset +  4, (int)trunc(80000000.0 / m_connection->loaderBaudRate() + 0.5));
 
     // Final Bit Time.
-    SetHostInitializedValue(loaderImage, initAreaOffset +  8, (int)trunc(80000000.0 / m_connection->finalBaudRate() + 0.5));
+    SetHostInitializedValue(loaderImage, initAreaOffset +  8, (int)trunc(80000000.0 / m_connection->fastLoaderBaudRate() + 0.5));
     
     // 1.5x Final Bit Time minus maximum start bit sense error.
-    SetHostInitializedValue(loaderImage, initAreaOffset + 12, (int)trunc(1.5 * ClockSpeed / m_connection->finalBaudRate() - MAX_RX_SENSE_ERROR + 0.5));
+    SetHostInitializedValue(loaderImage, initAreaOffset + 12, (int)trunc(1.5 * ClockSpeed / m_connection->fastLoaderBaudRate() - MAX_RX_SENSE_ERROR + 0.5));
     
     // Failsafe Timeout (seconds-worth of Loader's Receive loop iterations).
     SetHostInitializedValue(loaderImage, initAreaOffset + 16, (int)trunc(2.0 * ClockSpeed / (3 * 4) + 0.5));
     
     // EndOfPacket Timeout (2 bytes worth of Loader's Receive loop iterations).
-    SetHostInitializedValue(loaderImage, initAreaOffset + 20, (int)trunc((2.0 * ClockSpeed / m_connection->finalBaudRate()) * (10.0 / 12.0) + 0.5));
+    SetHostInitializedValue(loaderImage, initAreaOffset + 20, (int)trunc((2.0 * ClockSpeed / m_connection->fastLoaderBaudRate()) * (10.0 / 12.0) + 0.5));
     
     // PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 24, Max(Round(ClockSpeed * SSSHTime), 14));
     // PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 28, Max(Round(ClockSpeed * SCLHighTime), 14));
@@ -166,9 +166,10 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     }
     
     /* switch to the final baud rate */
-    m_connection->setBaudRate(m_connection->finalBaudRate());
+    m_connection->setBaudRate(m_connection->fastLoaderBaudRate());
     
     /* transmit the image */
+    printf("Loading image"); fflush(stdout);
     while (imageSize > 0) {
         int size;
         if ((size = imageSize) > m_connection->maxDataSize())

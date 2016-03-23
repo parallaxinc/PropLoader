@@ -6,9 +6,9 @@
 #include "propconnection.h"
 #include "sock.h"
 
-#define WIFI_INITIAL_BAUD_RATE      115200
-#define WIFI_FINAL_BAUD_RATE        921600
-#define WIFI_TERMINAL_BAUD_RATE     115200
+#define WIFI_LOADER_BAUD_RATE       115200
+#define WIFI_FAST_LOADER_BAUD_RATE  921600
+#define WIFI_PROGRAM_BAUD_RATE      115200
 
 class WiFiInfo {
 public:

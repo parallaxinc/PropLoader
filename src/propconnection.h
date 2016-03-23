@@ -14,8 +14,8 @@ typedef enum {
 class PropConnection
 {
 public:
-    PropConnection();
-    ~PropConnection();
+    PropConnection() {}
+    ~PropConnection() {}
     virtual bool isOpen() = 0;
     virtual int close() = 0;
     virtual int connect() = 0;
@@ -29,17 +29,17 @@ public:
     virtual int setBaudRate(int baudRate) = 0;
     virtual int maxDataSize() = 0;
     virtual int terminal(bool checkForExit, bool pstMode) = 0;
-    int initialBaudRate() { return m_initialBaudRate; }
-    void setInitialBaudRate(int baudRate) { m_initialBaudRate = baudRate; }
-    int finalBaudRate() { return m_finalBaudRate; }
-    void setFinalBaudRate(int baudRate) { m_finalBaudRate = baudRate; }
-    int terminalBaudRate() { return m_terminalBaudRate; }
-    void setTerminalBaudRate(int baudRate) { m_terminalBaudRate = baudRate; }
+    int loaderBaudRate() { return m_loaderBaudRate; }
+    void setLoaderBaudRate(int baudRate) { m_loaderBaudRate = baudRate; }
+    int fastLoaderBaudRate() { return m_fastLoaderBaudRate; }
+    void setFastLoaderBaudRate(int baudRate) { m_fastLoaderBaudRate = baudRate; }
+    int programBaudRate() { return m_programBaudRate; }
+    void setProgramBaudRate(int baudRate) { m_programBaudRate = baudRate; }
 protected:
     int m_baudRate;
-    int m_initialBaudRate;
-    int m_finalBaudRate;
-    int m_terminalBaudRate;
+    int m_loaderBaudRate;
+    int m_fastLoaderBaudRate;
+    int m_programBaudRate;
 };
 
 #endif // PROPCONNECTION_H

@@ -30,8 +30,6 @@
   #define PORT_PREFIX ""
 #endif
 
-//         [ -b <baudrate> ]  initial baud rate (default is %d)\n
-
 static void usage(const char *progname)
 {
 printf("\
@@ -67,7 +65,7 @@ Variables that can be set with -D are:\n\
 Value expressions for -D can include:\n\
   rcfast rcslow xinput xtal1 xtal2 xtal3 pll1x pll2x pll4x pll8x pll16x k m mhz true false\n\
   an integer or two operands with a binary operator + - * / %% & | or unary + or -\n\
-  or a parenthesized expresion.\n", progname);
+  or a parenthesized expression.\n", progname);
     exit(1);
 }
 
@@ -91,7 +89,6 @@ int main(int argc, char *argv[])
     const char *port = NULL;
     const char *name = NULL;
     const char *file = NULL;
-    int baudRate = DEFAULT_BAUDRATE;
     int loadType = ltShutdown;
     bool useSerial = false;
     bool writeFile = false;
@@ -111,16 +108,6 @@ int main(int argc, char *argv[])
         /* handle switches */
         if(argv[i][0] == '-') {
             switch(argv[i][1]) {
-#if 0
-            case 'b':   // select the baud rate
-                if (argv[i][2])
-                    baudRate = atoi(&argv[i][2]);
-                else if (++i < argc)
-                    baudRate = atoi(argv[i]);
-                else
-                    usage(argv[0]);
-                break;
-#endif
             case 'b':   // select a target board
                 if (argv[i][2])
                     board = &argv[i][2];
@@ -321,10 +308,7 @@ int main(int argc, char *argv[])
     
     /* override with any command line settings */
     config = MergeConfigs(config, configSettings);
-        
-    /* use the baud rate from the configuration */
-    GetNumericConfigField(config, "baudrate", &baudRate);
-
+    
     /* make sure a file to load was specified */
     if (!done && !reset && !file && !terminalMode)
         usage(argv[0]);
@@ -357,7 +341,7 @@ int main(int argc, char *argv[])
             info = ports.front();
             port = info.port();
         }
-        if ((sts = serialConnection->open(port, baudRate)) != 0) {
+        if ((sts = serialConnection->open(port)) != 0) {
             printf("error: loader initialization failed: %d\n", sts);
             return 1;
         }
@@ -389,6 +373,15 @@ int main(int argc, char *argv[])
         connection = wifiConnection;
     }
     
+    /* setup the baud rates */
+    int baudRate;
+    if (GetNumericConfigField(config, "loader-baud-rate", &baudRate))
+        connection->setLoaderBaudRate(baudRate);
+    if (GetNumericConfigField(config, "fast-loader-baud-rate", &baudRate))
+        connection->setFastLoaderBaudRate(baudRate);
+    if (GetNumericConfigField(config, "program-baud-rate", &baudRate))
+        connection->setProgramBaudRate(baudRate);
+        
     /* reset the Propeller */
     if (reset)
         connection->generateResetSignal();
@@ -424,10 +417,12 @@ int main(int argc, char *argv[])
         }
     }
     
+    /* set the baud rate used by the program */
+    connection->setBaudRate(connection->programBaudRate());
+    
     /* enter terminal mode */
     if (terminalMode) {
         printf("[ Entering terminal mode. Type ESC or Control-C to exit. ]\n");
-        connection->setBaudRate(connection->terminalBaudRate());
         connection->terminal(false, pstTerminalMode);
     }
     

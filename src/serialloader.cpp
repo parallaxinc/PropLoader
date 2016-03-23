@@ -320,8 +320,8 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
     int packetSize, version, retries, cnt, i;
     uint8_t *packet;
     
-    /* use the initial loader baud rate */
-    if (setBaudRate(initialBaudRate()) != 0) 
+    /* use the loader baud rate */
+    if (setBaudRate(loaderBaudRate()) != 0) 
         return -1;
         
     /* generate a loader packet */

@@ -6,9 +6,9 @@
 SerialPropConnection::SerialPropConnection()
     : m_serialPort(NULL)
 {
-    m_initialBaudRate = SERIAL_INITIAL_BAUD_RATE;
-    m_finalBaudRate = SERIAL_FINAL_BAUD_RATE;
-    m_terminalBaudRate = SERIAL_TERMINAL_BAUD_RATE;
+    m_loaderBaudRate = SERIAL_LOADER_BAUD_RATE;
+    m_fastLoaderBaudRate = SERIAL_FAST_LOADER_BAUD_RATE;
+    m_programBaudRate = SERIAL_PROGRAM_BAUD_RATE;
 }
 
 SerialPropConnection::~SerialPropConnection()
@@ -151,5 +151,3 @@ int SerialPropConnection::terminal(bool checkForExit, bool pstMode)
     SerialTerminal(m_serialPort, checkForExit, pstMode);
     return 0;
 }
-
-

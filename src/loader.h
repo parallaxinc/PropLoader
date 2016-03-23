@@ -10,8 +10,8 @@
 
 class Loader {
 public:
-    Loader() : m_connection(0), m_baudrate(DEFAULT_BAUDRATE) {}
-    Loader(PropConnection *connection) : m_connection(connection), m_baudrate(DEFAULT_BAUDRATE) {}
+    Loader() : m_connection(0) {}
+    Loader(PropConnection *connection) : m_connection(connection) {}
     ~Loader() {}
     void setConnection(PropConnection *connection) { m_connection = connection; }
     int identify(int *pVersion);
@@ -26,7 +26,6 @@ private:
     static uint8_t *readSpinBinaryFile(FILE *fp, int *pImageSize);
     static uint8_t *readElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize);
     PropConnection *m_connection;
-    int m_baudrate;
 };
 
 inline void msleep(int ms)

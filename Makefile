@@ -75,7 +75,6 @@ $(OBJDIR)/loader.o \
 $(OBJDIR)/fastloader.o \
 $(OBJDIR)/propimage.o \
 $(OBJDIR)/packet.o \
-$(OBJDIR)/propconnection.o \
 $(OBJDIR)/serialpropconnection.o \
 $(OBJDIR)/serialloader.o \
 $(OBJDIR)/wifipropconnection.o \

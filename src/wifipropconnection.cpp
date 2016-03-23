@@ -16,9 +16,9 @@ WiFiPropConnection::WiFiPropConnection()
     : m_ipaddr(NULL),
       m_socket(INVALID_SOCKET)
 {
-    m_initialBaudRate = WIFI_INITIAL_BAUD_RATE;
-    m_finalBaudRate = WIFI_FINAL_BAUD_RATE;
-    m_terminalBaudRate = WIFI_TERMINAL_BAUD_RATE;
+    m_loaderBaudRate = WIFI_LOADER_BAUD_RATE;
+    m_fastLoaderBaudRate = WIFI_FAST_LOADER_BAUD_RATE;
+    m_programBaudRate = WIFI_PROGRAM_BAUD_RATE;
 }
 
 WiFiPropConnection::~WiFiPropConnection()
@@ -90,13 +90,13 @@ int WiFiPropConnection::loadImage(const uint8_t *image, int imageSize, LoadType 
     int hdrCnt, result;
     
     /* use the initial loader baud rate */
-    if (setBaudRate(initialBaudRate()) != 0) 
+    if (setBaudRate(loaderBaudRate()) != 0) 
         return -1;
         
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
 POST /propeller/load?reset-pin=%d&baud-rate=%d HTTP/1.1\r\n\
 Content-Length: %d\r\n\
-\r\n", resetPin, initialBaudRate(), imageSize);
+\r\n", resetPin, loaderBaudRate(), imageSize);
 
     if (!(packet = (uint8_t *)malloc(hdrCnt + imageSize)))
         return -1;

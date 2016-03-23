@@ -319,17 +319,25 @@ BoardConfig *MergeConfigs(BoardConfig *parent, BoardConfig *child)
     return child;
 }
 
+/* these default settings match the Parallax ActivityBoard */
 
 static BoardConfig *GetDefaultConfiguration(void)
 {
     static BoardConfig *defaultConfig = NULL;
     if (!defaultConfig) {
         defaultConfig = NewBoardConfig(NULL, DEF_BOARD);
-        SetConfigField(defaultConfig, "clkfreq",  "80000000");
-        SetConfigField(defaultConfig, "clkmode",  "XTAL1+PLL16X");
-        SetConfigField(defaultConfig, "baudrate", "115200");
-        SetConfigField(defaultConfig, "rxpin",    "31");
-        SetConfigField(defaultConfig, "txpin",    "30");
+        SetConfigField(defaultConfig, "clkfreq",                    "80000000");
+        SetConfigField(defaultConfig, "clkmode",                    "XTAL1+PLL16X");
+        SetConfigField(defaultConfig, "baudrate",                   "115200");
+        SetConfigField(defaultConfig, "loader-baud-rate",           "115200");
+        SetConfigField(defaultConfig, "fast-loader-baud-rate",      "921600");
+        SetConfigField(defaultConfig, "program-baud-rate",          "115200");
+        SetConfigField(defaultConfig, "rxpin",                      "31");
+        SetConfigField(defaultConfig, "txpin",                      "30");
+        SetConfigField(defaultConfig, "sdspi-do",                   "22");
+        SetConfigField(defaultConfig, "sdspi-clk",                  "23");
+        SetConfigField(defaultConfig, "sdspi-di",                   "24");
+        SetConfigField(defaultConfig, "sdspi-cs",                   "25");
     }
     return defaultConfig;
 }
