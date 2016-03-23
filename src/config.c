@@ -222,7 +222,7 @@ BoardConfig *ParseConfigurationFile(const char *name)
     /* close the board configuration file */
     fclose(fp);
     
-    //DumpBoardConfiguration(baseConfig);
+    DumpBoardConfiguration(baseConfig);
     
     /* return the board configuration */
     return baseConfig;
@@ -232,6 +232,7 @@ BoardConfig *ParseConfigurationFile(const char *name)
 void DumpBoardConfiguration(BoardConfig *config)
 {
     BoardConfig *subconfig;
+    printf("Board type '%s'\n", config->name);
     DumpFields(config, config->fields, 0);
     for (subconfig = config->child; subconfig != NULL; subconfig = subconfig->sibling) {
         printf("%s\n", subconfig->name);

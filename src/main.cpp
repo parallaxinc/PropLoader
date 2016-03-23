@@ -401,7 +401,7 @@ int main(int argc, char *argv[])
     /* write a file to the SD card */
     if (writeFile) {
         printf("Writing '%s' to the SD card\n", file);
-        if (WriteFileToSDCard(NULL, connection, file, file) != 0) {
+        if (WriteFileToSDCard(config, connection, file, file) != 0) {
             printf("error: writing '%s'\n", file);
             return 1;
         }
@@ -627,6 +627,9 @@ static int LoadSDHelper(BoardConfig *config, PropConnection *connection)
     /* load the SD helper program */
     if (loader.fastLoadImage(image.imageData(), image.imageSize(), ltDownloadAndRun) != 0)
         return Error("helper load failed");
+        
+    /* select the sd helper baud rate */
+    connection->setBaudRate(dat->baudrate);
 
     return 0;
 }
