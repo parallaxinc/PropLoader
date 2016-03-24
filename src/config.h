@@ -34,15 +34,6 @@ extern "C" {
 #define NEED_STRCASECMP
 #endif
 
-/* internal memory map */
-#define HUB_BASE        0x00000000
-#define HUB_SIZE        (32 * 1024)
-
-/* external memory map */
-#define EXTERNAL_BASE   0x20000000
-#define RAM_BASE        0x20000000
-#define FLASH_BASE      0x30000000
-
 #ifdef NO_STDINT
 typedef long int32_t;
 typedef unsigned long uint32_t;
