@@ -116,38 +116,52 @@ Content-Length: %d\r\n\
     return 0;
 }
 
-#define MAX_IF_ADDRS    10
+#define MAX_IF_ADDRS    20
 #define NAME_TAG        "\"name\": \""
 
-int discover1(IFADDR *ifaddr, WiFiInfoList &list, int count, int timeout)
+int WiFiPropConnection::findModules(bool check, WiFiInfoList &list, int count)
 {
     uint8_t txBuf[1024]; // BUG: get rid of this magic number!
     uint8_t rxBuf[1024]; // BUG: get rid of this magic number!
-    SOCKADDR_IN bcastaddr;
+    IFADDR ifaddrs[MAX_IF_ADDRS];
+    int ifCnt, txCnt, cnt, i;
     SOCKADDR_IN addr;
     SOCKET sock;
-    int cnt;
+    
+    /* get all of the network interface addresses */
+    if ((ifCnt = GetInterfaceAddresses(ifaddrs, MAX_IF_ADDRS)) < 0) {
+        printf("error: GetInterfaceAddresses failed\n");
+        return -1;
+    }
     
     /* create a broadcast socket */
     if (OpenBroadcastSocket(DISCOVER_PORT, &sock) != 0) {
         printf("error: OpenBroadcastSocket failed\n");
-        return -2;
-    }
-        
-    /* build a broadcast address */
-    bcastaddr = ifaddr->bcast;
-    bcastaddr.sin_port = htons(DISCOVER_PORT);
-    
-    /* send the broadcast packet */
-    sprintf((char *)txBuf, "Me here! Ignore this message.\n");
-    if ((cnt = SendSocketDataTo(sock, txBuf, strlen((char *)txBuf), &bcastaddr)) != (int)strlen((char *)txBuf)) {
-        perror("error: SendSocketDataTo failed");
-        CloseSocket(sock);
         return -1;
     }
+        
+    /* create the broadcast message */
+    sprintf((char *)txBuf, "Me here! Ignore this message.\n");
+    txCnt = strlen((char *)txBuf);
+    
+    /* send the broadcast packet to all interfaces */
+    for (i = 0; i < ifCnt; ++i) {
+        SOCKADDR_IN bcastaddr;
 
-    /* receive Xbee responses */
-    while (SocketDataAvailableP(sock, timeout)) {
+        /* build a broadcast address */
+        bcastaddr = ifaddrs[i].bcast;
+        bcastaddr.sin_port = htons(DISCOVER_PORT);
+    
+        /* send the broadcast packet */
+        if (SendSocketDataTo(sock, txBuf, txCnt, &bcastaddr) != txCnt) {
+            perror("error: SendSocketDataTo failed");
+            CloseSocket(sock);
+            return -1;
+        }
+    }
+    
+    /* receive wifi module responses */
+    while (SocketDataAvailableP(sock, 1000)) {
 
         /* get the next response */
         memset(rxBuf, 0, sizeof(rxBuf));
@@ -196,26 +210,6 @@ int discover1(IFADDR *ifaddr, WiFiInfoList &list, int count, int timeout)
     CloseSocket(sock);
     
     /* return successfully */
-    return 0;
-}
-
-int WiFiPropConnection::findModules(bool check, WiFiInfoList &list, int count)
-{
-    IFADDR ifaddrs[MAX_IF_ADDRS];
-    int remainingCount = count;
-    int cnt, i;
-    
-    if ((cnt = GetInterfaceAddresses(ifaddrs, MAX_IF_ADDRS)) < 0)
-        return -1;
-    
-    for (i = 0; i < cnt; ++i) {
-        int ret;
-        if ((ret = discover1(&ifaddrs[i], list, remainingCount, 2000)) < 0)
-            return ret;
-        if (count > 0 && (int)list.size() == count)
-            break;
-    }
-    
     return 0;
 }
 
