@@ -12,6 +12,8 @@
 
 // timeout used when making an HTTP request or connecting a telnet session
 #define CONNECT_TIMEOUT             2000
+#define DISCOVER_REPLY_TIMEOUT      500
+#define DISCOVER_ATTEMPTS           4
 
 class WiFiInfo {
 public:

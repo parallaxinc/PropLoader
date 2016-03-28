@@ -147,7 +147,7 @@ int WiFiPropConnection::findModules(bool check, WiFiInfoList &list, int count)
     txCnt = sizeof(uint32_t);
 
     /* make a number of attempts at discovering modules */
-    for (tries = 4; --tries >= 0; ) {
+    for (tries = DISCOVER_ATTEMPTS; --tries >= 0; ) {
 
         /* send the broadcast packet to all interfaces */
         for (i = 0; i < ifCnt; ++i) {
@@ -166,7 +166,7 @@ int WiFiPropConnection::findModules(bool check, WiFiInfoList &list, int count)
         }
     
         /* receive wifi module responses */
-        while (SocketDataAvailableP(sock, 250)) {
+        while (SocketDataAvailableP(sock, DISCOVER_REPLY_TIMEOUT)) {
 
             /* get the next response */
             if ((cnt = ReceiveSocketDataAndAddress(sock, rxBuf, sizeof(rxBuf) - 1, &addr)) < 0) {
