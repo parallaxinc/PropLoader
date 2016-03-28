@@ -148,7 +148,10 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
         checksum += initCallFrame[i];
         
     /* open the transparent serial connection that will be used for the second-stage loader */
-    m_connection->connect();
+    if (m_connection->connect() != 0) {
+        printf("error: failed to connect to target\n");
+        return -1;
+    }
 
     /* load the second-stage loader using the propeller ROM protocol */
     printf("Loading second-stage loader\n");

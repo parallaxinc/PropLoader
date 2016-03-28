@@ -62,7 +62,7 @@ int WiFiPropConnection::connect()
     if (m_socket != INVALID_SOCKET)
         return -1;
         
-    if (ConnectSocket(&m_telnetAddr, &m_socket) != 0)
+    if (ConnectSocketTimeout(&m_telnetAddr, CONNECT_TIMEOUT, &m_socket) != 0)
         return -1;
 
     return 0;

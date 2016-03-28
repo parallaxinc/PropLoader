@@ -10,7 +10,7 @@
 #define WIFI_FAST_LOADER_BAUD_RATE  921600
 #define WIFI_PROGRAM_BAUD_RATE      115200
 
-// timeout used when making an HTTP request
+// timeout used when making an HTTP request or connecting a telnet session
 #define CONNECT_TIMEOUT             2000
 
 class WiFiInfo {
