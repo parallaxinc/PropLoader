@@ -1,6 +1,6 @@
 This is a loader for the Parallax Propeller
 
-It supports loading over a serial link or a WiFi connection to an Xbee S6B module on the
+It supports loading over a serial link or a WiFi connection to a Parallax WiFi module on the
 Propeller Activity Board WX.
 
 This program is still under construction and not ready for use at this time.
@@ -13,11 +13,3 @@ also be C++. I left them as C for now because they matched my original code bett
 The files sock.h and serial.h show the interfaces needed to support another platform.
 I can easily provide a Windows version of these files to cover running the loader
 under Linux, Mac, and Windows. The xxx_posix.c files support both Linux and the Mac.
-
-TODO:
-
-1) Add retry logic to get/set item as well as the loader code.
-
-2) Switch to Jeff's new download protocol.
-
-3) Create a program that will process the binary resulting from compiling IP_loader.spin.
