@@ -124,7 +124,8 @@ int WiFiPropConnection::findModules(bool check, WiFiInfoList &list, int count)
     uint8_t txBuf[1024]; // BUG: get rid of this magic number!
     uint8_t rxBuf[1024]; // BUG: get rid of this magic number!
     IFADDR ifaddrs[MAX_IF_ADDRS];
-    int ifCnt, txCnt, cnt, i;
+    uint32_t *txNext;
+    int ifCnt, tries, txCnt, cnt, i;
     SOCKADDR_IN addr;
     SOCKET sock;
     
@@ -140,68 +141,93 @@ int WiFiPropConnection::findModules(bool check, WiFiInfoList &list, int count)
         return -1;
     }
         
-    /* create the broadcast message */
-    sprintf((char *)txBuf, "Me here! Ignore this message.\n");
-    txCnt = strlen((char *)txBuf);
-    
-    /* send the broadcast packet to all interfaces */
-    for (i = 0; i < ifCnt; ++i) {
-        SOCKADDR_IN bcastaddr;
+    /* initialize the broadcast message to indicate no modules found yet */
+    txNext = (uint32_t *)txBuf;
+    *txNext++ = 0; // indicates that this is a request not a response
+    txCnt = sizeof(uint32_t);
 
-        /* build a broadcast address */
-        bcastaddr = ifaddrs[i].bcast;
-        bcastaddr.sin_port = htons(DISCOVER_PORT);
-    
-        /* send the broadcast packet */
-        if (SendSocketDataTo(sock, txBuf, txCnt, &bcastaddr) != txCnt) {
-            perror("error: SendSocketDataTo failed");
-            CloseSocket(sock);
-            return -1;
-        }
-    }
-    
-    /* receive wifi module responses */
-    while (SocketDataAvailableP(sock, 1000)) {
+    /* make a number of attempts at discovering modules */
+    for (tries = 4; --tries >= 0; ) {
 
-        /* get the next response */
-        memset(rxBuf, 0, sizeof(rxBuf));
-        if ((cnt = ReceiveSocketDataAndAddress(sock, rxBuf, sizeof(rxBuf) - 1, &addr)) < 0) {
-            printf("error: ReceiveSocketData failed\n");
-            CloseSocket(sock);
-            return -3;
-        }
-        rxBuf[cnt] = '\0';
-        
-        if (!strstr((char *)rxBuf, "Me here!")) {
-            const char *name, *p, *p2;
-            char nameBuffer[128];
-            
-            if (verbose)
-                printf("from %s got: %s", AddressToString(&addr), rxBuf);
-                
-            if (!(p = strstr((char *)rxBuf, NAME_TAG)))
-                name = "";
-            else {
-                p += strlen(NAME_TAG);
-                if (!(p2 = strchr(p, '"'))) {
-                    CloseSocket(sock);
-                    return -1;
-                }
-                else if (p2 - p >= (int)sizeof(nameBuffer)) {
-                    CloseSocket(sock);
-                    return -1;
-                }
-                strncpy(nameBuffer, p, p2 - p);
-                nameBuffer[p2 - p] = '\0';
-                name = nameBuffer;
-            }
-            
-            WiFiInfo info(name, AddressToString(&addr));
-            list.push_back(info);
-            
-            if (count > 0 && --count == 0) {
+        /* send the broadcast packet to all interfaces */
+        for (i = 0; i < ifCnt; ++i) {
+            SOCKADDR_IN bcastaddr;
+
+            /* build a broadcast address */
+            bcastaddr = ifaddrs[i].bcast;
+            bcastaddr.sin_port = htons(DISCOVER_PORT);
+    
+            /* send the broadcast packet */
+            if (SendSocketDataTo(sock, txBuf, txCnt, &bcastaddr) != txCnt) {
+                perror("error: SendSocketDataTo failed");
                 CloseSocket(sock);
-                return 0;
+                return -1;
+            }
+        }
+    
+        /* receive wifi module responses */
+        while (SocketDataAvailableP(sock, 250)) {
+
+            /* get the next response */
+            if ((cnt = ReceiveSocketDataAndAddress(sock, rxBuf, sizeof(rxBuf) - 1, &addr)) < 0) {
+                printf("error: ReceiveSocketData failed\n");
+                CloseSocket(sock);
+                return -3;
+            }
+            rxBuf[cnt] = '\0';
+        
+            /* only process replies */
+            if (cnt >= sizeof(uint32_t) && *(uint32_t *)rxBuf != 0) {
+                std::string addressStr(AddressToString(&addr));
+                const char *name, *p, *p2;
+                char nameBuffer[128];
+            
+                /* make sure we don't already have a response from this module */
+                WiFiInfoList::iterator i = list.begin();
+                bool skip = false;
+                while (i != list.end()) {
+                    if (i->address() == addressStr) {
+                        skip = true;
+                        break;
+                    }
+                    ++i;
+                }
+                if (skip)
+                    continue;
+            
+                /* add the module's ip address to the next broadcast message */
+                if (txCnt < sizeof(txBuf)) {
+                    *txNext++ = addr.sin_addr.s_addr;
+                    txCnt += sizeof(uint32_t);
+                }
+            
+                if (verbose)
+                    printf("from %s got: %s", AddressToString(&addr), rxBuf);
+                
+                if (!(p = strstr((char *)rxBuf, NAME_TAG)))
+                    name = "";
+                else {
+                    p += strlen(NAME_TAG);
+                    if (!(p2 = strchr(p, '"'))) {
+                        CloseSocket(sock);
+                        return -1;
+                    }
+                    else if (p2 - p >= (int)sizeof(nameBuffer)) {
+                        CloseSocket(sock);
+                        return -1;
+                    }
+                    strncpy(nameBuffer, p, p2 - p);
+                    nameBuffer[p2 - p] = '\0';
+                    name = nameBuffer;
+                }
+            
+                WiFiInfo info(name, addressStr);
+                list.push_back(info);
+            
+                if (count > 0 && --count == 0) {
+                    CloseSocket(sock);
+                    return 0;
+                }
             }
         }
     }
