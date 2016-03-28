@@ -146,8 +146,12 @@ int WiFiPropConnection::findModules(bool check, WiFiInfoList &list, int count)
     *txNext++ = 0; // indicates that this is a request not a response
     txCnt = sizeof(uint32_t);
 
+    /* keep trying until we have this many attempts that return no new modules */
+    tries = DISCOVER_ATTEMPTS;
+    
     /* make a number of attempts at discovering modules */
-    for (tries = DISCOVER_ATTEMPTS; --tries >= 0; ) {
+    while (tries > 0) {
+        int numberFound = 0;
 
         /* send the broadcast packet to all interfaces */
         for (i = 0; i < ifCnt; ++i) {
@@ -196,6 +200,9 @@ int WiFiPropConnection::findModules(bool check, WiFiInfoList &list, int count)
                 }
                 if (skip)
                     continue;
+                    
+                /* count this as a module found on this attempt */
+                ++numberFound;
             
                 /* add the module's ip address to the next broadcast message */
                 if (txCnt < sizeof(txBuf)) {
@@ -232,6 +239,14 @@ int WiFiPropConnection::findModules(bool check, WiFiInfoList &list, int count)
                 }
             }
         }
+        
+        /* if we found at least one module, reset the retry counter */
+        if (numberFound > 0)
+            tries = DISCOVER_ATTEMPTS;
+            
+        /* otherwise, decrement the number of attempts remaining */
+        else
+            --tries;
     }
     
     /* close the socket */

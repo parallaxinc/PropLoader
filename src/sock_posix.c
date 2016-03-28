@@ -135,6 +135,9 @@ int ConnectSocket(SOCKADDR_IN *addr, SOCKET *pSocket)
 /* ConnectSocketTimeout - connect to a server with a timeout */
 int ConnectSocketTimeout(SOCKADDR_IN *addr, int timeout, SOCKET *pSocket)
 {
+#ifdef __MINGW32__
+    return ConnectSocket(addr, pSocket);
+#else
     int flags, err;
     SOCKET sock;
     
@@ -197,6 +200,7 @@ int ConnectSocketTimeout(SOCKADDR_IN *addr, int timeout, SOCKET *pSocket)
     /* return the socket */
     *pSocket = sock;
     return 0;
+#endif
 }
 
 /* BindSocket - bind a socket to a port */
