@@ -181,12 +181,14 @@ int WiFiPropConnection::findModules(bool check, WiFiInfoList &list, int count)
                 std::string addressStr(AddressToString(&addr));
                 const char *name, *p, *p2;
                 char nameBuffer[128];
+                printf("Address: %08x\n", addr.sin_addr.s_addr);
             
                 /* make sure we don't already have a response from this module */
                 WiFiInfoList::iterator i = list.begin();
                 bool skip = false;
                 while (i != list.end()) {
                     if (i->address() == addressStr) {
+                    printf("Skipping duplicate\n");
                         skip = true;
                         break;
                     }
