@@ -350,7 +350,7 @@ int WiFiPropConnection::sendRequest(uint8_t *req, int reqSize, uint8_t *res, int
     char buf[80];
     int cnt;
     
-    if (ConnectSocket(&m_httpAddr, &sock) != 0) {
+    if (ConnectSocketTimeout(&m_httpAddr, 1000, &sock) != 0) {
         printf("error: connect failed\n");
         return -1;
     }

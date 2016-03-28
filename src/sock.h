@@ -44,6 +44,7 @@ const char *AddrToString(uint32_t addr);
 int StringToAddr(const char *addr, uint32_t *pAddr);
 int OpenBroadcastSocket(short port, SOCKET *pSocket);
 int ConnectSocket(SOCKADDR_IN *addr, SOCKET *pSocket);
+int ConnectSocketTimeout(SOCKADDR_IN *addr, int timeout, SOCKET *pSocket);
 int BindSocket(short port, SOCKET *pSocket);
 void CloseSocket(SOCKET sock);
 int SocketDataAvailableP(SOCKET sock, int timeout);

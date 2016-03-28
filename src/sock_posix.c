@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <fcntl.h>
+#include <errno.h>
 
 #ifdef __MINGW32__
 #include <ws2tcpip.h>
@@ -105,7 +107,7 @@ int OpenBroadcastSocket(short port, SOCKET *pSocket)
     return 0;
 }
 
-/* ConnectSocket - connect to the server */
+/* ConnectSocket - connect to a server */
 int ConnectSocket(SOCKADDR_IN *addr, SOCKET *pSocket)
 {
     SOCKET sock;
@@ -121,7 +123,73 @@ int ConnectSocket(SOCKADDR_IN *addr, SOCKET *pSocket)
 
     /* connect to the server */
     if (connect(sock, (SOCKADDR *)addr, sizeof(*addr)) != 0) {
-    printf("connect failed\n");
+        closesocket(sock);
+        return -1;
+    }
+
+    /* return the socket */
+    *pSocket = sock;
+    return 0;
+}
+
+/* ConnectSocketTimeout - connect to a server with a timeout */
+int ConnectSocketTimeout(SOCKADDR_IN *addr, int timeout, SOCKET *pSocket)
+{
+    int flags, err;
+    SOCKET sock;
+    
+#ifdef __MINGW32__
+    if (InitWinSock() != 0)
+        return INVALID_SOCKET;
+#endif
+
+    /* create the socket */
+    if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+        return -1;
+
+    /* set the socket to non-blocking mode */
+    flags = fcntl(sock, F_GETFL, 0);
+    if (fcntl(sock, F_SETFL, flags | O_NONBLOCK) != 0) {
+        closesocket(sock);
+        return -1;
+    }
+
+    /* connect to the server */
+    if (connect(sock, (SOCKADDR *)addr, sizeof(*addr)) != 0) {
+        struct timeval timeVal;
+        socklen_t optLen;
+        fd_set sockets;
+            
+        /* fail on any error other than "in progress" */
+        if (errno != EINPROGRESS) {
+            closesocket(sock);
+            return -1;
+        }
+        
+        /* setup the read socket set */
+        FD_ZERO(&sockets);
+        FD_SET(sock, &sockets);
+
+        /* setup the timeout */
+        timeVal.tv_sec = timeout / 1000;
+        timeVal.tv_usec = (timeout % 1000) * 1000;
+
+        /* wait for the connect to complete or a timeout */
+        if (select(sock + 1, NULL, &sockets, NULL, &timeVal) <= 0 || !FD_ISSET(sock, &sockets)) {
+            closesocket(sock);
+            return -1;
+        }
+
+        /* make sure the connection was successful */
+        optLen = sizeof(err);
+        if (getsockopt(sock, SOL_SOCKET, SO_ERROR, &err, &optLen) != 0 || err != 0) {
+            closesocket(sock);
+            return -1;
+        }    
+    }
+    
+    /* set the socket back to blocking mode */
+    if (fcntl(sock, F_SETFL, flags) != 0) {
         closesocket(sock);
         return -1;
     }

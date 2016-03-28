@@ -386,8 +386,12 @@ int main(int argc, char *argv[])
         connection->setProgramBaudRate(baudRate);
         
     /* reset the Propeller */
-    if (reset)
-        connection->generateResetSignal();
+    if (reset) {
+        if (connection->generateResetSignal() != 0) {
+            printf("error: failed to reset Propeller\n");
+            return 1;
+        }
+    }
     
     /* set the wifi module name */
     if (name) {
@@ -421,7 +425,10 @@ int main(int argc, char *argv[])
     }
     
     /* set the baud rate used by the program */
-    connection->setBaudRate(connection->programBaudRate());
+    if (connection->setBaudRate(connection->programBaudRate()) != 0) {
+        printf("error: failed to set baud rate\n");
+        return 1;
+    }
     
     /* enter terminal mode */
     if (terminalMode) {
