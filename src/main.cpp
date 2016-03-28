@@ -33,25 +33,28 @@
 static void usage(const char *progname)
 {
 printf("\
-usage: %s\n\
-         [ -b <type> ]      select target board and subtype (default is 'default:default')\n\
-         [ -D var=value ]   define a board configuration variable\n\
-         [ -e ]             program eeprom\n\
-         [ -f <file> ]      write a file to the SD card\n\
-         [ -i <ip-addr> ]   IP address of the Parallax Wi-Fi module\n\
-         [ -I <path> ]      add a directory to the include path\n\
-         [ -n <name> ]      set the name of a Parallax Wi-Fi module\n\
-         [ -p <port> ]      serial port\n\
-         [ -P ]             show all serial ports\n\
-         [ -r ]             run program after downloading\n\
-         [ -R ]             reset the Propeller\n\
-         [ -s ]             do a serial download\n\
-         [ -t ]             enter terminal mode after the load is complete\n\
-         [ -T ]             enter pst-compatible terminal mode after the load is complete\n\
-         [ -v ]             enable verbose debugging output\n\
-         [ -W ]             show all discovered wifi modules\n\
-         [ -? ]             display a usage message and exit\n\
-         <file>             binary file to load\n\
+usage: %s [options] [<file>]\n\
+\n\
+options:\n\
+    -b <type>       select target board and subtype (default is 'default:default')\n\
+    -D var=value    define a board configuration variable\n\
+    -e              program eeprom (and halt, unless combined with -r)\n\
+    -f <file>       write a file to the SD card\n\
+    -i <ip-addr>    IP address of the Parallax Wi-Fi module\n\
+    -I <path>       add a directory to the include path\n\
+    -n <name>       set the name of a Parallax Wi-Fi module\n\
+    -p <port>       serial port\n\
+    -P              show all serial ports\n\
+    -r              run program after downloading (useful with -e)\n\
+    -R              reset the Propeller\n\
+    -s              do a serial download\n\
+    -t              enter terminal mode after the load is complete\n\
+    -T              enter pst-compatible terminal mode after the load is complete\n\
+    -v              enable verbose debugging output\n\
+    -W              show all discovered wifi modules\n\
+    -?              display a usage message and exit\n\
+\n\
+file:               binary file to load (.elf or .binary)\n\
 \n\
 Target board type can be either a single identifier like 'propboe' in which case the subtype\n\
 defaults to 'default' or it can be of the form <type>:<subtype> like 'c3:ram'.\n\
