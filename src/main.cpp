@@ -84,6 +84,8 @@ int main(int argc, char *argv[])
     BoardConfig *config, *configSettings;
     bool done = false;
     bool reset = false;
+    bool showPorts = false;
+    bool showModules = false;
     bool terminalMode = false;
     bool pstTerminalMode = false;
     const char *board = NULL;
@@ -210,8 +212,7 @@ int main(int argc, char *argv[])
                 useSerial = true;
                 break;
             case 'P':   // show serial ports
-                ShowPorts(PORT_PREFIX, argv[i][2] == '0' ? false : true);
-                done = true;
+                showPorts = true;
                 break;
             case 'r':   // run program after loading
                 loadType |= ltDownloadAndRun;
@@ -235,8 +236,7 @@ int main(int argc, char *argv[])
                 verbose = true;
                 break;
             case 'W':   // show wifi modules
-                ShowWiFiModules(argv[i][2] == '0' ? false : true);
-                done = true;
+                showModules = true;
                 break;
             default:
                 usage(argv[0]);
@@ -251,7 +251,19 @@ int main(int argc, char *argv[])
             file = argv[i];
         }
     }
+
+    /* show ports if requested */
+    if (showPorts) {
+        ShowPorts(PORT_PREFIX, false);
+        done = true;
+    }
     
+    /* show modules if requested */
+    if (showModules) {
+        ShowWiFiModules(true);
+        done = true;
+    }
+       
 /*
 1) look in the directory specified by the -I command line option (added above)
 2) look in the directory where the elf file resides
@@ -456,18 +468,10 @@ static void ShowPorts(const char *prefix, bool check)
     }
 }
 
-static void ShowWiFiModules(bool check)
+static void ShowWiFiModules(bool show)
 {
     WiFiInfoList modules;
-    if (WiFiPropConnection::findModules(false, modules) == 0) {
-        WiFiInfoList::iterator i = modules.begin();
-        while (i != modules.end()) {
-            if (i->name() && i->name()[0])
-                std::cout << "Name: '" << i->name() << "', ";
-            std::cout << "IP: " << i->address() << std::endl;
-            ++i;
-        }
-    }
+    WiFiPropConnection::findModules(true, modules);
 }
 
 int Error(const char *fmt, ...)

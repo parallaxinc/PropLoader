@@ -119,7 +119,7 @@ Content-Length: %d\r\n\
 #define MAX_IF_ADDRS    20
 #define NAME_TAG        "\"name\": \""
 
-int WiFiPropConnection::findModules(bool check, WiFiInfoList &list, int count)
+int WiFiPropConnection::findModules(bool show, WiFiInfoList &list, int count)
 {
     uint8_t txBuf[1024]; // BUG: get rid of this magic number!
     uint8_t rxBuf[1024]; // BUG: get rid of this magic number!
@@ -230,6 +230,12 @@ int WiFiPropConnection::findModules(bool check, WiFiInfoList &list, int count)
                     name = nameBuffer;
                 }
             
+                if (show) {
+                    if (name[0])
+                        printf("Name: '%s', ", name);
+                    printf("IP: %s\n", addressStr.c_str());
+                }
+                
                 WiFiInfo info(name, addressStr);
                 list.push_back(info);
             
