@@ -411,7 +411,49 @@ int main(int argc, char *argv[])
             printf("error: -n can only be used to name wifi modules\n");
             return 1;
         }
-        if (wifiConnection->setName(name) != 0) {
+        
+#define isAllowed(ch)   (isupper(ch) || islower(ch) || isdigit(ch) || (ch) == '-')
+
+        char cleanName[32], *p;
+        
+        /* remove leading spaces or hyphens */
+        p = cleanName;
+        while (*name && (isspace(*name) || *name == '-'))
+            ++name;
+        
+        /* copy the rest of the name */
+        bool inStringOfSpaces = false;
+        while (*name != '\0' && p < &cleanName[sizeof(cleanName) - 1]) {
+            if (isspace(*name)) {
+                if (!inStringOfSpaces)
+                    *p++ = '-';
+                inStringOfSpaces = true;
+            }
+            else if (isAllowed(*name)) {
+                *p++ = *name;
+                inStringOfSpaces = false;
+            }
+            ++name;
+        }
+            
+        /* remove trailing spaces or hyphens */
+        while (p > cleanName && (isspace(p[-1]) || p[-1] == '-'))
+            --p;
+            
+        /* terminate the clean name */
+        *p = '\0';
+        
+        /* if we deleted every character then this is an invalid name */
+        if (!cleanName[0]) {
+            printf("error: invalid name\n");
+            return 1;
+        }
+        
+        /* show the clean name if it is different from what the user requested */
+        if (strcmp(name, cleanName) != 0)
+            printf("Setting module name to '%s'\n", cleanName);
+            
+        if (wifiConnection->setName(cleanName) != 0) {
             printf("error: failed to set module name\n");
             return 1;
         }
