@@ -59,6 +59,9 @@ file:               binary file to load (.elf or .binary)\n\
 Target board type can be either a single identifier like 'propboe' in which case the subtype\n\
 defaults to 'default' or it can be of the form <type>:<subtype> like 'c3:ram'.\n\
 \n\
+Module names should only include the characters A-Z, a-z, 0-9, or '-' and should not begin or\n\
+end with a '-'. They must also be less than 32 characters long.\n\
+\n\
 Variables that can be set with -D are:\n\
   clkfreq clkmode baudrate reset rxpin txpin tvpin\n\
   sdspi-do sdspi-clk sdspi-di sdspi-cs\n\
