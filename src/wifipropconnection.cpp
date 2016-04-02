@@ -14,7 +14,7 @@ extern int verbose;
 
 WiFiPropConnection::WiFiPropConnection()
     : m_ipaddr(NULL),
-      m_socket(INVALID_SOCKET)
+      m_telnetSocket(INVALID_SOCKET)
 {
     m_loaderBaudRate = WIFI_LOADER_BAUD_RATE;
     m_fastLoaderBaudRate = WIFI_FAST_LOADER_BAUD_RATE;
@@ -50,6 +50,8 @@ int WiFiPropConnection::close()
 {
     if (!isOpen())
         return -1;
+        
+    disconnect();
 
     return 0;
 }
@@ -59,10 +61,10 @@ int WiFiPropConnection::connect()
     if (!m_ipaddr)
         return -1;
 
-    if (m_socket != INVALID_SOCKET)
+    if (m_telnetSocket != INVALID_SOCKET)
         return -1;
         
-    if (ConnectSocketTimeout(&m_telnetAddr, CONNECT_TIMEOUT, &m_socket) != 0)
+    if (ConnectSocketTimeout(&m_telnetAddr, CONNECT_TIMEOUT, &m_telnetSocket) != 0)
         return -1;
 
     return 0;
@@ -70,11 +72,11 @@ int WiFiPropConnection::connect()
 
 int WiFiPropConnection::disconnect()
 {
-    if (m_socket == INVALID_SOCKET)
+    if (m_telnetSocket == INVALID_SOCKET)
         return -1;
         
-    CloseSocket(m_socket);
-    m_socket = INVALID_SOCKET;
+    CloseSocket(m_telnetSocket);
+    m_telnetSocket = INVALID_SOCKET;
     
     return 0;
 }
@@ -264,7 +266,7 @@ int WiFiPropConnection::findModules(bool show, WiFiInfoList &list, int count)
 
 bool WiFiPropConnection::isOpen()
 {
-    return m_socket != INVALID_SOCKET;
+    return m_telnetSocket != INVALID_SOCKET;
 }
 
 int WiFiPropConnection::setName(const char *name)
@@ -313,21 +315,21 @@ int WiFiPropConnection::sendData(const uint8_t *buf, int len)
 {
     if (!isOpen())
         return -1;
-    return SendSocketData(m_socket, buf, len);
+    return SendSocketData(m_telnetSocket, buf, len);
 }
 
 int WiFiPropConnection::receiveDataTimeout(uint8_t *buf, int len, int timeout)
 {
     if (!isOpen())
         return -1;
-    return ReceiveSocketDataTimeout(m_socket, buf, len, timeout);
+    return ReceiveSocketDataTimeout(m_telnetSocket, buf, len, timeout);
 }
 
 int WiFiPropConnection::receiveDataExactTimeout(uint8_t *buf, int len, int timeout)
 {
     if (!isOpen())
         return -1;
-    return ReceiveSocketDataExactTimeout(m_socket, buf, len, timeout);
+    return ReceiveSocketDataExactTimeout(m_telnetSocket, buf, len, timeout);
 }
 
 int WiFiPropConnection::setBaudRate(int baudRate)
@@ -358,10 +360,9 @@ POST /propeller/set-baud-rate?baud-rate=%d HTTP/1.1\r\n\
 
 int WiFiPropConnection::terminal(bool checkForExit, bool pstMode)
 {
-    if (!connect())
+    if (!isOpen())
         return -1;
-    SocketTerminal(m_socket, checkForExit, pstMode);
-    disconnect();
+    SocketTerminal(m_telnetSocket, checkForExit, pstMode);
     return 0;
 }
 

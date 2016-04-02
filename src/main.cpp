@@ -400,6 +400,12 @@ int main(int argc, char *argv[])
     if (GetNumericConfigField(config, "program-baud-rate", &baudRate))
         connection->setProgramBaudRate(baudRate);
         
+    /* open a connection to the target */
+    if (connection->connect() != 0) {
+        printf("error: can't open connection to target\n");
+        return 1;
+    }
+        
     /* reset the Propeller */
     if (reset) {
         if (connection->generateResetSignal() != 0) {
@@ -490,7 +496,10 @@ int main(int argc, char *argv[])
     /* enter terminal mode */
     if (terminalMode) {
         printf("[ Entering terminal mode. Type ESC or Control-C to exit. ]\n");
-        connection->terminal(false, pstTerminalMode);
+        if (connection->terminal(false, pstTerminalMode) != 0) {
+            printf("error: failed to enter terminal mode\n");
+            return 1;
+        }
     }
     
     /* disconnect from the target */

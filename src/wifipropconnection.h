@@ -56,7 +56,7 @@ private:
     char *m_ipaddr;
     SOCKADDR_IN m_httpAddr;
     SOCKADDR_IN m_telnetAddr;
-    SOCKET m_socket;
+    SOCKET m_telnetSocket;
 };
 
 #endif // WIFIPROPELLERCONNECTION_H
