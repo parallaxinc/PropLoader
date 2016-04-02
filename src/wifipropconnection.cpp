@@ -58,12 +58,12 @@ int WiFiPropConnection::close()
 
 int WiFiPropConnection::connect()
 {
+    if (isOpen())
+        return -1;
+        
     if (!m_ipaddr)
         return -1;
 
-    if (m_telnetSocket != INVALID_SOCKET)
-        return -1;
-        
     if (ConnectSocketTimeout(&m_telnetAddr, CONNECT_TIMEOUT, &m_telnetSocket) != 0)
         return -1;
 

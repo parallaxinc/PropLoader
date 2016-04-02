@@ -182,8 +182,10 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
             printf("error: transmitPacket failed\n");
             return -1;
         }
-        if (result != packetID - 1)
+        if (result != packetID - 1) {
             printf("Unexpected result: expected %d, received %d\n", packetID - 1, result);
+            return -1;
+        }
         imageSize -= size;
         image += size;
         --packetID;
@@ -208,15 +210,19 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     /* transmit the RAM verify packet and verify the checksum */
     printf("Verifying RAM\n");
     transmitPacket(packetID, verifyRAM, sizeof(verifyRAM), &result);
-    if (result != -checksum)
+    if (result != -checksum) {
         printf("Checksum error: expected %08x, got %08x\n", -checksum, result);
+        return -1;
+    }
     packetID = -checksum;
     
     if (loadType & ltDownloadAndProgram) {
         printf("Programming EEPROM\n");
         transmitPacket(packetID, programVerifyEEPROM, sizeof(programVerifyEEPROM), &result, 8000);
-        if (result != -checksum*2)
+        if (result != -checksum*2) {
             printf("EEPROM programming error: expected %08x, got %08x\n", -checksum*2, result);
+            return -1;
+        }
         packetID = -checksum*2;
     }
     
@@ -224,8 +230,10 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     
     printf("Sending readyToLaunch packet\n");
     transmitPacket(packetID, readyToLaunch, sizeof(readyToLaunch), &result);
-    if (result != packetID - 1)
+    if (result != packetID - 1) {
         printf("ReadyToLaunch failed: expected %08x, got %08x\n", packetID - 1, result);
+        return -1;
+    }
     --packetID;
     
     printf("Sending launchNow packet\n");
