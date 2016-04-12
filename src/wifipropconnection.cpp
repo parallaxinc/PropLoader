@@ -120,6 +120,7 @@ Content-Length: %d\r\n\
 
 #define MAX_IF_ADDRS    20
 #define NAME_TAG        "\"name\": \""
+#define MACADDR_TAG     "\"mac address\": \""
 
 int WiFiPropConnection::findModules(bool show, WiFiInfoList &list, int count)
 {
@@ -185,9 +186,10 @@ int WiFiPropConnection::findModules(bool show, WiFiInfoList &list, int count)
             /* only process replies */
             if (cnt >= sizeof(uint32_t) && *(uint32_t *)rxBuf != 0) {
                 std::string addressStr(AddressToString(&addr));
-                const char *name, *p, *p2;
+                const char *name, *macAddr, *p, *p2;
                 char nameBuffer[128];
-            
+                char macAddrBuffer[128];
+                
                 /* make sure we don't already have a response from this module */
                 WiFiInfoList::iterator i = list.begin();
                 bool skip = false;
@@ -232,10 +234,30 @@ int WiFiPropConnection::findModules(bool show, WiFiInfoList &list, int count)
                     name = nameBuffer;
                 }
             
+                if (!(p = strstr((char *)rxBuf, MACADDR_TAG)))
+                    macAddr = "";
+                else {
+                    p += strlen(MACADDR_TAG);
+                    if (!(p2 = strchr(p, '"'))) {
+                        CloseSocket(sock);
+                        return -1;
+                    }
+                    else if (p2 - p >= (int)sizeof(macAddrBuffer)) {
+                        CloseSocket(sock);
+                        return -1;
+                    }
+                    strncpy(macAddrBuffer, p, p2 - p);
+                    macAddrBuffer[p2 - p] = '\0';
+                    macAddr = macAddrBuffer;
+                }
+            
                 if (show) {
                     if (name[0])
                         printf("Name: '%s', ", name);
-                    printf("IP: %s\n", addressStr.c_str());
+                    printf("IP: %s", addressStr.c_str());
+                    if (macAddr[0])
+                        printf(", MAC: %s", macAddr);
+                    printf("\n");
                 }
                 
                 WiFiInfo info(name, addressStr);

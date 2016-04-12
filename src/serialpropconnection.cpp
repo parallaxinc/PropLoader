@@ -74,17 +74,11 @@ int SerialPropConnection::close()
 
 int SerialPropConnection::connect()
 {
-    if (isOpen())
-        return -1;
-
-    return 0;
+    return isOpen() ? 0 : -1;
 }
 
 int SerialPropConnection::disconnect()
 {
-    if (!isOpen())
-        return -1;
-
     return 0;
 }
 
