@@ -222,8 +222,6 @@ BoardConfig *ParseConfigurationFile(const char *name)
     /* close the board configuration file */
     fclose(fp);
     
-    DumpBoardConfiguration(baseConfig);
-    
     /* return the board configuration */
     return baseConfig;
 }
