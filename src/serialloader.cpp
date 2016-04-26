@@ -318,7 +318,7 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, uint8_t
 {
     if (loadImage(image, imageSize, ltDownloadAndRun) != 0)
         return -1;
-    return receiveDataExactTimeout(response, responseSize, 1000);
+    return receiveDataExactTimeout(response, responseSize, 1000) == responseSize ? 0 : -1;
 }
 
 int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
@@ -332,26 +332,21 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
         return -1;
         
     /* generate a loader packet */
-    printf("Generating loader packet: imageSize %d\n", imageSize);
     if (!(packet = GenerateLoaderPacket(image, imageSize, &packetSize, loadType)))
         return -1;
 
     /* reset the Propeller */
-    printf("Reset the Propeller\n");
     generateResetSignal();
     
     /* send the packet including the image */
-    printf("Send the packet including the image\n");
     sendData(packet, packetSize);
     free(packet);
     
     /* clock out the handshake response */
-    printf("Send the verification packet\n");
     memset(packet2, 0xF9, sizeof(rxHandshake) + 4);
     sendData(packet2, sizeof(rxHandshake) + 4);
     
     /* receive the handshake response and the hardware version */
-    printf("Receive handshake response\n");
     cnt = receiveDataExactTimeout(packet2, sizeof(rxHandshake) + 4, 2000);
     
     /* verify the handshake response */
@@ -368,10 +363,8 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
         printf("error: wrong propeller version\n");
         return -1;
     }
-    printf("Found Propeller version %d\n", version);
     
     /* receive the checksum response */
-    printf("Receive checksum\n");
     packet2[0] = 0xF9;
     retries = 1000;
     do {

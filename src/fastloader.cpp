@@ -160,25 +160,15 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
         return -1;
     }
 
+    /* switch to the final baud rate */
+    m_connection->setBaudRate(m_connection->fastLoaderBaudRate());
+    
     /* open the transparent serial connection that will be used for the second-stage loader */
     if (m_connection->connect() != 0) {
         printf("error: failed to connect to target\n");
         return -1;
     }
 
-#if 0
-    printf("Waiting for second-stage loader initial response\n");
-    cnt = m_connection->receiveDataExactTimeout(response, sizeof(response), 2000);
-    result = getLong(&response[0]);
-    if (cnt != 8 || result != packetID) {
-        printf("error: second-stage loader failed to start - cnt %d, packetID %d, result %d\n", cnt, packetID, result);
-        return -1;
-    }
-#endif
-    
-    /* switch to the final baud rate */
-    m_connection->setBaudRate(m_connection->fastLoaderBaudRate());
-    
     /* transmit the image */
     printf("Loading image"); fflush(stdout);
     while (imageSize > 0) {
