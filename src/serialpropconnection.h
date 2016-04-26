@@ -33,6 +33,7 @@ public:
     int disconnect();
     int generateResetSignal();
     int identify(int *pVersion);
+    int loadImage(const uint8_t *image, int imageSize, uint8_t *response, int responseSize);
     int loadImage(const uint8_t *image, int imageSize, LoadType loadType = ltDownloadAndRun);
     int sendData(const uint8_t *buf, int len);
     int receiveDataTimeout(uint8_t *buf, int len, int timeout);

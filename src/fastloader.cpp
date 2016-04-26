@@ -129,7 +129,7 @@ int Loader::fastLoadFile(const char *file, LoadType loadType)
 int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType)
 {
     uint8_t *loaderImage, response[8];
-    int loaderImageSize, result, cnt, i;
+    int loaderImageSize, result, i;
     int32_t packetID, checksum;
     
     /* compute the packet ID (number of packets to be sent) */
@@ -147,19 +147,26 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     for (i = 0; i < (int)sizeof(initCallFrame); ++i)
         checksum += initCallFrame[i];
         
+    /* load the second-stage loader using the propeller ROM protocol */
+    printf("Loading second-stage loader\n");
+    result = m_connection->loadImage(loaderImage, loaderImageSize, response, sizeof(response));
+    free(loaderImage);
+    if (result != 0)
+        return -1;
+
+    result = getLong(&response[0]);
+    if (result != packetID) {
+        printf("error: second-stage loader failed to start - packetID %d, result %d\n", packetID, result);
+        return -1;
+    }
+
     /* open the transparent serial connection that will be used for the second-stage loader */
     if (m_connection->connect() != 0) {
         printf("error: failed to connect to target\n");
         return -1;
     }
 
-    /* load the second-stage loader using the propeller ROM protocol */
-    printf("Loading second-stage loader\n");
-    result = m_connection->loadImage(loaderImage, loaderImageSize, ltDownloadAndRun);
-    free(loaderImage);
-    if (result != 0)
-        return -1;
-
+#if 0
     printf("Waiting for second-stage loader initial response\n");
     cnt = m_connection->receiveDataExactTimeout(response, sizeof(response), 2000);
     result = getLong(&response[0]);
@@ -167,6 +174,7 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
         printf("error: second-stage loader failed to start - cnt %d, packetID %d, result %d\n", cnt, packetID, result);
         return -1;
     }
+#endif
     
     /* switch to the final baud rate */
     m_connection->setBaudRate(m_connection->fastLoaderBaudRate());

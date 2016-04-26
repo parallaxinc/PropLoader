@@ -86,6 +86,56 @@ int WiFiPropConnection::identify(int *pVersion)
     return 0;
 }
 
+int WiFiPropConnection::loadImage(const uint8_t *image, int imageSize, uint8_t *response, int responseSize)
+{
+    uint8_t buffer[1024], *packet, *p;
+    int hdrCnt, result, cnt;
+    
+    /* use the initial loader baud rate */
+    if (setBaudRate(loaderBaudRate()) != 0) 
+        return -1;
+        
+    hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
+POST /propeller/load?reset-pin=%d&baud-rate=%d&response-size=%d&response-timeout=1000 HTTP/1.1\r\n\
+Content-Length: %d\r\n\
+\r\n", resetPin, loaderBaudRate(), responseSize, imageSize);
+
+    if (!(packet = (uint8_t *)malloc(hdrCnt + imageSize)))
+        return -1;
+
+    memcpy(packet,  buffer, hdrCnt);
+    memcpy(&packet[hdrCnt], image, imageSize);
+    
+    if ((cnt = sendRequest(packet, hdrCnt + imageSize, buffer, sizeof(buffer), &result)) == -1) {
+        printf("error: load request failed\n");
+        return -1;
+    }
+    else if (result != 200) {
+        printf("error: load returned %d\n", result);
+        return -1;
+    }
+    
+    /* find the response body */
+    p = buffer;
+    while (cnt >= 4 && (p[0] != '\r' || p[1] != '\n' || p[2] != '\r' || p[3] != '\n')) {
+        --cnt;
+        ++p;
+    }
+    
+    /* make sure we found the \r\n\r\n that terminates the header */
+    if (cnt < 4)
+        return -1;
+    cnt -= 4;
+    p += 4;
+    
+    /* copy the body to the response if it fits */
+    if (cnt > responseSize)
+        return -1;
+    memcpy(response, p, cnt);
+        
+    return 0;
+}
+
 int WiFiPropConnection::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
 {
     uint8_t buffer[1024], *packet;

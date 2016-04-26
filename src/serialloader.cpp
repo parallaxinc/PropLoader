@@ -314,6 +314,13 @@ fail:
     return -1;
 }
 
+int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, uint8_t *response, int responseSize)
+{
+    if (loadImage(image, imageSize, ltDownloadAndRun) != 0)
+        return -1;
+    return receiveDataExactTimeout(response, responseSize, 1000);
+}
+
 int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
 {
     uint8_t packet2[MAX_BUFFER_SIZE]; // must be at least as big as maxDataSize()

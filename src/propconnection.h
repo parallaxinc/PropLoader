@@ -22,6 +22,7 @@ public:
     virtual int disconnect() = 0;
     virtual int generateResetSignal() = 0;
     virtual int identify(int *pVersion) = 0;
+    virtual int loadImage(const uint8_t *image, int imageSize, uint8_t *response, int responseSize) = 0;
     virtual int loadImage(const uint8_t *image, int imageSize, LoadType loadType = ltDownloadAndRun) = 0;
     virtual int sendData(const uint8_t *buf, int len) = 0;
     virtual int receiveDataTimeout(uint8_t *buf, int len, int timeout) = 0;
