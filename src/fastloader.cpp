@@ -233,7 +233,10 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     /* transmit the final launch packets */
     
     printf("Sending readyToLaunch packet\n");
-    transmitPacket(packetID, readyToLaunch, sizeof(readyToLaunch), &result);
+    if (transmitPacket(packetID, readyToLaunch, sizeof(readyToLaunch), &result) != 0) {
+        printf("error: transmitPacket failed\n");
+        return -1;
+    }
     if (result != packetID - 1) {
         printf("ReadyToLaunch failed: expected %08x, got %08x\n", packetID - 1, result);
         return -1;
@@ -254,7 +257,7 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
 {
     int packetSize = 2*sizeof(uint32_t) + payloadSize;
     uint8_t *packet, response[8];
-    int retries, result, cnt;
+    int retries, result;
     int32_t tag;
     
     /* build the packet to transmit */
@@ -271,15 +274,23 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
         tag = (int32_t)rand();
         setLong(&packet[4], tag);
         //printf("transmit packet %d\n", id);
-        m_connection->sendData(packet, packetSize);
+        if (m_connection->sendData(packet, packetSize) != packetSize) {
+            printf("error: transmitPacket %d failed - sendData\n", id);
+            free(packet);
+            return -1;
+        }
     
         /* receive the response */
         if (pResult) {
-            cnt = m_connection->receiveDataExactTimeout(response, sizeof(response), timeout);
-            result = getLong(&response[0]);
-            if (cnt == 8 && getLong(&response[4]) == tag && result != id) {
+            if (m_connection->receiveDataExactTimeout(response, sizeof(response), timeout) != sizeof(response)) {
+                printf("error: transmitPacket %d failed - receiveDataExactTimeout\n", id);
                 free(packet);
+                return -1;
+            }
+            result = getLong(&response[0]);
+            if (getLong(&response[4]) == tag && result != id) {
                 *pResult = result;
+                free(packet);
                 return 0;
             }
         }
@@ -289,13 +300,14 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
             free(packet);
             return 0;
         }
+        printf("transmitPacket - retrying\n");
     }
     
     /* free the packet */
     free(packet);
     
     /* return timeout */
-    printf("error: transmitPacket %d failed\n", id);
+    printf("error: transmitPacket %d failed - timeout\n", id);
     return -1;
 }
 
