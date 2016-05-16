@@ -315,11 +315,16 @@ int ReceiveSocketDataTimeout(SOCKET sock, void *buf, int len, int timeout)
     toval.tv_usec = (timeout % 1000) * 1000;
 
     if (select(sock + 1, &set, NULL, NULL, &toval) > 0) {
-        if (FD_ISSET(sock, &set))
+        printf("ReceiveSocketDataTimeout - select found something!\n");
+        if (FD_ISSET(sock, &set)) {
             bytes = recv(sock, buf, len, 0);
+            printf("ReceiveSocketDataTimeout - got %d bytes\n", (int)bytes);
+            return (int)bytes;
+        }
     }
+    printf("ReceiveSocketDataTimeout failed - %d\n", errno);
 
-    return (int)(bytes > 0 ? bytes : -1);
+    return -1;
 }
 
 /* ReceiveSocketDataExactTimeout - receive an exact amount of socket data */
