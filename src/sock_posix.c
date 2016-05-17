@@ -315,7 +315,6 @@ int ReceiveSocketDataTimeout(SOCKET sock, void *buf, int len, int timeout)
     toval.tv_usec = (timeout % 1000) * 1000;
 
     if (select(sock + 1, &set, NULL, NULL, &toval) > 0) {
-        printf("ReceiveSocketDataTimeout - select found something!\n");
         if (FD_ISSET(sock, &set)) {
             bytes = recv(sock, buf, len, 0);
             printf("ReceiveSocketDataTimeout - got %d bytes\n", (int)bytes);

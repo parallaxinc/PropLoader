@@ -258,7 +258,7 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
     int packetSize = 2*sizeof(uint32_t) + payloadSize;
     uint8_t *packet, response[8];
     int retries, result;
-    int32_t tag;
+    int32_t tag, rtag;
     
     /* build the packet to transmit */
     if (!(packet = (uint8_t *)malloc(packetSize)))
@@ -287,12 +287,17 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
                 free(packet);
                 return -1;
             }
-            result = getLong(&response[0]);
-            if (getLong(&response[4]) == tag && result != id) {
-                *pResult = result;
-                free(packet);
-                return 0;
+            if ((rtag = getLong(&response[4])) == tag) {
+                if ((result = getLong(&response[0])) == id)
+                    printf("transmitPacket %d failed: duplicate id\n", id);
+                else {
+                    *pResult = result;
+                    free(packet);
+                    return 0;
+                }
             }
+            else
+                printf("transmitPacket %d failed: wrong tag %08x - expected %08x\n", id, rtag, tag);
         }
         
         /* don't wait for a result */
@@ -300,7 +305,7 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
             free(packet);
             return 0;
         }
-        printf("transmitPacket - retrying\n");
+        printf("transmitPacket %d failed - retrying\n", id);
     }
     
     /* free the packet */
