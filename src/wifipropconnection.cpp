@@ -6,7 +6,8 @@
 #define CALIBRATE_DELAY 10
 
 #define HTTP_PORT       80
-#define TELNET_PORT     23
+//#define TELNET_PORT     23
+#define TELNET_PORT     50000
 #define DISCOVER_PORT   2000
 
 int resetPin = 12;
