@@ -277,7 +277,7 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
         tag = (int32_t)rand();
 #endif
         setLong(&packet[4], tag);
-        printf("transmit packet %d - tag %08x, size %d\n", id, tag, packetSize);
+        //printf("transmit packet %d - tag %08x, size %d\n", id, tag, packetSize);
         if (m_connection->sendData(packet, packetSize) != packetSize) {
             printf("error: transmitPacket %d failed - sendData\n", id);
             free(packet);

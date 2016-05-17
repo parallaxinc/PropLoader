@@ -304,7 +304,6 @@ int ReceiveSocketData(SOCKET sock, void *buf, int len)
 /* ReceiveSocketDataTimeout - receive socket data */
 int ReceiveSocketDataTimeout(SOCKET sock, void *buf, int len, int timeout)
 {
-    ssize_t bytes = 0;
     struct timeval toval;
     fd_set set;
 
@@ -316,12 +315,10 @@ int ReceiveSocketDataTimeout(SOCKET sock, void *buf, int len, int timeout)
 
     if (select(sock + 1, &set, NULL, NULL, &toval) > 0) {
         if (FD_ISSET(sock, &set)) {
-            bytes = recv(sock, buf, len, 0);
-            printf("ReceiveSocketDataTimeout - got %d bytes\n", (int)bytes);
-            return (int)bytes;
+            int bytes = (int)recv(sock, buf, len, 0);
+            return bytes;
         }
     }
-    printf("ReceiveSocketDataTimeout failed - %d\n", errno);
 
     return -1;
 }
@@ -329,28 +326,7 @@ int ReceiveSocketDataTimeout(SOCKET sock, void *buf, int len, int timeout)
 /* ReceiveSocketDataExactTimeout - receive an exact amount of socket data */
 int ReceiveSocketDataExactTimeout(SOCKET sock, void *buf, int len, int timeout)
 {
-#if 0
-    char *p = (char *)buf;
-    int remaining = len;
-    while (remaining > 0) {
-        int cnt;
-        if ((cnt = ReceiveSocketDataTimeout(sock, p, remaining, timeout)) < 0)
-            return -1;
-        remaining -= cnt;
-        p += cnt;
-    }
-    return len;
-#else
-//    return ReceiveSocketDataTimeout(sock, buf, len, timeout);
-    int cnt = ReceiveSocketDataTimeout(sock, buf, len, timeout);
-    if (cnt > 0) {
-        int i;
-        for (i = 0; i < cnt; ++i)
-            printf(" %02x", ((uint8_t *)buf)[i]);
-        printf("\n");
-    }
-    return cnt;
-#endif
+    return ReceiveSocketDataTimeout(sock, buf, len, timeout);
 }
 
 /* ReceiveSocketDataAndAddress - receive socket data and sender's address */
