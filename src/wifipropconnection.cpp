@@ -234,7 +234,7 @@ int WiFiPropConnection::findModules(bool show, WiFiInfoList &list, int count)
             rxBuf[cnt] = '\0';
         
             /* only process replies */
-            if (cnt >= sizeof(uint32_t) && *(uint32_t *)rxBuf != 0) {
+            if (cnt >= (int)sizeof(uint32_t) && *(uint32_t *)rxBuf != 0) {
                 std::string addressStr(AddressToString(&addr));
                 const char *name, *macAddr, *p, *p2;
                 char nameBuffer[128];
@@ -259,7 +259,7 @@ int WiFiPropConnection::findModules(bool show, WiFiInfoList &list, int count)
                 ++numberFound;
             
                 /* add the module's ip address to the next broadcast message */
-                if (txCnt < sizeof(txBuf)) {
+                if (txCnt < (int)sizeof(txBuf)) {
                     *txNext++ = addr.sin_addr.s_addr;
                     txCnt += sizeof(uint32_t);
                 }
