@@ -282,12 +282,9 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
     
         /* receive the response */
         if (pResult) {
-            if (m_connection->receiveDataExactTimeout(response, sizeof(response), timeout) != sizeof(response)) {
+            if (m_connection->receiveDataExactTimeout(response, sizeof(response), timeout) != sizeof(response))
                 printf("error: transmitPacket %d failed - receiveDataExactTimeout\n", id);
-                free(packet);
-                return -1;
-            }
-            if ((rtag = getLong(&response[4])) == tag) {
+            else if ((rtag = getLong(&response[4])) == tag) {
                 if ((result = getLong(&response[0])) == id)
                     printf("transmitPacket %d failed: duplicate id\n", id);
                 else {
