@@ -382,7 +382,14 @@ int main(int argc, char *argv[])
                 printf("error: no wifi module found\n");
                 return 1;
             }
-            ipaddr = addrs.front().address();
+            const char *ipaddr2 = addrs.front().address();
+            char *p;
+            if (!(p = (char *)malloc(strlen(ipaddr2) + 1))) {
+                printf("error: insufficient memory\n");
+                return 1;
+            }
+            strcpy(p, ipaddr2);
+            ipaddr = p;
         }
         if ((sts = wifiConnection->setAddress(ipaddr)) != 0) {
             printf("error: setAddress failed: %d\n", sts);

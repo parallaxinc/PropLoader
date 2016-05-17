@@ -118,13 +118,10 @@ int ConnectSocket(SOCKADDR_IN *addr, SOCKET *pSocket)
 #endif
 
     /* create the socket */
-    if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
-    printf("error: can't create socket\n");
+    if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
         return -1;
-    }
 
     /* connect to the server */
-    printf("connecting to %s\n", inet_ntoa(addr->sin_addr));
     if (connect(sock, (SOCKADDR *)addr, sizeof(*addr)) != 0) {
         closesocket(sock);
         return -1;
@@ -522,16 +519,14 @@ int GetInterfaceAddresses(IFADDR *addrs, int max)
     
     cnt = 0;
     for (i = 0; cnt < max && i < (int)pIPAddrTable->dwNumEntries; ++i) {
-        if (1) {
-            addrs->addr.sin_family = AF_INET;
-            addrs->addr.sin_addr.s_addr = (uint32_t)pIPAddrTable->table[i].dwAddr;
-            addrs->mask.sin_family = AF_INET;
-            addrs->mask.sin_addr.s_addr = (uint32_t)pIPAddrTable->table[i].dwMask;
-            addrs->bcast.sin_family = AF_INET;
-            addrs->bcast.sin_addr.s_addr = addrs->addr.sin_addr.s_addr | ~addrs->mask.sin_addr.s_addr;
-            ++addrs;
-            ++cnt;
-        }
+        addrs->addr.sin_family = AF_INET;
+        addrs->addr.sin_addr.s_addr = (uint32_t)pIPAddrTable->table[i].dwAddr;
+        addrs->mask.sin_family = AF_INET;
+        addrs->mask.sin_addr.s_addr = (uint32_t)pIPAddrTable->table[i].dwMask;
+        addrs->bcast.sin_family = AF_INET;
+        addrs->bcast.sin_addr.s_addr = addrs->addr.sin_addr.s_addr | ~addrs->mask.sin_addr.s_addr;
+        ++addrs;
+        ++cnt;
     }
 
     free(pIPAddrTable);
