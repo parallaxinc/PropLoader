@@ -341,7 +341,15 @@ int ReceiveSocketDataExactTimeout(SOCKET sock, void *buf, int len, int timeout)
     }
     return len;
 #else
-    return ReceiveSocketDataTimeout(sock, buf, len, timeout);
+//    return ReceiveSocketDataTimeout(sock, buf, len, timeout);
+    int cnt = ReceiveSocketDataTimeout(sock, buf, len, timeout);
+    if (cnt > 0) {
+        int i;
+        for (i = 0; i < cnt; ++i)
+            printf(" %02x", ((uint8_t *)buf)[i]);
+        printf("\n");
+    }
+    return cnt;
 #endif
 }
 
