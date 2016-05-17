@@ -118,11 +118,14 @@ int ConnectSocket(SOCKADDR_IN *addr, SOCKET *pSocket)
 #endif
 
     /* create the socket */
-    if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+    if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+    printf("error: can't create socket\n");
         return -1;
+    }
 
     /* connect to the server */
     if (connect(sock, (SOCKADDR *)addr, sizeof(*addr)) != 0) {
+    printf("error: can't connect to %s\n", inet_ntoa(addr->sin_addr));
         closesocket(sock);
         return -1;
     }
