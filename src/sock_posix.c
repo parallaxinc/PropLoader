@@ -124,8 +124,8 @@ int ConnectSocket(SOCKADDR_IN *addr, SOCKET *pSocket)
     }
 
     /* connect to the server */
+    printf("connecting to %s\n", inet_ntoa(addr->sin_addr));
     if (connect(sock, (SOCKADDR *)addr, sizeof(*addr)) != 0) {
-    printf("error: can't connect to %s\n", inet_ntoa(addr->sin_addr));
         closesocket(sock);
         return -1;
     }
