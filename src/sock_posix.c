@@ -329,6 +329,7 @@ int ReceiveSocketDataTimeout(SOCKET sock, void *buf, int len, int timeout)
 /* ReceiveSocketDataExactTimeout - receive an exact amount of socket data */
 int ReceiveSocketDataExactTimeout(SOCKET sock, void *buf, int len, int timeout)
 {
+#if 0
     char *p = (char *)buf;
     int remaining = len;
     while (remaining > 0) {
@@ -339,6 +340,9 @@ int ReceiveSocketDataExactTimeout(SOCKET sock, void *buf, int len, int timeout)
         p += cnt;
     }
     return len;
+#else
+    return ReceiveSocketDataTimeout(sock, buf, len, timeout);
+#endif
 }
 
 /* ReceiveSocketDataAndAddress - receive socket data and sender's address */
