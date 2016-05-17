@@ -271,7 +271,11 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
     while (--retries >= 0) {
     
         /* setup the packet header */
+#ifdef __MINGW32__
+        tag = (int32_t)rand() | ((int32_t)rand() << 16);
+#else
         tag = (int32_t)rand();
+#endif
         setLong(&packet[4], tag);
         printf("transmit packet %d - tag %08x, size %d\n", id, tag, packetSize);
         if (m_connection->sendData(packet, packetSize) != packetSize) {
