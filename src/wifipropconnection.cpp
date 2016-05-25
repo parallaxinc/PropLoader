@@ -412,15 +412,15 @@ int WiFiPropConnection::setBaudRate(int baudRate)
     if (baudRate != m_baudRate) {
 
         hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
-POST /propeller/set-baud-rate?baud-rate=%d HTTP/1.1\r\n\
+POST /propeller/baud-rate?baud-rate=%d HTTP/1.1\r\n\
 \r\n", baudRate);
 
         if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
-            printf("error: set-baud-rate request failed\n");
+            printf("error: set baud-rate request failed\n");
             return -1;
         }
         else if (result != 200) {
-            printf("error: set-baud-rate returned %d\n", result);
+            printf("error: set baud-rate returned %d\n", result);
             return -1;
         }
     
