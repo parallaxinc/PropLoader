@@ -395,6 +395,12 @@ int main(int argc, char *argv[])
             printf("error: setAddress failed: %d\n", sts);
             return 1;
         }
+        if ((sts = wifiConnection->checkVersion()) != 0) {
+            printf("error: wi-fi module firmware needs to be updated\n");
+            printf("  Version string needs to begin with %s\n", WIFI_REQUIRED_MAJOR_VERSION);
+            printf("  Current version string is %s\n", wifiConnection->version());
+            return 1;
+        }
         connection = wifiConnection;
     }
     

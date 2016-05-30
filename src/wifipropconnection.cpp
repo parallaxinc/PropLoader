@@ -14,6 +14,7 @@ extern int verbose;
 
 WiFiPropConnection::WiFiPropConnection()
     : m_ipaddr(NULL),
+      m_version(NULL),
       m_telnetSocket(INVALID_SOCKET)
 {
     m_loaderBaudRate = WIFI_LOADER_BAUD_RATE;
@@ -44,6 +45,13 @@ int WiFiPropConnection::setAddress(const char *ipaddr)
         return -1;
 
     return 0;
+}
+
+int WiFiPropConnection::checkVersion()
+{
+    if (getVersion() != 0)
+        return -1;
+    return strncmp(WIFI_REQUIRED_MAJOR_VERSION, m_version, strlen(WIFI_REQUIRED_MAJOR_VERSION)) == 0 ? 0 : -1;
 }
 
 int WiFiPropConnection::close()
@@ -96,7 +104,7 @@ int WiFiPropConnection::loadImage(const uint8_t *image, int imageSize, uint8_t *
         return -1;
         
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
-POST /propeller/load?reset-pin=%d&baud-rate=%d&response-size=%d&response-timeout=1000 HTTP/1.1\r\n\
+POST /parallax/propeller/load?reset-pin=%d&baud-rate=%d&response-size=%d&response-timeout=1000 HTTP/1.1\r\n\
 Content-Length: %d\r\n\
 \r\n", resetPin, loaderBaudRate(), responseSize, imageSize);
 
@@ -146,7 +154,7 @@ int WiFiPropConnection::loadImage(const uint8_t *image, int imageSize, LoadType 
         return -1;
         
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
-POST /propeller/load?reset-pin=%d&baud-rate=%d HTTP/1.1\r\n\
+POST /parallax/propeller/load?reset-pin=%d&baud-rate=%d HTTP/1.1\r\n\
 Content-Length: %d\r\n\
 \r\n", resetPin, loaderBaudRate(), imageSize);
 
@@ -341,21 +349,80 @@ bool WiFiPropConnection::isOpen()
     return m_telnetSocket != INVALID_SOCKET;
 }
 
+int WiFiPropConnection::getVersion()
+{
+    uint8_t buffer[1024];
+    int hdrCnt, result, srcLen;
+    char *src, *dst;
+    
+    hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
+GET /parallax/version HTTP/1.1\r\n\
+\r\n");
+
+    if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
+        printf("error: get version failed\n");
+        return -1;
+    }
+    else if (result != 200) {
+        printf("error: get version returned %d\n", result);
+        return -1;
+    }
+    
+    src = (char *)buffer; 
+    srcLen = strlen(src);
+    
+    while (srcLen >= 4) {
+        if (src[0] == '\r' && src[1] == '\n' && src[2] == '\r' && src[3] == '\n')
+            break;
+        --srcLen;
+        ++src;
+    }
+    if (srcLen <= 4) {
+        printf("error: no version string\n");
+        return -1;
+    }
+    
+    if (!(dst = (char *)malloc(srcLen - 4 + 1))) {
+        printf("error: insufficient memory for version string\n");
+        return -1;
+    }
+    
+    if (m_version)
+        free(m_version);
+    strcpy(dst, src + 4);
+    m_version = dst;
+
+    return 0;
+}
+
 int WiFiPropConnection::setName(const char *name)
 {
     uint8_t buffer[1024];
     int hdrCnt, result;
     
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
-POST /system/update?name=%s HTTP/1.1\r\n\
+POST /parallax/setting?name=module-name&value=%s HTTP/1.1\r\n\
 \r\n", name);
 
     if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
-        printf("error: name update request failed\n");
+        printf("error: module-name update request failed\n");
         return -1;
     }
-    else if (result != 204) {
-        printf("error: name update returned %d\n", result);
+    else if (result != 200) {
+        printf("error: module-name update returned %d\n", result);
+        return -1;
+    }
+
+    hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
+POST /parallax/save-settings HTTP/1.1\r\n\
+\r\n");
+
+    if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
+        printf("error: save settings request failed\n");
+        return -1;
+    }
+    else if (result != 200) {
+        printf("error: save settings returned %d\n", result);
         return -1;
     }
 
@@ -368,7 +435,7 @@ int WiFiPropConnection::generateResetSignal()
     int hdrCnt, result;
     
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
-POST /propeller/reset?reset-pin=%d HTTP/1.1\r\n\
+POST /parallax/propeller/reset?reset-pin=%d HTTP/1.1\r\n\
 \r\n", resetPin);
 
     if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
@@ -412,7 +479,7 @@ int WiFiPropConnection::setBaudRate(int baudRate)
     if (baudRate != m_baudRate) {
 
         hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
-POST /propeller/baud-rate?baud-rate=%d HTTP/1.1\r\n\
+POST /parallax/setting?name=baud-rate&value=%d HTTP/1.1\r\n\
 \r\n", baudRate);
 
         if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {

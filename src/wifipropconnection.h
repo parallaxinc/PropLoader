@@ -6,6 +6,8 @@
 #include "propconnection.h"
 #include "sock.h"
 
+#define WIFI_REQUIRED_MAJOR_VERSION "01-"
+
 #define WIFI_LOADER_BAUD_RATE       115200
 #define WIFI_FAST_LOADER_BAUD_RATE  921600
 #define WIFI_PROGRAM_BAUD_RATE      115200
@@ -34,6 +36,8 @@ public:
     WiFiPropConnection();
     ~WiFiPropConnection();
     int setAddress(const char *ipaddr);
+    int checkVersion();
+    const char *version() { return m_version ? m_version : "(unknown)"; }
     bool isOpen();
     int close();
     int connect();
@@ -51,10 +55,12 @@ public:
     int terminal(bool checkForExit, bool pstMode);
     static int findModules(bool show, WiFiInfoList &list, int count = -1);
 private:
+    int getVersion();
     int sendRequest(uint8_t *req, int reqSize, uint8_t *res, int resMax, int *pResult);
     static void dumpHdr(const uint8_t *buf, int size);
     static void dumpResponse(const uint8_t *buf, int size);
     char *m_ipaddr;
+    char *m_version;
     SOCKADDR_IN m_httpAddr;
     SOCKADDR_IN m_telnetAddr;
     SOCKET m_telnetSocket;
