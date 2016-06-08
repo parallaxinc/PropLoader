@@ -7,7 +7,7 @@
 
 #define HTTP_PORT       80
 #define TELNET_PORT     23
-#define DISCOVER_PORT   2000
+#define DISCOVER_PORT   32420
 
 int resetPin = 12;
 extern int verbose;
