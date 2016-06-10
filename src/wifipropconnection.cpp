@@ -104,7 +104,7 @@ int WiFiPropConnection::loadImage(const uint8_t *image, int imageSize, uint8_t *
         return -1;
         
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
-POST /parallax/propeller/load?reset-pin=%d&baud-rate=%d&response-size=%d&response-timeout=1000 HTTP/1.1\r\n\
+POST /propeller/load?reset-pin=%d&baud-rate=%d&response-size=%d&response-timeout=1000 HTTP/1.1\r\n\
 Content-Length: %d\r\n\
 \r\n", resetPin, loaderBaudRate(), responseSize, imageSize);
 
@@ -154,7 +154,7 @@ int WiFiPropConnection::loadImage(const uint8_t *image, int imageSize, LoadType 
         return -1;
         
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
-POST /parallax/propeller/load?reset-pin=%d&baud-rate=%d HTTP/1.1\r\n\
+POST /propeller/load?reset-pin=%d&baud-rate=%d HTTP/1.1\r\n\
 Content-Length: %d\r\n\
 \r\n", resetPin, loaderBaudRate(), imageSize);
 
@@ -356,7 +356,7 @@ int WiFiPropConnection::getVersion()
     char *src, *dst;
     
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
-GET /parallax/version HTTP/1.1\r\n\
+GET /wx/setting?name=version HTTP/1.1\r\n\
 \r\n");
 
     if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
@@ -401,7 +401,7 @@ int WiFiPropConnection::setName(const char *name)
     int hdrCnt, result;
     
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
-POST /parallax/setting?name=module-name&value=%s HTTP/1.1\r\n\
+POST /wx/setting?name=module-name&value=%s HTTP/1.1\r\n\
 \r\n", name);
 
     if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
@@ -414,7 +414,7 @@ POST /parallax/setting?name=module-name&value=%s HTTP/1.1\r\n\
     }
 
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
-POST /parallax/save-settings HTTP/1.1\r\n\
+POST /wx/save-settings HTTP/1.1\r\n\
 \r\n");
 
     if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
@@ -435,7 +435,7 @@ int WiFiPropConnection::generateResetSignal()
     int hdrCnt, result;
     
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
-POST /parallax/propeller/reset?reset-pin=%d HTTP/1.1\r\n\
+POST /wx/propeller/reset?reset-pin=%d HTTP/1.1\r\n\
 \r\n", resetPin);
 
     if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
@@ -479,7 +479,7 @@ int WiFiPropConnection::setBaudRate(int baudRate)
     if (baudRate != m_baudRate) {
 
         hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
-POST /parallax/setting?name=baud-rate&value=%d HTTP/1.1\r\n\
+POST /wx/setting?name=baud-rate&value=%d HTTP/1.1\r\n\
 \r\n", baudRate);
 
         if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {

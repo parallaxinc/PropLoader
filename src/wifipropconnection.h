@@ -6,7 +6,7 @@
 #include "propconnection.h"
 #include "sock.h"
 
-#define WIFI_REQUIRED_MAJOR_VERSION "01-"
+#define WIFI_REQUIRED_MAJOR_VERSION "02-"
 
 #define WIFI_LOADER_BAUD_RATE       115200
 #define WIFI_FAST_LOADER_BAUD_RATE  921600
