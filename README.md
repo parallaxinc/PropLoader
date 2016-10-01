@@ -3,8 +3,6 @@ This is a loader for the Parallax Propeller
 It supports loading over a serial link or a WiFi connection to a Parallax WiFi module on the
 Propeller Activity Board WX.
 
-This program is still under construction and not ready for use at this time.
-
 The C++ code should be mostly generic. The platform-specific code is in the C files
 sock_posix.c and serial_posix.c. Those will have to be rewritten to work on a different
 platform or under a different framework like Qt. If necessary, those interfaces could
