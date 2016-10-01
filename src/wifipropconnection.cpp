@@ -49,9 +49,12 @@ int WiFiPropConnection::setAddress(const char *ipaddr)
 
 int WiFiPropConnection::checkVersion()
 {
+    int versionOkay;
     if (getVersion() != 0)
         return -1;
-    return strncmp(WIFI_REQUIRED_MAJOR_VERSION, m_version, strlen(WIFI_REQUIRED_MAJOR_VERSION)) == 0 ? 0 : -1;
+    versionOkay = strncmp(m_version, WIFI_REQUIRED_MAJOR_VERSION, strlen(WIFI_REQUIRED_MAJOR_VERSION)) == 0
+               || strncmp(m_version, WIFI_REQUIRED_MAJOR_VERSION_LEGACY, strlen(WIFI_REQUIRED_MAJOR_VERSION_LEGACY)) == 0;
+    return versionOkay ? 0 : -1;
 }
 
 int WiFiPropConnection::close()
