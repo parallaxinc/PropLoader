@@ -1,5 +1,7 @@
 #include "propimage.h"
 
+extern int verbose;
+
 PropImage::PropImage()
     : m_imageData(NULL)
 {
@@ -72,7 +74,8 @@ int PropImage::load(const char *file)
 
     /* open the binary */
     if (!(fp = fopen(file, "rb"))) {
-        printf("error: can't open '%s'\n", file);
+        if (verbose)
+            printf("error: can't open '%s'\n", file);
         return -1;
     }
 

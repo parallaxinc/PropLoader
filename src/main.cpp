@@ -392,7 +392,7 @@ int main(int argc, char *argv[])
             ipaddr = p;
         }
         if ((sts = wifiConnection->setAddress(ipaddr)) != 0) {
-            printf("error: setAddress failed: %d\n", sts);
+            printf("error: can't use address: %d\n", sts);
             return 1;
         }
         if ((sts = wifiConnection->checkVersion()) != 0) {
@@ -461,7 +461,7 @@ int main(int argc, char *argv[])
         
         /* if we deleted every character then this is an invalid name */
         if (!cleanName[0]) {
-            printf("error: invalid name\n");
+            printf("error: invalid module name\n");
             return 1;
         }
         
@@ -545,12 +545,14 @@ static void ShowWiFiModules(bool show)
 
 int Error(const char *fmt, ...)
 {
-    va_list ap;
-    va_start(ap, fmt);
-    printf("error: ");
-    vprintf(fmt, ap);
-    printf("\n");
-    va_end(ap);
+    if (verbose) {
+        va_list ap;
+        va_start(ap, fmt);
+        printf("error: ");
+        vprintf(fmt, ap);
+        printf("\n");
+        va_end(ap);
+    }
     return -1;
 }
 

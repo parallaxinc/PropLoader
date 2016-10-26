@@ -6,6 +6,8 @@
 #include "loader.h"
 #include "loadelf.h"
 
+extern int verbose;
+
 int Loader::loadFile(const char *file, LoadType loadType)
 {
     uint8_t *image;
@@ -14,7 +16,8 @@ int Loader::loadFile(const char *file, LoadType loadType)
     
     /* make sure the image was loaded into memory */
     if (!(image = readFile(file, &imageSize))) {
-        printf("error: failed to load image '%s'\n", file);
+        if (verbose)
+            printf("error: failed to load image '%s'\n", file);
         return -1;
     }
     
@@ -41,7 +44,8 @@ uint8_t *Loader::readFile(const char *file, int *pImageSize)
 
     /* open the binary file */
     if (!(fp = fopen(file, "rb"))) {
-        printf("error: can't open '%s'\n", file);
+        if (verbose)
+            printf("error: can't open '%s'\n", file);
         return NULL;
     }
     

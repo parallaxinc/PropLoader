@@ -118,11 +118,13 @@ Content-Length: %d\r\n\
     memcpy(&packet[hdrCnt], image, imageSize);
     
     if ((cnt = sendRequest(packet, hdrCnt + imageSize, buffer, sizeof(buffer), &result)) == -1) {
-        printf("error: load request failed\n");
+        if (verbose)
+            printf("error: load request failed\n");
         return -1;
     }
     else if (result != 200) {
-        printf("error: load returned %d\n", result);
+        if (verbose)
+            printf("error: load returned %d\n", result);
         return -1;
     }
     
@@ -168,11 +170,13 @@ Content-Length: %d\r\n\
     memcpy(&packet[hdrCnt], image, imageSize);
     
     if (sendRequest(packet, hdrCnt + imageSize, buffer, sizeof(buffer), &result) == -1) {
-        printf("error: load request failed\n");
+        if (verbose)
+            printf("error: load request failed\n");
         return -1;
     }
     else if (result != 200) {
-        printf("error: load returned %d\n", result);
+        if (verbose)
+            printf("error: load returned %d\n", result);
         return -1;
     }
     
@@ -195,13 +199,15 @@ int WiFiPropConnection::findModules(bool show, WiFiInfoList &list, int count)
     
     /* get all of the network interface addresses */
     if ((ifCnt = GetInterfaceAddresses(ifaddrs, MAX_IF_ADDRS)) < 0) {
-        printf("error: GetInterfaceAddresses failed\n");
+        if (verbose)
+            printf("error: GetInterfaceAddresses failed\n");
         return -1;
     }
     
     /* create a broadcast socket */
     if (OpenBroadcastSocket(DISCOVER_PORT, &sock) != 0) {
-        printf("error: OpenBroadcastSocket failed\n");
+        if (verbose)
+            printf("error: OpenBroadcastSocket failed\n");
         return -1;
     }
         
@@ -238,7 +244,8 @@ int WiFiPropConnection::findModules(bool show, WiFiInfoList &list, int count)
 
             /* get the next response */
             if ((cnt = ReceiveSocketDataAndAddress(sock, rxBuf, sizeof(rxBuf) - 1, &addr)) < 0) {
-                printf("error: ReceiveSocketData failed\n");
+                if (verbose)
+                    printf("error: ReceiveSocketData failed\n");
                 CloseSocket(sock);
                 return -3;
             }
@@ -363,11 +370,13 @@ GET /wx/setting?name=version HTTP/1.1\r\n\
 \r\n");
 
     if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
-        printf("error: get version failed\n");
+        if (verbose)
+            printf("error: get version failed\n");
         return -1;
     }
     else if (result != 200) {
-        printf("error: get version returned %d\n", result);
+        if (verbose)
+            printf("error: get version returned %d\n", result);
         return -1;
     }
     
@@ -381,12 +390,14 @@ GET /wx/setting?name=version HTTP/1.1\r\n\
         ++src;
     }
     if (srcLen <= 4) {
-        printf("error: no version string\n");
+        if (verbose)
+            printf("error: no version string\n");
         return -1;
     }
     
     if (!(dst = (char *)malloc(srcLen - 4 + 1))) {
-        printf("error: insufficient memory for version string\n");
+        if (verbose)
+            printf("error: insufficient memory for version string\n");
         return -1;
     }
     
@@ -408,11 +419,13 @@ POST /wx/setting?name=module-name&value=%s HTTP/1.1\r\n\
 \r\n", name);
 
     if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
-        printf("error: module-name update request failed\n");
+        if (verbose)
+            printf("error: module-name update request failed\n");
         return -1;
     }
     else if (result != 200) {
-        printf("error: module-name update returned %d\n", result);
+        if (verbose)
+            printf("error: module-name update returned %d\n", result);
         return -1;
     }
 
@@ -421,11 +434,13 @@ POST /wx/save-settings HTTP/1.1\r\n\
 \r\n");
 
     if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
-        printf("error: save settings request failed\n");
+        if (verbose)
+            printf("error: save settings request failed\n");
         return -1;
     }
     else if (result != 200) {
-        printf("error: save settings returned %d\n", result);
+        if (verbose)
+            printf("error: save settings returned %d\n", result);
         return -1;
     }
 
@@ -442,11 +457,13 @@ POST /wx/propeller/reset?reset-pin=%d HTTP/1.1\r\n\
 \r\n", resetPin);
 
     if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
-        printf("error: reset request failed\n");
+        if (verbose)
+            printf("error: reset request failed\n");
         return -1;
     }
     else if (result != 200) {
-        printf("error: reset returned %d\n", result);
+        if (verbose)
+            printf("error: reset returned %d\n", result);
         return -1;
     }
 
@@ -486,11 +503,13 @@ POST /wx/setting?name=baud-rate&value=%d HTTP/1.1\r\n\
 \r\n", baudRate);
 
         if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
-            printf("error: set baud-rate request failed\n");
+            if (verbose)
+                printf("error: set baud-rate request failed\n");
             return -1;
         }
         else if (result != 200) {
-            printf("error: set baud-rate returned %d\n", result);
+            if (verbose)
+                printf("error: set baud-rate returned %d\n", result);
             return -1;
         }
     
@@ -515,7 +534,8 @@ int WiFiPropConnection::sendRequest(uint8_t *req, int reqSize, uint8_t *res, int
     int cnt;
     
     if (ConnectSocketTimeout(&m_httpAddr, CONNECT_TIMEOUT, &sock) != 0) {
-        printf("error: connect failed\n");
+        if (verbose)
+            printf("error: connect failed\n");
         return -1;
     }
     
@@ -525,7 +545,8 @@ int WiFiPropConnection::sendRequest(uint8_t *req, int reqSize, uint8_t *res, int
     }
     
     if (SendSocketData(sock, req, reqSize) != reqSize) {
-        printf("error: send request failed\n");
+        if (verbose)
+            printf("error: send request failed\n");
         CloseSocket(sock);
         return -1;
     }
@@ -534,7 +555,8 @@ int WiFiPropConnection::sendRequest(uint8_t *req, int reqSize, uint8_t *res, int
     CloseSocket(sock);
 
     if (cnt == -1) {
-        printf("error: receive response failed\n");
+        if (verbose)
+            printf("error: receive response failed\n");
         return -1;
     }
     

@@ -6,7 +6,7 @@ ifeq ($(CROSS),)
   PREFIX=
 else
   ifeq ($(CROSS),win32)
-    PREFIX=i586-mingw32msvc-
+	PREFIX=i686-w64-mingw32-
     OS=msys
   else
     ifeq ($(CROSS),rpi)
@@ -24,6 +24,7 @@ SPINCMP=openspin
 TOOLCC=gcc
 
 CFLAGS=-Wall
+LDFLAGS=
 
 ifeq ($(OS),Windows_NT)
 OS=msys
@@ -44,6 +45,7 @@ LIBS=
 
 else ifeq ($(OS),msys)
 CFLAGS+=-DMINGW
+LDFLAGS=-static
 EXT=.exe
 OSINT=$(OBJDIR)/serial_mingw.o $(OBJDIR)/sock_posix.o $(OBJDIR)/enumcom.o
 LIBS=-lws2_32 -liphlpapi -lsetupapi
@@ -93,7 +95,7 @@ all:	 $(BINDIR)/proploader$(EXT) $(BUILD)/blink-fast.binary $(BUILD)/blink-slow.
 $(OBJS):	$(OBJDIR)/created $(HDRS) $(OBJDIR)/IP_Loader.h Makefile
 
 $(BINDIR)/proploader$(EXT):	$(BINDIR)/created $(OBJS)
-	$(CPP) -o $@ $(OBJS) $(LIBS) -lstdc++
+	$(CPP) -o $@ $(LDFLAGS) $(OBJS) $(LIBS) -lstdc++
 
 $(BUILD)/%.elf:	%.c
 	propeller-elf-gcc -Os -mlmm -o $@ $<

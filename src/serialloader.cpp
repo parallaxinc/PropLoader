@@ -13,6 +13,8 @@
 #define MAX_BUFFER_SIZE         32768   /* The maximum buffer size. (BUG: git rid of this magic number) */
 #define LENGTH_FIELD_SIZE       11      /* number of bytes in the length field */
 
+extern int verbose;
+
 // Propeller Download Stream Translator array.  Index into this array using the "Binary Value" (usually 5 bits) to translate,
 // the incoming bit size (again, usually 5), and the desired data element to retrieve (encoding = translation, bitCount = bit count
 // actually translated.
@@ -274,7 +276,8 @@ int SerialPropConnection::identify(int *pVersion)
     
     /* generate the identify packet */
     if (!(packet = GenerateIdentifyPacket(&packetSize))) {
-        printf("error: generating identify packet\n");
+        if (verbose)
+            printf("error: generating identify packet\n");
         goto fail;
     }
 
@@ -295,7 +298,8 @@ int SerialPropConnection::identify(int *pVersion)
     
     /* verify the handshake response */
     if (cnt != sizeof(rxHandshake) + 4 || memcmp(packet2, rxHandshake, sizeof(rxHandshake)) != 0) {
-        printf("error: handshake failed\n");
+        if (verbose)
+            printf("error: handshake failed\n");
         goto fail;
     }
     
@@ -351,7 +355,8 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
     
     /* verify the handshake response */
     if (cnt != sizeof(rxHandshake) + 4 || memcmp(packet2, rxHandshake, sizeof(rxHandshake)) != 0) {
-        printf("error: handshake failed\n");
+        if (verbose)
+            printf("error: handshake failed\n");
         return -1;
     }
     
@@ -360,7 +365,8 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
     for (i = sizeof(rxHandshake); i < cnt; ++i)
         version = ((version >> 2) & 0x3F) | ((packet2[i] & 0x01) << 6) | ((packet2[i] & 0x20) << 2);
     if (version != 1) {
-        printf("error: wrong propeller version\n");
+        if (verbose)
+            printf("error: wrong propeller version\n");
         return -1;
     }
     
@@ -374,13 +380,15 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
 
     /* check for timeout */
     if (cnt <= 0) {
-        printf("error: timeout waiting for checksum\n");
+        if (verbose)
+            printf("error: timeout waiting for checksum\n");
         return -1;
     }
     
     /* verify the checksum response */
     if (packet2[0] != 0xFE) {
-        printf("error: loader checksum failed: %02x\n", packet2[0]);
+        if (verbose)
+            printf("error: loader checksum failed: %02x\n", packet2[0]);
         return -1;
     }
        
