@@ -9,7 +9,6 @@
 #define TELNET_PORT     23
 #define DISCOVER_PORT   32420
 
-int resetPin = 12;
 extern int verbose;
 
 WiFiPropConnection::WiFiPropConnection()
@@ -107,9 +106,9 @@ int WiFiPropConnection::loadImage(const uint8_t *image, int imageSize, uint8_t *
         return -1;
         
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
-POST /propeller/load?reset-pin=%d&baud-rate=%d&response-size=%d&response-timeout=1000 HTTP/1.1\r\n\
+POST /propeller/load?baud-rate=%d&response-size=%d&response-timeout=1000 HTTP/1.1\r\n\
 Content-Length: %d\r\n\
-\r\n", resetPin, loaderBaudRate(), responseSize, imageSize);
+\r\n", loaderBaudRate(), responseSize, imageSize);
 
     if (!(packet = (uint8_t *)malloc(hdrCnt + imageSize)))
         return -1;
@@ -159,9 +158,9 @@ int WiFiPropConnection::loadImage(const uint8_t *image, int imageSize, LoadType 
         return -1;
         
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
-POST /propeller/load?reset-pin=%d&baud-rate=%d HTTP/1.1\r\n\
+POST /propeller/load?baud-rate=%d HTTP/1.1\r\n\
 Content-Length: %d\r\n\
-\r\n", resetPin, loaderBaudRate(), imageSize);
+\r\n", loaderBaudRate(), imageSize);
 
     if (!(packet = (uint8_t *)malloc(hdrCnt + imageSize)))
         return -1;
@@ -453,8 +452,8 @@ int WiFiPropConnection::generateResetSignal()
     int hdrCnt, result;
     
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
-POST /wx/propeller/reset?reset-pin=%d HTTP/1.1\r\n\
-\r\n", resetPin);
+POST /wx/propeller/reset HTTP/1.1\r\n\
+\r\n");
 
     if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
         if (verbose)
