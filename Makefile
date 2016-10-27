@@ -1,3 +1,25 @@
+# version is MAJOR.minor-commit (date hash)
+# if there has not been a commit since the last tag, commit and hash are left out
+# MAJOR is the major version number (change when protocol changes)
+# minor is the minor version number
+# commit is the number of commits since the last tag
+# date is the date of the build
+# hash is a unique substring of the hash of the last commit
+GITDESC=$(shell git describe master)
+GITDESC_WORDS=$(subst -, ,$(GITDESC))
+GIT_VERSION=$(word 1,$(GITDESC_WORDS))
+GIT_BUILD=$(word 2,$(GITDESC_WORDS))
+GIT_HASH=$(word 3,$(GITDESC_WORDS))
+ifeq ($(GIT_BUILD),)
+  GIT_BUILD_SUFFIX=
+  GIT_HASH_SUFFIX=
+else
+  GIT_BUILD_SUFFIX=-$(GIT_BUILD)
+  GIT_HASH_SUFFIX=$(subst -, ,-$(GIT_HASH))
+endif
+VERSION=$(GIT_VERSION)$(GIT_BUILD_SUFFIX) ($(shell date "+%Y-%m-%d %H:%M:%S")$(GIT_HASH_SUFFIX))
+$(info VERSION $(VERSION))
+
 MKDIR=mkdir
 TOUCH=touch
 RM=rm -r -f
@@ -23,7 +45,7 @@ CPP=$(PREFIX)g++
 SPINCMP=openspin
 TOOLCC=gcc
 
-CFLAGS=-Wall
+CFLAGS=-Wall -DVERSION=\""$(VERSION)"\"
 LDFLAGS=
 
 ifeq ($(OS),Windows_NT)

@@ -33,6 +33,8 @@
 static void usage(const char *progname)
 {
 printf("\
+PropLoader %s\n\
+\n\
 usage: %s [options] [<file>]\n\
 \n\
 options:\n\
@@ -71,7 +73,7 @@ Variables that can be set with -D are:\n\
 Value expressions for -D can include:\n\
   rcfast rcslow xinput xtal1 xtal2 xtal3 pll1x pll2x pll4x pll8x pll16x k m mhz true false\n\
   an integer or two operands with a binary operator + - * / %% & | or unary + or -\n\
-  or a parenthesized expression.\n", progname);
+  or a parenthesized expression.\n", VERSION, progname);
     exit(1);
 }
 
@@ -241,6 +243,7 @@ int main(int argc, char *argv[])
             case 'W':   // show wifi modules
                 showModules = true;
                 break;
+            case '?':
             default:
                 usage(argv[0]);
                 break;
