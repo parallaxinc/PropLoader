@@ -35,7 +35,7 @@ else
       PREFIX=arm-linux-gnueabihf-
       OS=linux
     else
-      echo "Unknown cross compilation selected"
+      $(error Unknown cross compilation selected)
     endif
   endif
 endif
