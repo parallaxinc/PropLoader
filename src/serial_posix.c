@@ -46,13 +46,16 @@
 #include <signal.h>
 
 #include "serial.h"
+#ifdef RASPBERRY_PI
+#include "gpio_sysfs.h"
+#endif
 
 struct SERIAL {
     struct termios oldParams;
     reset_method_t resetMethod;
 #ifdef RASPBERRY_PI
-    int propellerResetGpioPin;
-    int propellerResetGpioLevel;
+    int resetGpioPin;
+    int resetGpioLevel;
 #endif
     int fd;
 };
@@ -95,8 +98,8 @@ int SerialUseResetMethod(SERIAL *serial, char *method)
             }
         }
 
-        //printf ("Using GPIO pin %d as Propeller reset ", propellerResetGpioPin);
-        if (propellerResetGpioLevel)
+        printf ("Using GPIO pin %d as Propeller reset ", serial->resetGpioPin);
+        if (serial->resetGpioLevel)
         {
             printf ("(HIGH).\n");
         }

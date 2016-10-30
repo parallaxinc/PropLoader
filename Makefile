@@ -33,7 +33,7 @@ else
   else
     ifeq ($(CROSS),rpi)
       PREFIX=arm-linux-gnueabihf-
-      OS=linux
+      OS=raspberrypi
     else
       $(error Unknown cross compilation selected)
     endif
