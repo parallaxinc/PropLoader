@@ -59,7 +59,6 @@ OSINT=$(OBJDIR)/sock_posix.o $(OBJDIR)/serial_posix.o
 LIBS=
 
 else ifeq ($(OS),raspberrypi)
-OS=linux
 CFLAGS+=-DLINUX -DRASPBERRY_PI
 EXT=
 OSINT=$(OBJDIR)/sock_posix.o $(OBJDIR)/serial_posix.o $(OBJDIR)/gpio_sysfs.o
