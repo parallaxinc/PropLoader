@@ -2,14 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include "wifipropconnection.h"
+#include "proploader.h"
 
 #define CALIBRATE_DELAY 10
 
 #define HTTP_PORT       80
 #define TELNET_PORT     23
 #define DISCOVER_PORT   32420
-
-extern int verbose;
 
 WiFiPropConnection::WiFiPropConnection()
     : m_ipaddr(NULL),
@@ -117,13 +116,11 @@ Content-Length: %d\r\n\
     memcpy(&packet[hdrCnt], image, imageSize);
     
     if ((cnt = sendRequest(packet, hdrCnt + imageSize, buffer, sizeof(buffer), &result)) == -1) {
-        if (verbose)
-            printf("error: load request failed\n");
+        message("Load request failed");
         return -1;
     }
     else if (result != 200) {
-        if (verbose)
-            printf("error: load returned %d\n", result);
+        message("Load returned %d", result);
         return -1;
     }
     
@@ -169,13 +166,11 @@ Content-Length: %d\r\n\
     memcpy(&packet[hdrCnt], image, imageSize);
     
     if (sendRequest(packet, hdrCnt + imageSize, buffer, sizeof(buffer), &result) == -1) {
-        if (verbose)
-            printf("error: load request failed\n");
+        message("Load request failed");
         return -1;
     }
     else if (result != 200) {
-        if (verbose)
-            printf("error: load returned %d\n", result);
+        message("Load returned %d", result);
         return -1;
     }
     
@@ -198,15 +193,13 @@ int WiFiPropConnection::findModules(bool show, WiFiInfoList &list, int count)
     
     /* get all of the network interface addresses */
     if ((ifCnt = GetInterfaceAddresses(ifaddrs, MAX_IF_ADDRS)) < 0) {
-        if (verbose)
-            printf("error: GetInterfaceAddresses failed\n");
+        message("GetInterfaceAddresses failed");
         return -1;
     }
     
     /* create a broadcast socket */
     if (OpenBroadcastSocket(DISCOVER_PORT, &sock) != 0) {
-        if (verbose)
-            printf("error: OpenBroadcastSocket failed\n");
+        message("OpenBroadcastSocket failed");
         return -1;
     }
         
@@ -232,7 +225,7 @@ int WiFiPropConnection::findModules(bool show, WiFiInfoList &list, int count)
     
             /* send the broadcast packet */
             if (SendSocketDataTo(sock, txBuf, txCnt, &bcastaddr) != txCnt) {
-                perror("error: SendSocketDataTo failed");
+                message("SendSocketDataTo failed");
                 CloseSocket(sock);
                 return -1;
             }
@@ -243,8 +236,7 @@ int WiFiPropConnection::findModules(bool show, WiFiInfoList &list, int count)
 
             /* get the next response */
             if ((cnt = ReceiveSocketDataAndAddress(sock, rxBuf, sizeof(rxBuf) - 1, &addr)) < 0) {
-                if (verbose)
-                    printf("error: ReceiveSocketData failed\n");
+                message("ReceiveSocketData failed");
                 CloseSocket(sock);
                 return -3;
             }
@@ -262,8 +254,7 @@ int WiFiPropConnection::findModules(bool show, WiFiInfoList &list, int count)
                 bool skip = false;
                 while (i != list.end()) {
                     if (i->address() == addressStr) {
-                        if (verbose)
-                            printf("Skipping duplicate: %s\n", AddressToString(&addr));
+                        message("Skipping duplicate: %s", AddressToString(&addr));
                         skip = true;
                         break;
                     }
@@ -281,8 +272,7 @@ int WiFiPropConnection::findModules(bool show, WiFiInfoList &list, int count)
                     txCnt += sizeof(uint32_t);
                 }
             
-                if (verbose)
-                    printf("from %s got: %s", AddressToString(&addr), rxBuf);
+                message("From %s got: %s", AddressToString(&addr), rxBuf);
                 
                 if (!(p = strstr((char *)rxBuf, NAME_TAG)))
                     name = "";
@@ -369,13 +359,11 @@ GET /wx/setting?name=version HTTP/1.1\r\n\
 \r\n");
 
     if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
-        if (verbose)
-            printf("error: get version failed\n");
+        message("Get version failed");
         return -1;
     }
     else if (result != 200) {
-        if (verbose)
-            printf("error: get version returned %d\n", result);
+        message("Get version returned %d", result);
         return -1;
     }
     
@@ -389,14 +377,12 @@ GET /wx/setting?name=version HTTP/1.1\r\n\
         ++src;
     }
     if (srcLen <= 4) {
-        if (verbose)
-            printf("error: no version string\n");
+        message("No version string");
         return -1;
     }
     
     if (!(dst = (char *)malloc(srcLen - 4 + 1))) {
-        if (verbose)
-            printf("error: insufficient memory for version string\n");
+        message("999-Insufficient memory");
         return -1;
     }
     
@@ -418,13 +404,11 @@ POST /wx/setting?name=module-name&value=%s HTTP/1.1\r\n\
 \r\n", name);
 
     if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
-        if (verbose)
-            printf("error: module-name update request failed\n");
+        message("module-name update request failed");
         return -1;
     }
     else if (result != 200) {
-        if (verbose)
-            printf("error: module-name update returned %d\n", result);
+        message("module-name update returned %d", result);
         return -1;
     }
 
@@ -433,13 +417,11 @@ POST /wx/save-settings HTTP/1.1\r\n\
 \r\n");
 
     if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
-        if (verbose)
-            printf("error: save settings request failed\n");
+        message("save-settings request failed");
         return -1;
     }
     else if (result != 200) {
-        if (verbose)
-            printf("error: save settings returned %d\n", result);
+        message("save-settings returned %d", result);
         return -1;
     }
 
@@ -456,13 +438,11 @@ POST /wx/propeller/reset HTTP/1.1\r\n\
 \r\n");
 
     if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
-        if (verbose)
-            printf("error: reset request failed\n");
+        message("reset request failed");
         return -1;
     }
     else if (result != 200) {
-        if (verbose)
-            printf("error: reset returned %d\n", result);
+        message("reset returned %d", result);
         return -1;
     }
 
@@ -502,13 +482,11 @@ POST /wx/setting?name=baud-rate&value=%d HTTP/1.1\r\n\
 \r\n", baudRate);
 
         if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
-            if (verbose)
-                printf("error: set baud-rate request failed\n");
+            message("Set baud-rate request failed");
             return -1;
         }
         else if (result != 200) {
-            if (verbose)
-                printf("error: set baud-rate returned %d\n", result);
+            message("Set baud-rate returned %d", result);
             return -1;
         }
     
@@ -533,19 +511,17 @@ int WiFiPropConnection::sendRequest(uint8_t *req, int reqSize, uint8_t *res, int
     int cnt;
     
     if (ConnectSocketTimeout(&m_httpAddr, CONNECT_TIMEOUT, &sock) != 0) {
-        if (verbose)
-            printf("error: connect failed\n");
+        message("Connect failed");
         return -1;
     }
     
-    if (verbose) {
+    if (verbose > 1) {
         printf("REQ: %d\n", reqSize);
         dumpHdr(req, reqSize);
     }
     
     if (SendSocketData(sock, req, reqSize) != reqSize) {
-        if (verbose)
-            printf("error: send request failed\n");
+        message("Send request failed");
         CloseSocket(sock);
         return -1;
     }
@@ -554,12 +530,11 @@ int WiFiPropConnection::sendRequest(uint8_t *req, int reqSize, uint8_t *res, int
     CloseSocket(sock);
 
     if (cnt == -1) {
-        if (verbose)
-            printf("error: receive response failed\n");
+        message("Receive response failed");
         return -1;
     }
     
-    if (verbose) {
+    if (verbose > 1) {
         printf("RES: %d\n", cnt);
         dumpResponse(res, cnt);
     }

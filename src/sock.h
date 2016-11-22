@@ -8,8 +8,8 @@ extern "C" {
 /* for windows builds */
 #ifdef __MINGW32__
 #include <stdint.h>
-#include <windows.h>
 #include <winsock2.h>
+#include <windows.h>
 typedef unsigned long in_addr_t;
 
 /* for linux and mac builds */

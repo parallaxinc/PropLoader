@@ -7,8 +7,11 @@
 #include <stdint.h>
 #include "loadelf.h"
 
-/* target checksum for a binary file */
-#define SPIN_TARGET_CHECKSUM    0x14
+/* initial stack frame checksum for a binary file */
+/* this value is the sum of the bytes in the initial stack frame which are not included in the .binary file.
+   0xEC = (0xFF + 0xFF + 0xF9 + 0xFF + 0xFF + 0xFF + 0xF9 + 0xFF) & 0xFF
+*/
+#define SPIN_STACK_FRAME_CHECKSUM   0xEC
 
 /* spin object file header */
 typedef struct {
@@ -40,6 +43,7 @@ public:
     int load(const char *file);
     int setImage(uint8_t *imageData, int imageSize);
     void free();
+    int validate();
     void updateChecksum();
     uint8_t *imageData() { return m_imageData; }
     int imageSize() { return m_imageSize; }
@@ -47,6 +51,8 @@ public:
     void setClkFreq(uint32_t clkFreq);
     uint8_t clkMode();
     void setClkMode(uint8_t clkMode);
+    static int validate(uint8_t *imageData, int imageSize);
+    static void updateChecksum(uint8_t *imageData, int imageSize);
 
 private:
     int loadSpinBinaryFile(FILE *fp);

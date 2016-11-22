@@ -24,6 +24,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 #include <stdint.h>
 #include <string.h>
 #include "loadelf.h"
+#include "proploader.h"
 
 #ifndef TRUE
 #define TRUE    1
@@ -104,7 +105,7 @@ int GetProgramSize(ElfContext *c, uint32_t *pStart, uint32_t *pSize, uint32_t *p
     int i;
     for (i = 0; i < c->hdr.phnum; ++i) {
         if (!LoadProgramTableEntry(c, i, &program)) {
-            printf("error: can't read program header %d\n", i);
+            message("Can't read ELF program header %d", i);
             return FALSE;
         }
         if (program.paddr < COG_DRIVER_IMAGE_BASE) {
@@ -158,7 +159,7 @@ int FindSectionTableEntry(ElfContext *c, const char *name, ElfSectionHdr *sectio
         char thisName[ELFNAMEMAX], *p = thisName;
         int cnt, ch;
         if (!LoadSectionTableEntry(c, i, section)) {
-            printf("error: can't read section header %d\n", i);
+            message("Can't read ELF section header %d", i);
             return 1;
         }
         fseek(c->fp, c->stringOff + section->name, SEEK_SET);
@@ -182,7 +183,7 @@ static int FindProgramTableEntry(ElfContext *c, ElfSectionHdr *section, ElfProgr
     int i;
     for (i = 0; i < c->hdr.shnum; ++i) {
         if (!LoadProgramTableEntry(c, i, program)) {
-            printf("error: can't read program header %d\n", i);
+            message("Can't read ELF program header %d", i);
             return -1;
         }
         if (SectionInProgramSegment(section, program))

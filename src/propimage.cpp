@@ -1,6 +1,5 @@
 #include "propimage.h"
-
-extern int verbose;
+#include "proploader.h"
 
 PropImage::PropImage()
     : m_imageData(NULL)
@@ -56,15 +55,40 @@ void PropImage::setClkMode(uint8_t clkMode)
     *(uint8_t *)&((SpinHdr *)m_imageData)->clkfreq = clkMode;
 }
 
+int PropImage::validate()
+{
+    uint8_t *p = m_imageData;
+    uint8_t chksum;
+    int cnt;
+    chksum = SPIN_STACK_FRAME_CHECKSUM;
+    for (cnt = m_imageSize; --cnt >= 0; )
+        chksum += *p++;
+    return chksum == 0 ? 0 : -1;
+}
+
+int PropImage::validate(uint8_t *imageData, int imageSize)
+{
+    PropImage image(imageData, imageSize);
+    return image.validate();
+}
+
 void PropImage::updateChecksum()
 {
     SpinHdr *spinHdr = (SpinHdr *)m_imageData;
     uint8_t *p = m_imageData;
-    int chksum, cnt;
-    spinHdr->chksum = chksum = 0;
+    uint8_t chksum;
+    int cnt;
+    spinHdr->chksum = 0;
+    chksum = SPIN_STACK_FRAME_CHECKSUM;
     for (cnt = m_imageSize; --cnt >= 0; )
         chksum += *p++;
-    spinHdr->chksum = SPIN_TARGET_CHECKSUM - chksum;
+    spinHdr->chksum = -chksum;
+}
+
+void PropImage::updateChecksum(uint8_t *imageData, int imageSize)
+{
+    PropImage image(imageData, imageSize);
+    image.updateChecksum();
 }
 
 int PropImage::load(const char *file)

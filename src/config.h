@@ -29,11 +29,6 @@ extern "C" {
 #include <stdio.h>
 #include "system.h"
 
-/* support for windows */
-#if defined(WIN32)
-#define NEED_STRCASECMP
-#endif
-
 #ifdef NO_STDINT
 typedef long int32_t;
 typedef unsigned long uint32_t;

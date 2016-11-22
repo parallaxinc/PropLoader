@@ -5,8 +5,8 @@
 #include <unistd.h>
 #include "loader.h"
 #include "loadelf.h"
-
-extern int verbose;
+#include "propimage.h"
+#include "proploader.h"
 
 int Loader::loadFile(const char *file, LoadType loadType)
 {
@@ -15,14 +15,10 @@ int Loader::loadFile(const char *file, LoadType loadType)
     int sts;
     
     /* make sure the image was loaded into memory */
-    if (!(image = readFile(file, &imageSize))) {
-        if (verbose)
-            printf("error: failed to load image '%s'\n", file);
+    if (!(image = readFile(file, &imageSize)))
         return -1;
-    }
     
     /* load the file */
-    printf("Loading '%s', %d bytes\n", file, imageSize);
     sts = loadImage(image, imageSize, loadType);
     free(image);
     
@@ -44,8 +40,7 @@ uint8_t *Loader::readFile(const char *file, int *pImageSize)
 
     /* open the binary file */
     if (!(fp = fopen(file, "rb"))) {
-        if (verbose)
-            printf("error: can't open '%s'\n", file);
+        message("103-Can't open file '%s'", file);
         return NULL;
     }
     
@@ -64,9 +59,6 @@ uint8_t *Loader::readFile(const char *file, int *pImageSize)
     if (image) *pImageSize = imageSize;
     return image;
 }
-
-/* target checksum for a binary file */
-#define SPIN_TARGET_CHECKSUM    0x14
 
 uint8_t *Loader::readSpinBinaryFile(FILE *fp, int *pImageSize)
 {
@@ -87,32 +79,24 @@ uint8_t *Loader::readSpinBinaryFile(FILE *fp, int *pImageSize)
         free(image);
         return NULL;
     }
+
+    /* validate the image */
+    if (PropImage::validate(image, imageSize) != 0)
+        return NULL;
     
     /* return the buffer containing the file contents */
     *pImageSize = imageSize;
     return image;
 }
 
-/* spin object file header */
-typedef struct {
-    uint32_t clkfreq;
-    uint8_t clkmode;
-    uint8_t chksum;
-    uint16_t pbase;
-    uint16_t vbase;
-    uint16_t dbase;
-    uint16_t pcurr;
-    uint16_t dcurr;
-} SpinHdr;
-
 uint8_t *Loader::readElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize)
 {
     uint32_t start, imageSize, cogImagesSize;
-    uint8_t *image, *buf, *p;
     ElfProgramHdr program;
-    int chksum, cnt, i;
+    uint8_t *image, *buf;
     SpinHdr *spinHdr;
     ElfContext *c;
+    int i;
 
     /* open the elf file */
     if (!(c = OpenElfFile(fp, hdr)))
@@ -152,11 +136,7 @@ uint8_t *Loader::readElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize)
     spinHdr->dcurr = spinHdr->dbase + sizeof(uint32_t);
 
     /* update the checksum */
-    spinHdr->chksum = chksum = 0;
-    p = image;
-    for (cnt = imageSize; --cnt >= 0; )
-        chksum += *p++;
-    spinHdr->chksum = SPIN_TARGET_CHECKSUM - chksum;
+    PropImage::updateChecksum(image, imageSize);
 
     /* return the image */
     *pImageSize = imageSize;

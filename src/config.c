@@ -30,10 +30,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 #include "system.h"
 #include "expr.h"
 
-#ifdef NEED_STRCASECMP
-int strcasecmp(const char *s1, const char *s2);
-#endif
-
 #define MAXLINE 1024
 
 typedef struct Field Field;

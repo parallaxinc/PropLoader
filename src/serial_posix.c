@@ -49,7 +49,6 @@
 #ifdef RASPBERRY_PI
 #include "gpio_sysfs.h"
 #endif
-
 struct SERIAL {
     struct termios oldParams;
     reset_method_t resetMethod;

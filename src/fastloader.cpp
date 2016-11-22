@@ -4,6 +4,7 @@
 #include <math.h>
 #include <unistd.h>
 #include "loader.h"
+#include "proploader.h"
 
 #define MAX_RX_SENSE_ERROR      23          /* Maximum number of cycles by which the detection of a start bit could be off (as affected by the Loader code) */
 
@@ -114,7 +115,7 @@ int Loader::fastLoadFile(const char *file, LoadType loadType)
     
     /* make sure the image was loaded into memory */
     if (!(image = readFile(file, &imageSize))) {
-        printf("error: failed to load image '%s'\n", file);
+        message("Failed to load image '%s'", file);
         return -1;
     }
     
@@ -129,9 +130,9 @@ int Loader::fastLoadFile(const char *file, LoadType loadType)
 int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType)
 {
     uint8_t *loaderImage, response[8];
-    int loaderImageSize, result, i;
+    int loaderImageSize, remaining, result, i;
     int32_t packetID, checksum;
-    
+
     /* compute the packet ID (number of packets to be sent) */
     packetID = (imageSize + m_connection->maxDataSize() - 1) / m_connection->maxDataSize();
 
@@ -148,7 +149,7 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
         checksum += initCallFrame[i];
         
     /* load the second-stage loader using the propeller ROM protocol */
-    printf("Loading second-stage loader\n");
+    message("Delivering second-stage loader");
     result = m_connection->loadImage(loaderImage, loaderImageSize, response, sizeof(response));
     free(loaderImage);
     if (result != 0)
@@ -156,7 +157,7 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
 
     result = getLong(&response[0]);
     if (result != packetID) {
-        printf("error: second-stage loader failed to start - packetID %d, result %d\n", packetID, result);
+        message("Second-stage loader failed to start - packetID %d, result %d", packetID, result);
         return -1;
     }
 
@@ -165,30 +166,29 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     
     /* open the transparent serial connection that will be used for the second-stage loader */
     if (m_connection->connect() != 0) {
-        printf("error: failed to connect to target\n");
+        message("Failed to connect to target");
         return -1;
     }
 
     /* transmit the image */
-    printf("Loading image"); fflush(stdout);
-    while (imageSize > 0) {
+    message("002-Loading image");
+    remaining = imageSize;
+    while (remaining > 0) {
         int size;
-        if ((size = imageSize) > m_connection->maxDataSize())
+        progress("008-%ld bytes remaining             ", (long)remaining);
+        if ((size = remaining) > m_connection->maxDataSize())
             size = m_connection->maxDataSize();
-        putchar('.'); fflush(stdout);
-        if (transmitPacket(packetID, image, size, &result) != 0) {
-            printf("error: transmitPacket failed\n");
+        if (transmitPacket(packetID, image, size, &result) != 0)
             return -1;
-        }
         if (result != packetID - 1) {
-            printf("Unexpected result: expected %d, received %d\n", packetID - 1, result);
+            message("Unexpected response: expected %d, received %d", packetID - 1, result);
             return -1;
         }
-        imageSize -= size;
+        remaining -= size;
         image += size;
         --packetID;
     }
-    putchar('\n');
+    message("009-%ld bytes sent             ", (long)imageSize);
     
     /*
         When we're doing a download that does not include an EEPROM write, the Packet IDs end up as:
@@ -206,25 +206,21 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     */
     
     /* transmit the RAM verify packet and verify the checksum */
-    printf("Verifying RAM\n");
-    if (transmitPacket(packetID, verifyRAM, sizeof(verifyRAM), &result) != 0) {
-        printf("error: transmitPacket failed\n");
+    message("003-Verifying RAM");
+    if (transmitPacket(packetID, verifyRAM, sizeof(verifyRAM), &result) != 0)
         return -1;
-    }
     if (result != -checksum) {
-        printf("Checksum error: expected %08x, got %08x\n", -checksum, result);
+        message("Checksum error: expected %08x, got %08x", -checksum, result);
         return -1;
     }
     packetID = -checksum;
     
     if (loadType & ltDownloadAndProgram) {
-        printf("Programming EEPROM\n");
-        if (transmitPacket(packetID, programVerifyEEPROM, sizeof(programVerifyEEPROM), &result, 8000) != 0) {
-            printf("error: transmitPacket failed\n");
+        message("004-Programming EEPROM");
+        if (transmitPacket(packetID, programVerifyEEPROM, sizeof(programVerifyEEPROM), &result, 8000) != 0)
             return -1;
-        }
         if (result != -checksum*2) {
-            printf("EEPROM programming error: expected %08x, got %08x\n", -checksum*2, result);
+            message("EEPROM programming error: expected %08x, got %08x", -checksum*2, result);
             return -1;
         }
         packetID = -checksum*2;
@@ -232,22 +228,18 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     
     /* transmit the final launch packets */
     
-    printf("Sending readyToLaunch packet\n");
-    if (transmitPacket(packetID, readyToLaunch, sizeof(readyToLaunch), &result) != 0) {
-        printf("error: transmitPacket failed\n");
+    message("Sending readyToLaunch packet");
+    if (transmitPacket(packetID, readyToLaunch, sizeof(readyToLaunch), &result) != 0)
         return -1;
-    }
     if (result != packetID - 1) {
-        printf("ReadyToLaunch failed: expected %08x, got %08x\n", packetID - 1, result);
+        message("ReadyToLaunch failed: expected %08x, got %08x", packetID - 1, result);
         return -1;
     }
     --packetID;
     
-    printf("Sending launchNow packet\n");
-    if (transmitPacket(packetID, launchNow, sizeof(launchNow), NULL) != 0) {
-        printf("error: transmitPacket failed\n");
+    message("Sending launchNow packet");
+    if (transmitPacket(packetID, launchNow, sizeof(launchNow), NULL) != 0)
         return -1;
-    }
     
     /* return successfully */
     return 0;
@@ -279,7 +271,7 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
         setLong(&packet[4], tag);
         //printf("transmit packet %d - tag %08x, size %d\n", id, tag, packetSize);
         if (m_connection->sendData(packet, packetSize) != packetSize) {
-            printf("error: transmitPacket %d failed - sendData\n", id);
+            message("transmitPacket %d failed - sendData", id);
             free(packet);
             return -1;
         }
@@ -287,10 +279,10 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
         /* receive the response */
         if (pResult) {
             if (m_connection->receiveDataExactTimeout(response, sizeof(response), timeout) != sizeof(response))
-                printf("error: transmitPacket %d failed - receiveDataExactTimeout\n", id);
+                message("transmitPacket %d failed - receiveDataExactTimeout", id);
             else if ((rtag = getLong(&response[4])) == tag) {
                 if ((result = getLong(&response[0])) == id)
-                    printf("transmitPacket %d failed: duplicate id\n", id);
+                    message("transmitPacket %d failed: duplicate id", id);
                 else {
                     *pResult = result;
                     free(packet);
@@ -298,7 +290,7 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
                 }
             }
             else
-                printf("transmitPacket %d failed: wrong tag %08x - expected %08x\n", id, rtag, tag);
+                message("transmitPacket %d failed: wrong tag %08x - expected %08x", id, rtag, tag);
         }
         
         /* don't wait for a result */
@@ -306,14 +298,14 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
             free(packet);
             return 0;
         }
-        printf("transmitPacket %d failed - retrying\n", id);
+        message("transmitPacket %d failed - retrying", id);
     }
     
     /* free the packet */
     free(packet);
     
     /* return timeout */
-    printf("error: transmitPacket %d failed - timeout\n", id);
+    message("transmitPacket %d failed - timeout", id);
     return -1;
 }
 

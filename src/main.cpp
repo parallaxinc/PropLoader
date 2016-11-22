@@ -7,6 +7,7 @@
 
 #include <iostream>
 
+#include "proploader.h"
 #include "loadelf.h"
 #include "propimage.h"
 #include "packet.h"
@@ -39,6 +40,7 @@ usage: %s [options] [<file>]\n\
 \n\
 options:\n\
     -b <type>       select target board and subtype (default is 'default:default')\n\
+    -c              display numeric message codes\n\
     -D var=value    define a board configuration variable\n\
     -e              program eeprom (and halt, unless combined with -r)\n\
     -f <file>       write a file to the SD card\n\
@@ -77,7 +79,8 @@ Value expressions for -D can include:\n\
     exit(1);
 }
 
-int verbose = false;
+int verbose = 0;
+int showMessageCodes = false;
 
 static void ShowPorts(const char *prefix, bool check);
 static void ShowWiFiModules(bool check);
@@ -125,6 +128,9 @@ int main(int argc, char *argv[])
                     board = argv[i];
                 else
                     usage(argv[0]);
+                break;
+            case 'c':   // display numeric message codes
+                showMessageCodes = true;
                 break;
             case 'D':
                 if(argv[i][2])
@@ -238,7 +244,7 @@ int main(int argc, char *argv[])
                 pstTerminalMode = true;
                 break;
             case 'v':   // enable verbose debugging output
-                verbose = true;
+                ++verbose;
                 break;
             case 'W':   // show wifi modules
                 showModules = true;
@@ -346,7 +352,7 @@ int main(int argc, char *argv[])
     if (useSerial) {
         SerialInfo info; // needs to stay in scope as long as we're using port
         if (!(serialConnection = new SerialPropConnection)) {
-            printf("error: insufficient memory\n");
+            message("999-Insufficient memory");
             return 1;
         }
         if (!port) {
@@ -372,7 +378,7 @@ int main(int argc, char *argv[])
     /* do a wifi download */
     else {
         if (!(wifiConnection = new WiFiPropConnection)) {
-            printf("error: insufficient memory\n");
+            message("999-Insufficient memory");
             return 1;
         }
         if (!ipaddr) {
@@ -388,20 +394,21 @@ int main(int argc, char *argv[])
             const char *ipaddr2 = addrs.front().address();
             char *p;
             if (!(p = (char *)malloc(strlen(ipaddr2) + 1))) {
-                printf("error: insufficient memory\n");
+                message("999-Insufficient memory");
                 return 1;
             }
             strcpy(p, ipaddr2);
             ipaddr = p;
         }
         if ((sts = wifiConnection->setAddress(ipaddr)) != 0) {
-            printf("error: can't use address: %d\n", sts);
+            message("101-Invalid address: %s", ipaddr);
             return 1;
         }
         if ((sts = wifiConnection->checkVersion()) != 0) {
-            printf("error: wi-fi module firmware needs to be updated\n");
-            printf("  Version string needs to begin with %s\n", WIFI_REQUIRED_MAJOR_VERSION);
-            printf("  Current version string is %s\n", wifiConnection->version());
+            message("\
+106-Unrecognized wi-fi module firmware\n\
+    Version is %s but expected %s.\n\
+    Recommended action: update firmware and/or PropLoader to latest version(s).", wifiConnection->version(), WIFI_REQUIRED_MAJOR_VERSION);
             return 1;
         }
         connection = wifiConnection;
@@ -427,7 +434,7 @@ int main(int argc, char *argv[])
     /* set the wifi module name */
     if (name) {
         if (!wifiConnection) {
-            printf("error: -n can only be used to name wifi modules\n");
+            message("100-Option -n can only be used to name wifi modules");
             return 1;
         }
         
@@ -464,58 +471,60 @@ int main(int argc, char *argv[])
         
         /* if we deleted every character then this is an invalid name */
         if (!cleanName[0]) {
-            printf("error: invalid module name\n");
+            message("108-Invalid module name");
             return 1;
         }
         
         /* show the clean name if it is different from what the user requested */
         if (strcmp(name, cleanName) != 0)
-            printf("Setting module name to '%s'\n", cleanName);
+            message("010-Setting module name to '%s'", cleanName);
             
         if (wifiConnection->setName(cleanName) != 0) {
-            printf("error: failed to set module name\n");
+            message("109-Failed to set module name");
             return 1;
         }
     }
     
     /* write a file to the SD card */
     if (writeFile) {
-        printf("Writing '%s' to the SD card\n", file);
+        message("007-Writing '%s' to the SD card", file);
         if (WriteFileToSDCard(config, connection, file, file) != 0) {
-            printf("error: writing '%s'\n", file);
+            message("107-Failed to write SD card file '%s'", file);
             return 1;
         }
     }
     
     /* load a file */
     else if (file) {
-        printf("Loading '%s'\n", file);
+        message("001-Opening file '%s'", file);
         loader.setConnection(connection);
         if (file && (sts = loader.fastLoadFile(file, (LoadType)loadType)) != 0) {
-            printf("error: load failed: %d\n", sts);
+            message("102-Download failed: %d", sts);
             return 1;
         }
+        message("005-Download successful!");
     }
     
     /* set the baud rate used by the program */
     if (connection->setBaudRate(connection->programBaudRate()) != 0) {
-        printf("error: failed to set baud rate\n");
+        message("999-Failed to set baud rate");
         return 1;
     }
     
     /* enter terminal mode */
     if (terminalMode) {
-        printf("[ Entering terminal mode. Type ESC or Control-C to exit. ]\n");
+        message("006-[ Entering terminal mode. Type ESC or Control-C to exit. ]");
         
         /* open a connection to the target */
         if (!connection->isOpen() && connection->connect() != 0) {
-            printf("error: can't open connection to target\n");
+            message("Can't open connection to target");
+            message("105-Failed to enter terminal mode");
             return 1;
         }
         
         /* enter terminal mode */
         if (connection->terminal(false, pstTerminalMode) != 0) {
-            printf("error: failed to enter terminal mode\n");
+            message("105-Failed to enter terminal mode");
             return 1;
         }
     }
@@ -546,19 +555,6 @@ static void ShowWiFiModules(bool show)
     WiFiPropConnection::findModules(true, modules);
 }
 
-int Error(const char *fmt, ...)
-{
-    if (verbose) {
-        va_list ap;
-        va_start(ap, fmt);
-        printf("error: ");
-        vprintf(fmt, ap);
-        printf("\n");
-        va_end(ap);
-    }
-    return -1;
-}
-
 #define TYPE_FILE_WRITE     0
 #define TYPE_DATA           1
 #define TYPE_EOF            2
@@ -571,9 +567,9 @@ static int WriteFileToSDCard(BoardConfig *config, PropConnection *connection, co
     FILE *fp;
 
     /* open the file */
-    printf("Opening '%s'\n", path);
+    message("001-Opening file '%s'", path);
     if ((fp = fopen(path, "rb")) == NULL)
-        return Error("can't open %s", path);
+        return error("103-Can't open file '%s'", path);
 
     if (!target) {
         if (!(target = strrchr(path, '/')))
@@ -581,44 +577,40 @@ static int WriteFileToSDCard(BoardConfig *config, PropConnection *connection, co
         else
             ++target; // skip past the slash
     }
-    printf("Target is '%s'\n", target);
 
     fseek(fp, 0, SEEK_END);
     size = remaining = ftell(fp);
     fseek(fp, 0, SEEK_SET);
 
-    printf("Loading SD helper\n");
+    message("Loading SD helper");
     if (LoadSDHelper(config, connection) != 0) {
         fclose(fp);
-        return Error("loading SD helper");
+        return error("Loading SD helper");
     }
 
     /* wait for the SD helper to complete initialization */
-    printf("Waiting for SD helper to start\n");
     if (!packetDriver.waitForInitialAck())
-        return Error("failed to connect to helper");
+        return error("Failed to connect to helper");
 
-    printf("Starting file write\n");
     if (!packetDriver.sendPacket(TYPE_FILE_WRITE, (uint8_t *)target, strlen(target) + 1)) {
         fclose(fp);
-        return Error("SendPacket FILE_WRITE failed");
+        return error("SendPacket FILE_WRITE failed");
     }
 
-    printf("Loading '%s' to SD card\n", path);
     while ((cnt = fread(buf, 1, PKTMAXLEN, fp)) > 0) {
-        printf("%ld bytes remaining             \r", remaining); fflush(stdout);
+        progress("008-%ld bytes remaining             ", (long)remaining);
         if (!packetDriver.sendPacket(TYPE_DATA, buf, cnt)) {
             fclose(fp);
-            return Error("SendPacket DATA failed");
+            return error("SendPacket DATA failed");
         }
         remaining -= cnt;
     }
-    printf("%ld bytes sent             \n", size);
+    message("009-%ld bytes sent             ", (long)size);
 
     fclose(fp);
 
     if (!packetDriver.sendPacket(TYPE_EOF, (uint8_t *)"", 0))
-        return Error("SendPacket EOF failed");
+        return error("SendPacket EOF failed");
 
     /*
        We send two EOF packets for SD card writes.  The reason is that the EOF
@@ -628,7 +620,7 @@ static int WriteFileToSDCard(BoardConfig *config, PropConnection *connection, co
        processed before resetting the Prop!
     */
     if (!packetDriver.sendPacket(TYPE_EOF, (uint8_t *)"", 0))
-        return Error("Second SendPacket EOF failed");
+        return error("Second SendPacket EOF failed");
 
     return 0;
 }
@@ -679,24 +671,24 @@ static int LoadSDHelper(BoardConfig *config, PropConnection *connection)
     if (GetNumericConfigField(config, "sdspi-do", &ivalue))
         dat->dopin = ivalue;
     else
-        return Error("missing sdspi-do pin configuration");
+        return error("Missing sdspi-do pin configuration");
 
     if (GetNumericConfigField(config, "sdspi-clk", &ivalue))
         dat->clkpin = ivalue;
     else
-        return Error("missing sdspi-clk pin configuration");
+        return error("Missing sdspi-clk pin configuration");
 
     if (GetNumericConfigField(config, "sdspi-di", &ivalue))
         dat->dipin = ivalue;
     else
-        return Error("missing sdspi-di pin configuration");
+        return error("Missing sdspi-di pin configuration");
 
     if (GetNumericConfigField(config, "sdspi-cs", &ivalue))
         dat->cspin = ivalue;
     else if (GetNumericConfigField(config, "sdspi-clr", &ivalue))
         dat->cspin = ivalue;
     else
-        return Error("missing sdspi-cs or sdspi-clr pin configuration");
+        return error("Missing sdspi-cs or sdspi-clr pin configuration");
 
     if (GetNumericConfigField(config, "sdspi-sel", &ivalue))
         dat->select_inc_mask = ivalue;
@@ -714,12 +706,64 @@ static int LoadSDHelper(BoardConfig *config, PropConnection *connection)
 
     /* load the SD helper program */
     if (loader.fastLoadImage(image.imageData(), image.imageSize(), ltDownloadAndRun) != 0)
-        return Error("helper load failed");
+        return error("Helper load failed");
         
     /* select the sd helper baud rate */
     connection->setBaudRate(dat->baudrate);
 
     return 0;
 }
+
+int error(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    vmessage(fmt, ap, '\n');
+    va_end(ap);
+    return -1;
+}
+
+void message(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    vmessage(fmt, ap, '\n');
+    va_end(ap);
+}
+
+void progress(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    vmessage(fmt, ap, '\r');
+    va_end(ap);
+}
+
+void vmessage(const char *fmt, va_list ap, int eol)
+{
+    const char *p = fmt;
+    int code = 0;
+
+    /* check for and parse the numeric message code */
+    if (*p && isdigit(*p)) {
+        while (*p && isdigit(*p))
+            code = code * 10 + *p++ - '0';
+        if (*p == '-')
+            fmt = ++p;
+    }
+
+    /* display messages in verbose mode or when the code is > 0 */
+    if (verbose || code > 0) {
+        if (showMessageCodes)
+            printf("%03d-", code);
+        if (code > 99)
+            printf("ERROR: ");
+        vprintf(fmt, ap);
+        putchar(eol);
+        if (eol == '\r')
+            fflush(stdout);
+    }
+}
+
 
 
