@@ -22,6 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 #include <stdio.h>
 #include <string.h>
 #include "packet.h"
+#include "proploader.h"
 
 #ifndef TRUE
 #define TRUE    1
@@ -125,7 +126,7 @@ int PacketDriver::sendPacket(int type, uint8_t *buf, int len)
 
     /* wait for an ACK/NAK */
     if ((ch = waitForAckNak(PACKET_TIMEOUT)) < 0) {
-        printf("Timeout waiting for ACK/NAK\n");
+        message("Timeout waiting for ACK/NAK");
         ch = NAK;
     }
 
