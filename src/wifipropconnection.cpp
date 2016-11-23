@@ -42,6 +42,8 @@ int WiFiPropConnection::setAddress(const char *ipaddr)
     if (GetInternetAddress(m_ipaddr, TELNET_PORT, &m_telnetAddr) != 0)
         return -1;
 
+    setPortName(ipaddr);
+
     return 0;
 }
 

@@ -171,7 +171,7 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     }
 
     /* transmit the image */
-    message("002-Loading image");
+    message("002-Downloading file to port %s", m_connection->portName());
     remaining = imageSize;
     while (remaining > 0) {
         int size;

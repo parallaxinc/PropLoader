@@ -1,8 +1,9 @@
 #ifndef PROPCONNECTION_H
 #define PROPCONNECTION_H
 
+#include <stdlib.h>
 #include <stdint.h>
-#include <stdint.h>
+#include <string.h>
 
 typedef enum {
     ltShutdown = 0,
@@ -14,8 +15,8 @@ typedef enum {
 class PropConnection
 {
 public:
-    PropConnection() {}
-    ~PropConnection() {}
+    PropConnection() : m_portName(NULL) {}
+    ~PropConnection() { if (m_portName) free(m_portName); }
     virtual bool isOpen() = 0;
     virtual int close() = 0;
     virtual int connect() = 0;
@@ -30,6 +31,13 @@ public:
     virtual int setBaudRate(int baudRate) = 0;
     virtual int maxDataSize() = 0;
     virtual int terminal(bool checkForExit, bool pstMode) = 0;
+    const char *portName() { return m_portName ? m_portName : "<none>"; }
+    void setPortName(const char *portName) {
+        if (m_portName)
+            free(m_portName);
+        if ((m_portName = (char *)malloc(strlen(portName) + 1)) != NULL)
+            strcpy(m_portName, portName);
+    }
     int loaderBaudRate() { return m_loaderBaudRate; }
     void setLoaderBaudRate(int baudRate) { m_loaderBaudRate = baudRate; }
     int fastLoaderBaudRate() { return m_fastLoaderBaudRate; }
@@ -37,6 +45,7 @@ public:
     int programBaudRate() { return m_programBaudRate; }
     void setProgramBaudRate(int baudRate) { m_programBaudRate = baudRate; }
 protected:
+    char *m_portName;
     int m_baudRate;
     int m_loaderBaudRate;
     int m_fastLoaderBaudRate;

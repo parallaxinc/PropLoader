@@ -51,6 +51,7 @@ int SerialPropConnection::open(const char *port, int baudRate)
     if (OpenSerial(port, baudRate, &m_serialPort) != 0)
         return -1;
         
+    setPortName(port);
     m_baudRate = baudRate;
 
     return 0;
