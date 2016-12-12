@@ -43,6 +43,7 @@ ERROR MESSAGES
 "107-Failed to write SD card file: '%s'\n", file
 "108-Invalid module name\n"
 "109-Failed to set module name\n"
+"110-Unable to connect to port: %s\n", port_or_ip_address 
 
 
 
