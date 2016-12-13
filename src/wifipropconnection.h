@@ -15,6 +15,7 @@
 
 // timeout used when making an HTTP request or connecting a telnet session
 #define CONNECT_TIMEOUT             2000
+#define RESPONSE_TIMEOUT            2000
 #define DISCOVER_REPLY_TIMEOUT      250
 #define DISCOVER_ATTEMPTS           3
 
@@ -37,6 +38,7 @@ public:
     WiFiPropConnection();
     ~WiFiPropConnection();
     int setAddress(const char *ipaddr);
+    int getVersion();
     int checkVersion();
     const char *version() { return m_version ? m_version : "(unknown)"; }
     bool isOpen();
@@ -56,7 +58,6 @@ public:
     int terminal(bool checkForExit, bool pstMode);
     static int findModules(bool show, WiFiInfoList &list, int count = -1);
 private:
-    int getVersion();
     int sendRequest(uint8_t *req, int reqSize, uint8_t *res, int resMax, int *pResult);
     static void dumpHdr(const uint8_t *buf, int size);
     static void dumpResponse(const uint8_t *buf, int size);

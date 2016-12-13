@@ -37,12 +37,15 @@ typedef struct {
 class PropImage
 {
 public:
+    enum {
+        SUCCESS = 0,
+        IMAGE_TRUNCATED = -1,
+        IMAGE_CORRUPTED  = -2
+    };
     PropImage();
     PropImage(uint8_t *imageData, int imageSize);
     ~PropImage();
-    int load(const char *file);
-    int setImage(uint8_t *imageData, int imageSize);
-    void free();
+    void setImage(uint8_t *imageData, int imageSize);
     int validate();
     void updateChecksum();
     uint8_t *imageData() { return m_imageData; }

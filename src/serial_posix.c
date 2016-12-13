@@ -46,6 +46,7 @@
 #include <signal.h>
 
 #include "serial.h"
+#include "proploader.h"
 #ifdef RASPBERRY_PI
 #include "gpio_sysfs.h"
 #endif
@@ -67,7 +68,7 @@ static void msleep(int ms)
 static void chk(char *fun, int sts)
 {
     if (sts != 0)
-        printf("%s failed\n", fun);
+        message("%s failed", fun);
 }
 
 int SerialUseResetMethod(SERIAL *serial, char *method)
@@ -97,15 +98,7 @@ int SerialUseResetMethod(SERIAL *serial, char *method)
             }
         }
 
-        printf ("Using GPIO pin %d as Propeller reset ", serial->resetGpioPin);
-        if (serial->resetGpioLevel)
-        {
-            printf ("(HIGH).\n");
-        }
-        else
-        {
-            printf ("(LOW).\n");
-        }
+        printf ("Using GPIO pin %d as Propeller reset (%s)\n", serial->resetGpioPin, serial->resetGpioLevel ? "HIGH", "LOW");
         gpio_export(serial->resetGpioPin);
         gpio_write(serial->resetGpioPin, serial->resetGpioLevel ^ 1);
         gpio_direction(serial->resetGpioPin, 1);
@@ -143,7 +136,7 @@ int OpenSerial(const char *port, int baud, SERIAL **pSerial)
     serial->fd = open(port, O_RDWR | O_NOCTTY | O_NDELAY | O_NONBLOCK);
 #endif
     if(serial->fd == -1) {
-        printf("error: opening '%s' -- %s\n", port, strerror(errno));
+        message("Can't open '%s' -- %s", port, strerror(errno));
         free(serial);
         return -3;
     }
@@ -154,7 +147,7 @@ int OpenSerial(const char *port, int baud, SERIAL **pSerial)
 
     /* set the terminal to exclusive mode */
     if (ioctl(serial->fd, TIOCEXCL) != 0) {
-        printf("error: can't open terminal for exclusive access\n");
+        message("Can't open terminal for exclusive access");
         close(serial->fd);
         free(serial);
         return -4;
@@ -357,7 +350,7 @@ int SendSerialData(SERIAL *serial, const void *buf, int len)
     int cnt;
     cnt = write(serial->fd, buf, len);
     if (cnt != len) {
-        printf("Error writing port\n");
+        message("Error writing port");
         return -1;
     }
     return cnt;
@@ -372,7 +365,7 @@ int ReceiveSerialData(SERIAL *serial, void *buf, int len)
 {
     int cnt = read(serial->fd, buf, len);
     if (cnt < 1) {
-        printf("Error reading port\n");
+        message("Error reading port");
         return -1;
     }
     return cnt;

@@ -50,8 +50,6 @@ int WiFiPropConnection::setAddress(const char *ipaddr)
 int WiFiPropConnection::checkVersion()
 {
     int versionOkay;
-    if (getVersion() != 0)
-        return -1;
     versionOkay = strncmp(m_version, WIFI_REQUIRED_MAJOR_VERSION, strlen(WIFI_REQUIRED_MAJOR_VERSION)) == 0
                || strncmp(m_version, WIFI_REQUIRED_MAJOR_VERSION_LEGACY, strlen(WIFI_REQUIRED_MAJOR_VERSION_LEGACY)) == 0;
     return versionOkay ? 0 : -1;
@@ -528,7 +526,7 @@ int WiFiPropConnection::sendRequest(uint8_t *req, int reqSize, uint8_t *res, int
         return -1;
     }
     
-    cnt = ReceiveSocketDataTimeout(sock, res, resMax, 10000);
+    cnt = ReceiveSocketDataTimeout(sock, res, resMax, RESPONSE_TIMEOUT);
     CloseSocket(sock);
 
     if (cnt == -1) {

@@ -80,10 +80,6 @@ uint8_t *Loader::readSpinBinaryFile(FILE *fp, int *pImageSize)
         return NULL;
     }
 
-    /* validate the image */
-    if (PropImage::validate(image, imageSize) != 0)
-        return NULL;
-    
     /* return the buffer containing the file contents */
     *pImageSize = imageSize;
     return image;
@@ -93,7 +89,7 @@ uint8_t *Loader::readElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize)
 {
     uint32_t start, imageSize, cogImagesSize;
     ElfProgramHdr program;
-    uint8_t *image, *buf;
+    uint8_t *image = NULL, *buf;
     SpinHdr *spinHdr;
     ElfContext *c;
     int i;
@@ -144,6 +140,8 @@ uint8_t *Loader::readElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize)
     
 fail:
     /* return failure */
+    if (image)
+        free(image);
     FreeElfContext(c);
     return NULL;
 }

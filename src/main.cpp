@@ -102,6 +102,8 @@ int main(int argc, char *argv[])
     const char *port = NULL;
     const char *name = NULL;
     const char *file = NULL;
+    uint8_t *image = NULL;
+    int imageSize;
     int loadType = ltShutdown;
     bool useSerial = false;
     bool writeFile = false;
@@ -275,6 +277,29 @@ int main(int argc, char *argv[])
         ShowWiFiModules(true);
         done = true;
     }
+
+    /* before we do anything else, make sure we can read the Propeller image file */
+    if (file) {
+        message("001-Opening file '%s'", file);
+        if (!(image = Loader::readFile(file, &imageSize))) {
+            message("103-Can't open file '%s'", file);
+            return 1;
+        }
+        switch (PropImage::validate(image, imageSize)) {
+        case PropImage::SUCCESS:
+            // success
+            break;
+        case PropImage::IMAGE_TRUNCATED:
+            message("110-File is truncated or not a Propeller application image");
+            return 1;
+        case PropImage::IMAGE_CORRUPTED:
+            message("111-File is corrupt or not a Propeller application");
+            return 1;
+        default:
+            message("999-Internal error");
+            return 1;
+        }
+    }
        
 /*
 1) look in the directory specified by the -I command line option (added above)
@@ -340,7 +365,7 @@ int main(int argc, char *argv[])
     if (!done && !reset && !file && !terminalMode)
         usage(argv[0]);
         
-    /* check to see if a reset was requested or there is a file to load */
+    /* check to there is anything more to do */
     if (!reset && !file && !name && !terminalMode)
         goto finish;
 
@@ -358,18 +383,18 @@ int main(int argc, char *argv[])
         if (!port) {
             SerialInfoList ports;
             if (SerialPropConnection::findPorts(PORT_PREFIX, true, ports) != 0) {
-                printf("error: serial port discovery failed\n");
+                message("115-Serial port discovery failed");
                 return 1;
             }
             if (ports.size() == 0) {
-                printf("error: no serial ports found\n");
+                message("116-No serial ports found");
                 return 1;
             }
             info = ports.front();
             port = info.port();
         }
         if ((sts = serialConnection->open(port)) != 0) {
-            printf("error: loader initialization failed: %d\n", sts);
+            message("117-Unable to connect to port %s", port);
             return 1;
         }
         connection = serialConnection;
@@ -384,11 +409,11 @@ int main(int argc, char *argv[])
         if (!ipaddr) {
             WiFiInfoList addrs;
             if (WiFiPropConnection::findModules(false, addrs, 1) != 0) {
-                printf("error: wifi module discovery failed\n");
+                message("113-Wifi module discovery failed");
                 return 1;
             }
             if (addrs.size() == 0) {
-                printf("error: no wifi module found\n");
+                message("114-No wifi modules found");
                 return 1;
             }
             const char *ipaddr2 = addrs.front().address();
@@ -402,6 +427,10 @@ int main(int argc, char *argv[])
         }
         if ((sts = wifiConnection->setAddress(ipaddr)) != 0) {
             message("101-Invalid address: %s", ipaddr);
+            return 1;
+        }
+        if (wifiConnection->getVersion() != 0) {
+            message("118-Unable to connect to module at %s", ipaddr);
             return 1;
         }
         if ((sts = wifiConnection->checkVersion()) != 0) {
@@ -496,9 +525,8 @@ int main(int argc, char *argv[])
     
     /* load a file */
     else if (file) {
-        message("001-Opening file '%s'", file);
         loader.setConnection(connection);
-        if (file && (sts = loader.fastLoadFile(file, (LoadType)loadType)) != 0) {
+        if (file && (sts = loader.fastLoadImage(image, imageSize, (LoadType)loadType)) != 0) {
             message("102-Download failed: %d", sts);
             return 1;
         }
