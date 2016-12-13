@@ -20,7 +20,7 @@ is created, it simply takes on the next available code number even if it's logic
 
 STATE MESSAGES
 "001-Opening file %s", file
-"002-Downloading to Propeller\n"
+"002-Downloading to Propeller"
 "003-Verifying RAM"
 "004-Programming EEPROM"
 "005-Download successful!"
@@ -31,21 +31,27 @@ STATE MESSAGES
 "010-Setting module name to %s", name
 
 ERROR MESSAGES
-"100-Option -n can only be used to name wifi modules\n"
-"101-Invalid address: %s\n", ip_address
-"102-Download failed: %d\n", sts
-"103-Can't open file '%s'\n", file
-"104-Propeller not found on port %s\n", port_or_ip_address
-"105-Failed to enter terminal mode\n"
-"106-Unrecognized wi-fi module firmware\n"
-"  Version is %s but expected %s.x...\n", wifiConnection->version(), WIFI_REQUIRED_MAJOR_VERSION
+"100-Option -n can only be used to name wifi modules"
+"101-Invalid address: %s", ip_address
+"102-Download failed: %d", sts
+"103-Can't open file '%s'", file
+"104-Propeller not found on port %s", port_or_ip_address
+"105-Failed to enter terminal mode"
+"106-Unrecognized wi-fi module firmware\n\
+"  Version is %s but expected %s.x...\n", wifiConnection->version(), WIFI_REQUIRED_MAJOR_VERSION\n\
 "  Recommended action: update firmware and/or PropLoader to latest version(s)."
-"107-Failed to write SD card file: '%s'\n", file
-"108-Invalid module name\n"
-"109-Failed to set module name\n"
-"110-Unable to connect to port: %s\n", port_or_ip_address 
-
-
+"107-Failed to write SD card file: '%s'", file
+"108-Invalid module name"
+"109-Failed to set module name"
+"110-File is truncated or not a Propeller application image"
+"111-File is corrupt or not a Propeller application"
+"112-Can't read Propeller application file '%s'"
+"113-Wi-fi module discovery failed"
+"114-No wi-fi modules found"
+"115-Serial port discovery failed"
+"116-No serial ports found"
+"117-Unable to connect to port %s"
+"118-Unable to connect to module at %s"
 
 USE-CASE ORGANIZED MESSAGE EXAMPLES
 The list below contains State, Error, and Verbose messages arranged by use-case so context is more obvious.  It does not necessarily contains every possible
