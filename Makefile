@@ -106,7 +106,6 @@ $(OBJDIR)/sd_helper.o \
 $(OBJDIR)/config.o \
 $(OBJDIR)/expr.o \
 $(OBJDIR)/system.o \
-$(OBJDIR)/errors.o \
 $(OSINT)
 
 CFLAGS+=-I$(OBJDIR)
