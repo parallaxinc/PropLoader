@@ -45,7 +45,7 @@ void PropImage::setClkMode(uint8_t clkMode)
 int PropImage::validate()
 {
     // make sure the image is at least the size of a Spin header
-    if (m_imageSize < (int)sizeof(SpinHdr))
+    if (m_imageSize <= (int)sizeof(SpinHdr))
         return IMAGE_TRUNCATED;
 
     // verify the checksum
