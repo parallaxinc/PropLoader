@@ -52,6 +52,7 @@ ERROR MESSAGES
 "116-No serial ports found"
 "117-Unable to connect to port %s"
 "118-Unable to connect to module at %s"
+"119-Failed to set baud rate"
 
 USE-CASE ORGANIZED MESSAGE EXAMPLES
 The list below contains State, Error, and Verbose messages arranged by use-case so context is more obvious.  It does not necessarily contains every possible

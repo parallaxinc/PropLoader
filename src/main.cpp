@@ -296,7 +296,7 @@ int main(int argc, char *argv[])
             message("111-File is corrupt or not a Propeller application");
             return 1;
         default:
-            message("999-Internal error");
+            message("998-Internal error");
             return 1;
         }
     }
@@ -535,7 +535,7 @@ int main(int argc, char *argv[])
     
     /* set the baud rate used by the program */
     if (connection->setBaudRate(connection->programBaudRate()) != 0) {
-        message("999-Failed to set baud rate");
+        message("119-Failed to set baud rate");
         return 1;
     }
     
