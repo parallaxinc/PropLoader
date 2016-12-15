@@ -127,8 +127,13 @@ $(BUILD)/%-fast.binary:	%.spin
 $(BUILD)/%-slow.binary:	%.spin
 	$(SPINCMP) -DSLOW -o $@ $<
 
+# This rule doesn't work under Windows because of a bug in OpenSpin.
+#$(OBJDIR)/%.binary:	$(SPINDIR)/%.spin
+#	$(SPINCMP) -o $@ $<
+
+# This is the workaround.
 $(OBJDIR)/%.binary:	$(SPINDIR)/%.spin
-	$(SPINCMP) -o $@ $<
+	cd $(dir $<); $(SPINCMP) -o $@ $(notdir $<)
 
 $(OBJDIR)/%.c:	$(OBJDIR)/%.binary $(BINDIR)/bin2c$(EXT)
 	$(BINDIR)/bin2c$(EXT) $< $@
@@ -136,8 +141,14 @@ $(OBJDIR)/%.c:	$(OBJDIR)/%.binary $(BINDIR)/bin2c$(EXT)
 $(OBJDIR)/%.o:	$(OBJDIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# This rule doesn't work under Windows because of a bug in OpenSpin.
+#$(OBJDIR)/IP_Loader.h:   $(SPINDIR)/IP_Loader.spin $(BINDIR)/split$(EXT)
+#	$(SPINCMP) -o $(OBJDIR)/IP_Loader.binary $<
+#	$(BINDIR)/split$(EXT) $(OBJDIR)/IP_Loader.binary $(OBJDIR)/IP_Loader.h
+
+# This is the workaround.
 $(OBJDIR)/IP_Loader.h:   $(SPINDIR)/IP_Loader.spin $(BINDIR)/split$(EXT)
-	$(SPINCMP) -o $(OBJDIR)/IP_Loader.binary $<
+	cd $(dir $<); $(SPINCMP) -o $(OBJDIR)/IP_Loader.binary $(notdir $<)
 	$(BINDIR)/split$(EXT) $(OBJDIR)/IP_Loader.binary $(OBJDIR)/IP_Loader.h
 
 setup:	$(BUILD)/blink-slow.binary
