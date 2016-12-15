@@ -79,9 +79,6 @@ Value expressions for -D can include:\n\
     exit(1);
 }
 
-int verbose = 0;
-int showMessageCodes = false;
-
 static void ShowPorts(const char *prefix, bool check);
 static void ShowWiFiModules(bool check);
 static int WriteFileToSDCard(BoardConfig *config, PropConnection *connection, const char *path, const char *target);
@@ -740,57 +737,6 @@ static int LoadSDHelper(BoardConfig *config, PropConnection *connection)
     connection->setBaudRate(dat->baudrate);
 
     return 0;
-}
-
-int error(const char *fmt, ...)
-{
-    va_list ap;
-    va_start(ap, fmt);
-    vmessage(fmt, ap, '\n');
-    va_end(ap);
-    return -1;
-}
-
-void message(const char *fmt, ...)
-{
-    va_list ap;
-    va_start(ap, fmt);
-    vmessage(fmt, ap, '\n');
-    va_end(ap);
-}
-
-void progress(const char *fmt, ...)
-{
-    va_list ap;
-    va_start(ap, fmt);
-    vmessage(fmt, ap, '\r');
-    va_end(ap);
-}
-
-void vmessage(const char *fmt, va_list ap, int eol)
-{
-    const char *p = fmt;
-    int code = 0;
-
-    /* check for and parse the numeric message code */
-    if (*p && isdigit(*p)) {
-        while (*p && isdigit(*p))
-            code = code * 10 + *p++ - '0';
-        if (*p == '-')
-            fmt = ++p;
-    }
-
-    /* display messages in verbose mode or when the code is > 0 */
-    if (verbose || code > 0) {
-        if (showMessageCodes)
-            printf("%03d-", code);
-        if (code > 99)
-            printf("ERROR: ");
-        vprintf(fmt, ap);
-        putchar(eol);
-        if (eol == '\r')
-            fflush(stdout);
-    }
 }
 
 

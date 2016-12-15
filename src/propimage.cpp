@@ -44,8 +44,14 @@ void PropImage::setClkMode(uint8_t clkMode)
 
 int PropImage::validate()
 {
+    SpinHdr *hdr = (SpinHdr *)m_imageData;
+
     // make sure the image is at least the size of a Spin header
     if (m_imageSize <= (int)sizeof(SpinHdr))
+        return IMAGE_TRUNCATED;
+        
+    // make sure the file is big enough to contain all of the code
+    if (m_imageSize < hdr->vbase)
         return IMAGE_TRUNCATED;
 
     // verify the checksum
@@ -57,7 +63,6 @@ int PropImage::validate()
         return IMAGE_CORRUPTED;
         
     // make sure there is no data after the code
-    SpinHdr *hdr = (SpinHdr *)m_imageData;
     uint16_t idx = hdr->vbase;
     while (idx < m_imageSize && idx < hdr->dbase && m_imageData[idx] == 0)
         ++idx;
