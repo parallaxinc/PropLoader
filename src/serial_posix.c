@@ -98,7 +98,7 @@ int SerialUseResetMethod(SERIAL *serial, char *method)
             }
         }
 
-        printf ("Using GPIO pin %d as Propeller reset (%s)\n", serial->resetGpioPin, serial->resetGpioLevel ? "HIGH", "LOW");
+        printf ("Using GPIO pin %d as Propeller reset (%s)\n", serial->resetGpioPin, serial->resetGpioLevel ? "HIGH" : "LOW");
         gpio_export(serial->resetGpioPin);
         gpio_write(serial->resetGpioPin, serial->resetGpioLevel ^ 1);
         gpio_direction(serial->resetGpioPin, 1);
