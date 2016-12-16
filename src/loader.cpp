@@ -39,10 +39,8 @@ uint8_t *Loader::readFile(const char *file, int *pImageSize)
     FILE *fp;
 
     /* open the binary file */
-    if (!(fp = fopen(file, "rb"))) {
-        message("103-Can't open file '%s'", file);
+    if (!(fp = fopen(file, "rb")))
         return NULL;
-    }
     
     /* check for an elf file */
     if (ReadAndCheckElfHdr(fp, &elfHdr))
