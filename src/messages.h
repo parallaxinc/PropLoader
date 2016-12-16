@@ -7,15 +7,54 @@
 extern "C" {
 #endif
 
+enum {
+    MIN_INFO                            = 1,
+    INFO_OPENING_FILE                   = MIN_INFO,
+    INFO_DOWNLOADING,
+    INFO_VERIFYING_RAM,
+    INFO_PROGRAMMING_EEPROM,
+    INFO_DOWNLOAD_SUCCESSFUL,
+    INFO_TERMINAL_MODE,
+    INFO_WRITING_TO_SD_CARD,
+    INFO_BYTES_REMAINING,
+    INFO_BYTES_SENT,
+    INFO_SETTING_MODULE_NAME,
+    MAX_INFO,
+    
+    MIN_ERROR                           = 100,
+    ERROR_CAN_ONLY_NAME_WIFI_MODULES    = MIN_ERROR,
+    ERROR_INVALID_MODULE_ADDRESS,
+    ERROR_DOWNLOAD_FAILED,
+    ERROR_CANT_OPEN_FILE,
+    ERROR_PROPELLER_NOT_FOUND,
+    ERROR_FAILED_TO_ENTER_TERMINAL_MODE,
+    ERROR_WRONG_WIFI_MODULE_FIRMWARE,
+    ERROR_FAILED_TO_WRITE_TO_SD_CARD,
+    ERROR_INVALID_MODULE_NAME,
+    ERROR_FAILED_TO_SET_MODULE_NAME,
+    ERROR_FILE_TRUNCATED,
+    ERROR_FILE_CORRUPTED,
+    ERROR_CANT_READ_PROPELLER_APP_FILE,
+    ERROR_WIFI_MODULE_DISCOVERY_FAILED,
+    ERROR_NO_WIFI_MODULES_FOUND,
+    ERROR_SERIAL_PORT_DISCOVERY_FAILED,
+    ERROR_NO_SERIAL_PORTS_FOUND,
+    ERROR_UNABLE_TO_CONNECT_TO_PORT,
+    ERROR_UNABLE_TO_CONNECT_TO_MODULE,
+    ERROR_FAILED_TO_SET_BAUD_RATE,
+    ERROR_INTERNAL_CODE_ERROR,
+    ERROR_INSUFFICIENT_MEMORY,
+    MAX_ERROR
+};
+
 extern int showMessageCodes;
 extern int verbose;
 
 int error(const char *fmt, ...);
-int nerror(int messageNumber, ...);
+int nerror(int code, ...);
 void message(const char *fmt, ...);
-void nmessage(int messageNumber, ...);
+void nmessage(int code, ...);
 void progress(const char *fmt, ...);
-void vmessage(const char *fmt, va_list ap, int eol);
 
 #ifdef __cplusplus
 }

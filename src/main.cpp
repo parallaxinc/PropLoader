@@ -277,7 +277,7 @@ int main(int argc, char *argv[])
 
     /* before we do anything else, make sure we can read the Propeller image file */
     if (file) {
-        message("001-Opening file '%s'", file);
+        nmessage(INFO_OPENING_FILE, file);
         if (!(image = Loader::readFile(file, &imageSize))) {
             message("103-Can't open file '%s'", file);
             return 1;
@@ -460,7 +460,7 @@ int main(int argc, char *argv[])
     /* set the wifi module name */
     if (name) {
         if (!wifiConnection) {
-            message("100-Option -n can only be used to name wifi modules");
+            nmessage(ERROR_CAN_ONLY_NAME_WIFI_MODULES);
             return 1;
         }
         
