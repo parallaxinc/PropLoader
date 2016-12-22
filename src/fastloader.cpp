@@ -171,11 +171,11 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     }
 
     /* transmit the image */
-    message("002-Downloading file to port %s", m_connection->portName());
+    nmessage(INFO_DOWNLOADING, m_connection->portName());
     remaining = imageSize;
     while (remaining > 0) {
         int size;
-        progress("008-%ld bytes remaining             ", (long)remaining);
+        nprogress(INFO_BYTES_REMAINING, (long)remaining);
         if ((size = remaining) > m_connection->maxDataSize())
             size = m_connection->maxDataSize();
         if (transmitPacket(packetID, image, size, &result) != 0)
@@ -188,7 +188,7 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
         image += size;
         --packetID;
     }
-    message("009-%ld bytes sent             ", (long)imageSize);
+    nmessage(INFO_BYTES_SENT, (long)imageSize);
     
     /*
         When we're doing a download that does not include an EEPROM write, the Packet IDs end up as:
@@ -206,7 +206,7 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     */
     
     /* transmit the RAM verify packet and verify the checksum */
-    message("003-Verifying RAM");
+    nmessage(INFO_VERIFYING_RAM);
     if (transmitPacket(packetID, verifyRAM, sizeof(verifyRAM), &result) != 0)
         return -1;
     if (result != -checksum) {
@@ -216,7 +216,7 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     packetID = -checksum;
     
     if (loadType & ltDownloadAndProgram) {
-        message("004-Programming EEPROM");
+        nmessage(INFO_PROGRAMMING_EEPROM);
         if (transmitPacket(packetID, programVerifyEEPROM, sizeof(programVerifyEEPROM), &result, 8000) != 0)
             return -1;
         if (result != -checksum*2) {

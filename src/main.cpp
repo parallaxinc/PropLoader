@@ -279,7 +279,7 @@ int main(int argc, char *argv[])
     if (file) {
         nmessage(INFO_OPENING_FILE, file);
         if (!(image = Loader::readFile(file, &imageSize))) {
-            message("103-Can't open file '%s'", file);
+            nmessage(ERROR_CANT_OPEN_FILE, file);
             return 1;
         }
         switch (PropImage::validate(image, imageSize)) {
@@ -287,13 +287,13 @@ int main(int argc, char *argv[])
             // success
             break;
         case PropImage::IMAGE_TRUNCATED:
-            message("110-File is truncated or not a Propeller application image");
+            nmessage(ERROR_FILE_TRUNCATED);
             return 1;
         case PropImage::IMAGE_CORRUPTED:
-            message("111-File is corrupt or not a Propeller application");
+            nmessage(ERROR_FILE_CORRUPTED);
             return 1;
         default:
-            message("998-Internal error");
+            nmessage(ERROR_INTERNAL_CODE_ERROR);
             return 1;
         }
     }
@@ -374,24 +374,24 @@ int main(int argc, char *argv[])
     if (useSerial) {
         SerialInfo info; // needs to stay in scope as long as we're using port
         if (!(serialConnection = new SerialPropConnection)) {
-            message("999-Insufficient memory");
+            nmessage(ERROR_INSUFFICIENT_MEMORY);
             return 1;
         }
         if (!port) {
             SerialInfoList ports;
             if (SerialPropConnection::findPorts(PORT_PREFIX, true, ports) != 0) {
-                message("115-Serial port discovery failed");
+                nmessage(ERROR_SERIAL_PORT_DISCOVERY_FAILED);
                 return 1;
             }
             if (ports.size() == 0) {
-                message("116-No serial ports found");
+                nmessage(ERROR_NO_SERIAL_PORTS_FOUND);
                 return 1;
             }
             info = ports.front();
             port = info.port();
         }
         if ((sts = serialConnection->open(port)) != 0) {
-            message("117-Unable to connect to port %s", port);
+            nmessage(ERROR_UNABLE_TO_CONNECT_TO_PORT, port);
             return 1;
         }
         connection = serialConnection;
@@ -400,41 +400,38 @@ int main(int argc, char *argv[])
     /* do a wifi download */
     else {
         if (!(wifiConnection = new WiFiPropConnection)) {
-            message("999-Insufficient memory");
+            nmessage(ERROR_INSUFFICIENT_MEMORY);
             return 1;
         }
         if (!ipaddr) {
             WiFiInfoList addrs;
             if (WiFiPropConnection::findModules(false, addrs, 1) != 0) {
-                message("113-Wifi module discovery failed");
+                nmessage(ERROR_WIFI_MODULE_DISCOVERY_FAILED);
                 return 1;
             }
             if (addrs.size() == 0) {
-                message("114-No wifi modules found");
+                nmessage(ERROR_NO_WIFI_MODULES_FOUND);
                 return 1;
             }
             const char *ipaddr2 = addrs.front().address();
             char *p;
             if (!(p = (char *)malloc(strlen(ipaddr2) + 1))) {
-                message("999-Insufficient memory");
+                nmessage(ERROR_INSUFFICIENT_MEMORY);
                 return 1;
             }
             strcpy(p, ipaddr2);
             ipaddr = p;
         }
         if ((sts = wifiConnection->setAddress(ipaddr)) != 0) {
-            message("101-Invalid address: %s", ipaddr);
+            nmessage(ERROR_INVALID_MODULE_ADDRESS, ipaddr);
             return 1;
         }
         if (wifiConnection->getVersion() != 0) {
-            message("118-Unable to connect to module at %s", ipaddr);
+            nmessage(ERROR_UNABLE_TO_CONNECT_TO_MODULE, ipaddr);
             return 1;
         }
         if ((sts = wifiConnection->checkVersion()) != 0) {
-            message("\
-106-Unrecognized wi-fi module firmware\n\
-    Version is %s but expected %s.\n\
-    Recommended action: update firmware and/or PropLoader to latest version(s).", wifiConnection->version(), WIFI_REQUIRED_MAJOR_VERSION);
+            nmessage(ERROR_WRONG_WIFI_MODULE_FIRMWARE, wifiConnection->version(), WIFI_REQUIRED_MAJOR_VERSION);
             return 1;
         }
         connection = wifiConnection;
@@ -497,25 +494,25 @@ int main(int argc, char *argv[])
         
         /* if we deleted every character then this is an invalid name */
         if (!cleanName[0]) {
-            message("108-Invalid module name");
+            nmessage(ERROR_INVALID_MODULE_NAME);
             return 1;
         }
         
         /* show the clean name if it is different from what the user requested */
         if (strcmp(name, cleanName) != 0)
-            message("010-Setting module name to '%s'", cleanName);
+            nmessage(INFO_SETTING_MODULE_NAME, cleanName);
             
         if (wifiConnection->setName(cleanName) != 0) {
-            message("109-Failed to set module name");
+            nmessage(ERROR_FAILED_TO_SET_MODULE_NAME);
             return 1;
         }
     }
     
     /* write a file to the SD card */
     if (writeFile) {
-        message("007-Writing '%s' to the SD card", file);
+        nmessage(INFO_WRITING_TO_SD_CARD, file);
         if (WriteFileToSDCard(config, connection, file, file) != 0) {
-            message("107-Failed to write SD card file '%s'", file);
+            nmessage(ERROR_FAILED_TO_WRITE_TO_SD_CARD, file);
             return 1;
         }
     }
@@ -524,32 +521,32 @@ int main(int argc, char *argv[])
     else if (file) {
         loader.setConnection(connection);
         if (file && (sts = loader.fastLoadImage(image, imageSize, (LoadType)loadType)) != 0) {
-            message("102-Download failed: %d", sts);
+            nmessage(ERROR_DOWNLOAD_FAILED, sts);
             return 1;
         }
-        message("005-Download successful!");
+        nmessage(INFO_DOWNLOAD_SUCCESSFUL);
     }
     
     /* set the baud rate used by the program */
     if (connection->setBaudRate(connection->programBaudRate()) != 0) {
-        message("119-Failed to set baud rate");
+        nmessage(ERROR_FAILED_TO_SET_BAUD_RATE);
         return 1;
     }
     
     /* enter terminal mode */
     if (terminalMode) {
-        message("006-[ Entering terminal mode. Type ESC or Control-C to exit. ]");
+        nmessage(INFO_TERMINAL_MODE);
         
         /* open a connection to the target */
         if (!connection->isOpen() && connection->connect() != 0) {
             message("Can't open connection to target");
-            message("105-Failed to enter terminal mode");
+            nmessage(ERROR_FAILED_TO_ENTER_TERMINAL_MODE);
             return 1;
         }
         
         /* enter terminal mode */
         if (connection->terminal(false, pstTerminalMode) != 0) {
-            message("105-Failed to enter terminal mode");
+            nmessage(ERROR_FAILED_TO_ENTER_TERMINAL_MODE);
             return 1;
         }
     }
@@ -592,9 +589,9 @@ static int WriteFileToSDCard(BoardConfig *config, PropConnection *connection, co
     FILE *fp;
 
     /* open the file */
-    message("001-Opening file '%s'", path);
+    nmessage(INFO_OPENING_FILE, path);
     if ((fp = fopen(path, "rb")) == NULL)
-        return error("103-Can't open file '%s'", path);
+        return nerror(ERROR_CANT_OPEN_FILE, path);
 
     if (!target) {
         if (!(target = strrchr(path, '/')))
@@ -623,14 +620,14 @@ static int WriteFileToSDCard(BoardConfig *config, PropConnection *connection, co
     }
 
     while ((cnt = fread(buf, 1, PKTMAXLEN, fp)) > 0) {
-        progress("008-%ld bytes remaining             ", (long)remaining);
+        nprogress(INFO_BYTES_REMAINING, (long)remaining);
         if (!packetDriver.sendPacket(TYPE_DATA, buf, cnt)) {
             fclose(fp);
             return error("SendPacket DATA failed");
         }
         remaining -= cnt;
     }
-    message("009-%ld bytes sent             ", (long)size);
+    nmessage(INFO_BYTES_SENT, (long)size);
 
     fclose(fp);
 

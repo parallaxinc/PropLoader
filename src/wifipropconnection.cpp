@@ -382,7 +382,7 @@ GET /wx/setting?name=version HTTP/1.1\r\n\
     }
     
     if (!(dst = (char *)malloc(srcLen - 4 + 1))) {
-        message("999-Insufficient memory");
+        nmessage(ERROR_INSUFFICIENT_MEMORY);
         return -1;
     }
     

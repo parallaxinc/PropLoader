@@ -121,11 +121,11 @@ void nmessage(int code, ...)
     va_end(ap);
 }
 
-void progress(const char *fmt, ...)
+void nprogress(int code, ...)
 {
     va_list ap;
-    va_start(ap, fmt);
-    vmessage(fmt, ap, '\r');
+    va_start(ap, code);
+    vnmessage(code, messageText(code), ap, '\n');
     va_end(ap);
 }
 
