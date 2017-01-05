@@ -276,27 +276,25 @@ int main(int argc, char *argv[])
     }
 
     /* before we do anything else, make sure we can read the Propeller image file */
-    if (file) {
+    if (file && !writeFile) {
         nmessage(INFO_OPENING_FILE, file);
         if (!(image = Loader::readFile(file, &imageSize))) {
             nmessage(ERROR_CANT_OPEN_FILE, file);
             return 1;
         }
-        if (!writeFile) {
-            switch (PropImage::validate(image, imageSize)) {
-            case PropImage::SUCCESS:
-                // success
-                break;
-            case PropImage::IMAGE_TRUNCATED:
-                nmessage(ERROR_FILE_TRUNCATED);
-                return 1;
-            case PropImage::IMAGE_CORRUPTED:
-                nmessage(ERROR_FILE_CORRUPTED);
-                return 1;
-            default:
-                nmessage(ERROR_INTERNAL_CODE_ERROR);
-                return 1;
-            }
+        switch (PropImage::validate(image, imageSize)) {
+        case PropImage::SUCCESS:
+            // success
+            break;
+        case PropImage::IMAGE_TRUNCATED:
+            nmessage(ERROR_FILE_TRUNCATED);
+            return 1;
+        case PropImage::IMAGE_CORRUPTED:
+            nmessage(ERROR_FILE_CORRUPTED);
+            return 1;
+        default:
+            nmessage(ERROR_INTERNAL_CODE_ERROR);
+            return 1;
         }
     }
        
