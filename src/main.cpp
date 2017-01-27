@@ -358,7 +358,7 @@ int main(int argc, char *argv[])
     /* override with any command line settings */
     config = MergeConfigs(config, configSettings);
     
-    /* make sure a file to load was specified */
+   /* make sure a file to load was specified */
     if (!done && !reset && !file && !terminalMode)
         usage(argv[0]);
         
@@ -445,6 +445,14 @@ int main(int argc, char *argv[])
         connection->setFastLoaderBaudRate(baudRate);
     if (GetNumericConfigField(config, "program-baud-rate", &baudRate))
         connection->setProgramBaudRate(baudRate);
+
+    /* setup the reset method */
+    if ((p = GetConfigField(config, "reset")) != NULL) {
+        if (connection->setResetMethod(p) != 0) {
+            nmessage(ERROR_NO_RESET_METHOD, p);
+            return 1;
+        }
+    }
         
     /* reset the Propeller */
     if (reset) {

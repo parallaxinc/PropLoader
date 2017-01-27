@@ -46,6 +46,7 @@ public:
     int connect();
     int disconnect();
     int setName(const char *name);
+    int setResetMethod(const char *method);
     int generateResetSignal();
     int identify(int *pVersion);
     int loadImage(const uint8_t *image, int imageSize, uint8_t *response, int responseSize);
@@ -66,6 +67,7 @@ private:
     SOCKADDR_IN m_httpAddr;
     SOCKADDR_IN m_telnetAddr;
     SOCKET m_telnetSocket;
+    int m_resetPin;
 };
 
 #endif // WIFIPROPELLERCONNECTION_H

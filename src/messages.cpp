@@ -66,7 +66,9 @@ static const char *errorText[] = {
 "Unable to connect to module at %s",
 "Failed to set baud rate",
 "Internal error",
-"Insufficient memory"
+"Insufficient memory",
+"No reset method '%s'",
+"Reset failed"
 };
 
 static void vmessage(const char *fmt, va_list ap, int eol);

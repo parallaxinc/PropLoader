@@ -71,7 +71,7 @@ static void chk(char *fun, int sts)
         message("%s failed", fun);
 }
 
-int SerialUseResetMethod(SERIAL *serial, char *method)
+int SerialUseResetMethod(SERIAL *serial, const char *method)
 {
     if (strcasecmp(method, "dtr") == 0)
         serial->resetMethod = RESET_WITH_DTR;

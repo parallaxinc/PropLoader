@@ -43,7 +43,7 @@ typedef enum {
 
 typedef struct SERIAL SERIAL;
 
-int SerialUseResetMethod(SERIAL *serial, char *method);
+int SerialUseResetMethod(SERIAL *serial, const char *method);
 int OpenSerial(const char *port, int baud, SERIAL **pSerial);
 void CloseSerial(SERIAL *serial);
 int SetSerialBaud(SERIAL *serial, int baud);

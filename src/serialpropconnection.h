@@ -31,6 +31,7 @@ public:
     int close();
     int connect();
     int disconnect();
+    int setResetMethod(const char *method);
     int generateResetSignal();
     int identify(int *pVersion);
     int loadImage(const uint8_t *image, int imageSize, uint8_t *response, int responseSize);

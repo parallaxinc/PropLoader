@@ -16,11 +16,15 @@ class PropConnection
 {
 public:
     PropConnection() : m_portName(NULL) {}
-    ~PropConnection() { if (m_portName) free(m_portName); }
+    ~PropConnection() {
+        if (m_portName)
+            free(m_portName);
+    }
     virtual bool isOpen() = 0;
     virtual int close() = 0;
     virtual int connect() = 0;
     virtual int disconnect() = 0;
+    virtual int setResetMethod(const char *method) = 0;
     virtual int generateResetSignal() = 0;
     virtual int identify(int *pVersion) = 0;
     virtual int loadImage(const uint8_t *image, int imageSize, uint8_t *response, int responseSize) = 0;

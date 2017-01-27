@@ -13,7 +13,8 @@
 WiFiPropConnection::WiFiPropConnection()
     : m_ipaddr(NULL),
       m_version(NULL),
-      m_telnetSocket(INVALID_SOCKET)
+      m_telnetSocket(INVALID_SOCKET),
+      m_resetPin(12)
 {
     m_loaderBaudRate = WIFI_LOADER_BAUD_RATE;
     m_fastLoaderBaudRate = WIFI_FAST_LOADER_BAUD_RATE;
@@ -105,9 +106,9 @@ int WiFiPropConnection::loadImage(const uint8_t *image, int imageSize, uint8_t *
         return -1;
         
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
-POST /propeller/load?baud-rate=%d&response-size=%d&response-timeout=1000 HTTP/1.1\r\n\
+POST /propeller/load?baud-rate=%d&reset-pin=%d&response-size=%d&response-timeout=1000 HTTP/1.1\r\n\
 Content-Length: %d\r\n\
-\r\n", loaderBaudRate(), responseSize, imageSize);
+\r\n", loaderBaudRate(), m_resetPin, responseSize, imageSize);
 
     if (!(packet = (uint8_t *)malloc(hdrCnt + imageSize)))
         return -1;
@@ -428,14 +429,27 @@ POST /wx/save-settings HTTP/1.1\r\n\
     return 0;
 }
 
+int WiFiPropConnection::setResetMethod(const char *method)
+{
+    if (strcmp(method, "dtr") == 0)
+        m_resetPin = 12;
+    else if (strcmp(method, "rts") == 0)
+        m_resetPin = 15;
+    else if (isdigit(*method))
+        m_resetPin = atoi(method);
+    else
+        return -1;
+    return 0;
+}
+
 int WiFiPropConnection::generateResetSignal()
 {
     uint8_t buffer[1024];
     int hdrCnt, result;
     
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
-POST /wx/propeller/reset HTTP/1.1\r\n\
-\r\n");
+POST /wx/propeller/reset?reset-pin=%d HTTP/1.1\r\n\
+\r\n", m_resetPin);
 
     if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
         message("reset request failed");

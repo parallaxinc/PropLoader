@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "serialpropconnection.h"
+#include "messages.h"
 
 #define CALIBRATE_DELAY         10
 
@@ -80,6 +81,13 @@ int SerialPropConnection::connect()
 
 int SerialPropConnection::disconnect()
 {
+    return 0;
+}
+
+int SerialPropConnection::setResetMethod(const char *method)
+{
+    if (SerialUseResetMethod(m_serialPort, method) != 0)
+        return -1;
     return 0;
 }
 

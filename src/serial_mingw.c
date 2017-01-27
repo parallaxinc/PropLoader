@@ -46,7 +46,7 @@ struct SERIAL {
     HANDLE hSerial;
 };
 
-int SerialUseResetMethod(SERIAL *serial, char *method)
+int SerialUseResetMethod(SERIAL *serial, const char *method)
 {
     if (strcasecmp(method, "dtr") == 0)
         serial->resetMethod = RESET_WITH_DTR;
