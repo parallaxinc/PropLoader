@@ -1,5 +1,6 @@
 *.o
 *.binary
+*.eeprom
 *.elf
 *~
 obj/

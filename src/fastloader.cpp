@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include "loader.h"
 #include "proploader.h"
+#include "propimage.h"
 
 #define MAX_RX_SENSE_ERROR      23          /* Maximum number of cycles by which the detection of a start bit could be off (as affected by the Loader code) */
 
@@ -132,6 +133,7 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     uint8_t *loaderImage, response[8];
     int loaderImageSize, remaining, result, i;
     int32_t packetID, checksum;
+    SpinHdr *hdr = (SpinHdr *)image;
 
     /* compute the packet ID (number of packets to be sent) */
     packetID = (imageSize + m_connection->maxDataSize() - 1) / m_connection->maxDataSize();
@@ -145,9 +147,11 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     checksum = 0;
     for (i = 0; i < imageSize; ++i)
         checksum += image[i];
-    for (i = 0; i < (int)sizeof(initCallFrame); ++i)
-        checksum += initCallFrame[i];
-        
+    if (image[hdr->vbase] == 0) {
+        for (i = 0; i < (int)sizeof(initCallFrame); ++i)
+            checksum += initCallFrame[i];
+    }
+    
     /* load the second-stage loader using the propeller ROM protocol */
     message("Delivering second-stage loader");
     result = m_connection->loadImage(loaderImage, loaderImageSize, response, sizeof(response));

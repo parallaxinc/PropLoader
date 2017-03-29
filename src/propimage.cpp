@@ -1,6 +1,8 @@
 #include "propimage.h"
 #include "proploader.h"
 
+static uint8_t initialCallFrame[] = {0xFF, 0xFF, 0xF9, 0xFF, 0xFF, 0xFF, 0xF9, 0xFF};
+
 PropImage::PropImage()
     : m_imageData(NULL)
 {
@@ -53,10 +55,14 @@ int PropImage::validate()
     // make sure the file is big enough to contain all of the code
     if (m_imageSize < hdr->vbase)
         return IMAGE_TRUNCATED;
+        
+    // make sure the code starts in the right place
+    if (hdr->pbase != 0x0010)
+        return IMAGE_CORRUPTED;
 
     // verify the checksum
     uint8_t *p = m_imageData;
-    uint8_t chksum = SPIN_STACK_FRAME_CHECKSUM;
+    uint8_t chksum = m_imageData[hdr->vbase] == 0 ? /* .binary */ SPIN_STACK_FRAME_CHECKSUM : /* .eeprom */ 0;
     for (int cnt = m_imageSize; --cnt >= 0; )
         chksum += *p++;
     if (chksum != 0)
@@ -64,7 +70,7 @@ int PropImage::validate()
         
     // make sure there is no data after the code
     uint16_t idx = hdr->vbase;
-    while (idx < m_imageSize && idx < hdr->dbase && m_imageData[idx] == 0)
+    while (idx < m_imageSize && (m_imageData[idx] == 0 || (idx >= hdr->dbase - sizeof(initialCallFrame) && idx < hdr->dbase && m_imageData[idx] == initialCallFrame[idx - (hdr->dbase - sizeof(initialCallFrame))])))
         ++idx;
     if (idx < m_imageSize)
         return IMAGE_CORRUPTED;

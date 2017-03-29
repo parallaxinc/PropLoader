@@ -14,15 +14,15 @@
 #define SPIN_STACK_FRAME_CHECKSUM   0xEC
 
 /* spin object file header */
-typedef struct {
-    uint32_t clkfreq;
-    uint8_t clkmode;
+typedef struct {        // word offsets
+    uint32_t clkfreq;   // 0
+    uint8_t clkmode;    // 2
     uint8_t chksum;
-    uint16_t pbase;
-    uint16_t vbase;
-    uint16_t dbase;
-    uint16_t pcurr;
-    uint16_t dcurr;
+    uint16_t pbase;     // 3
+    uint16_t vbase;     // 4
+    uint16_t dbase;     // 5
+    uint16_t pcurr;     // 6
+    uint16_t dcurr;     // 7
 } SpinHdr;
 
 /* spin object */
