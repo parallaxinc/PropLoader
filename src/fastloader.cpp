@@ -135,6 +135,16 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     int32_t packetID, checksum;
     SpinHdr *hdr = (SpinHdr *)image;
 
+    // don't need to load beyond this even for .eeprom images
+    imageSize = hdr->vbase;
+    
+    /* compute the image checksum */
+    checksum = 0;
+    for (i = 0; i < imageSize; ++i)
+        checksum += image[i];
+    for (i = 0; i < (int)sizeof(initCallFrame); ++i)
+        checksum += initCallFrame[i];
+    
     /* compute the packet ID (number of packets to be sent) */
     packetID = (imageSize + m_connection->maxDataSize() - 1) / m_connection->maxDataSize();
 
@@ -143,15 +153,6 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     if (!loaderImage)
         return -1;
         
-    /* compute the image checksum */
-    checksum = 0;
-    for (i = 0; i < imageSize; ++i)
-        checksum += image[i];
-    if (image[hdr->dbase - sizeof(initCallFrame)] == 0) {
-        for (i = 0; i < (int)sizeof(initCallFrame); ++i)
-            checksum += initCallFrame[i];
-    }
-    
     /* load the second-stage loader using the propeller ROM protocol */
     message("Delivering second-stage loader");
     result = m_connection->loadImage(loaderImage, loaderImageSize, response, sizeof(response));
