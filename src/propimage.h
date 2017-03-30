@@ -13,6 +13,8 @@
 */
 #define SPIN_STACK_FRAME_CHECKSUM   0xEC
 
+#define MAX_IMAGE_SIZE              32768
+
 /* spin object file header */
 typedef struct {        // word offsets
     uint32_t clkfreq;   // 0
@@ -40,7 +42,8 @@ public:
     enum {
         SUCCESS = 0,
         IMAGE_TRUNCATED = -1,
-        IMAGE_CORRUPTED  = -2
+        IMAGE_CORRUPTED = -2,
+        IMAGE_TOO_LARGE = -3
     };
     PropImage();
     PropImage(uint8_t *imageData, int imageSize);

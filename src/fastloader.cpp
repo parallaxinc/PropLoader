@@ -147,7 +147,7 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     checksum = 0;
     for (i = 0; i < imageSize; ++i)
         checksum += image[i];
-    if (image[hdr->vbase] == 0) {
+    if (image[hdr->dbase - sizeof(initCallFrame)] == 0) {
         for (i = 0; i < (int)sizeof(initCallFrame); ++i)
             checksum += initCallFrame[i];
     }

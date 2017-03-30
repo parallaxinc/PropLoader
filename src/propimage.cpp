@@ -47,6 +47,7 @@ void PropImage::setClkMode(uint8_t clkMode)
 int PropImage::validate()
 {
     SpinHdr *hdr = (SpinHdr *)m_imageData;
+    uint8_t fullImage[MAX_IMAGE_SIZE];
 
     // make sure the image is at least the size of a Spin header
     if (m_imageSize <= (int)sizeof(SpinHdr))
@@ -56,21 +57,37 @@ int PropImage::validate()
     if (m_imageSize < hdr->vbase)
         return IMAGE_TRUNCATED;
         
+    // make sure the image isn't too large
+    if (m_imageSize > MAX_IMAGE_SIZE)
+        return IMAGE_TOO_LARGE;
+        
     // make sure the code starts in the right place
     if (hdr->pbase != 0x0010)
         return IMAGE_CORRUPTED;
 
+    // make a local full-sized copy of the image
+    memset(fullImage, 0, sizeof(fullImage));
+    memcpy(fullImage, m_imageData, m_imageSize);
+    
+    // make sure there is space for the initial call frame
+    if (hdr->dbase > MAX_IMAGE_SIZE)
+        return IMAGE_TOO_LARGE;
+
+    // setup the initial call frame
+    int callFrameStart = hdr->dbase - sizeof(initialCallFrame);
+    memcpy(&fullImage[callFrameStart], initialCallFrame, sizeof(initialCallFrame));
+        
     // verify the checksum
-    uint8_t *p = m_imageData;
-    uint8_t chksum = m_imageData[hdr->vbase] == 0 ? /* .binary */ SPIN_STACK_FRAME_CHECKSUM : /* .eeprom */ 0;
-    for (int cnt = m_imageSize; --cnt >= 0; )
+    uint8_t *p = fullImage;
+    uint8_t chksum = 0;
+    for (int cnt = MAX_IMAGE_SIZE; --cnt >= 0; )
         chksum += *p++;
     if (chksum != 0)
         return IMAGE_CORRUPTED;
         
     // make sure there is no data after the code
     uint16_t idx = hdr->vbase;
-    while (idx < m_imageSize && (m_imageData[idx] == 0 || (idx >= hdr->dbase - sizeof(initialCallFrame) && idx < hdr->dbase && m_imageData[idx] == initialCallFrame[idx - (hdr->dbase - sizeof(initialCallFrame))])))
+    while (idx < m_imageSize && (fullImage[idx] == 0 || (idx >= hdr->dbase - sizeof(initialCallFrame) && idx < hdr->dbase && fullImage[idx] == initialCallFrame[idx - (hdr->dbase - sizeof(initialCallFrame))])))
         ++idx;
     if (idx < m_imageSize)
         return IMAGE_CORRUPTED;
