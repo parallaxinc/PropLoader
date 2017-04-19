@@ -11,3 +11,8 @@ also be C++. I left them as C for now because they matched my original code bett
 The files sock.h and serial.h show the interfaces needed to support another platform.
 I can easily provide a Windows version of these files to cover running the loader
 under Linux, Mac, and Windows. The xxx_posix.c files support both Linux and the Mac.
+
+In addition to a standard C++ toolset you also need to install OpenSpin and have it
+in your path. 
+
+    https://github.com/parallaxinc/OpenSpin
