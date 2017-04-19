@@ -104,7 +104,7 @@ int SerialFind(const char* prefix, int (*check)(const char* port, void* data), v
 					//printf("Device path: %s\n", pDetData->DevicePath);
 					//printf("Friendly name: %s\n", fname);
 					//printf("Description: %s\n", desc);
-					if ((comx = strchr(fname, '(')) != NULL)
+					if ((comx = strrchr(fname, '(')) != NULL)
 					    ++comx;
 					else
 					    comx = fname;

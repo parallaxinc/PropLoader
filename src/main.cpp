@@ -115,11 +115,11 @@ int main(int argc, char *argv[])
     configSettings = NewBoardConfig(NULL, "");
 
     /* get the arguments */
-    for(i = 1; i < argc; ++i) {
+    for (i = 1; i < argc; ++i) {
 
         /* handle switches */
-        if(argv[i][0] == '-') {
-            switch(argv[i][1]) {
+        if (argv[i][0] == '-') {
+            switch (argv[i][1]) {
             case 'b':   // select a target board
                 if (argv[i][2])
                     board = &argv[i][2];
@@ -132,9 +132,9 @@ int main(int argc, char *argv[])
                 showMessageCodes = true;
                 break;
             case 'D':
-                if(argv[i][2])
+                if (argv[i][2])
                     p = &argv[i][2];
-                else if(++i < argc)
+                else if (++i < argc)
                     p = argv[i];
                 else
                     usage(argv[0]);
@@ -174,9 +174,9 @@ int main(int argc, char *argv[])
                 useSerial = false;
                 break;
             case 'I':   // add a directory to the .cfg include path
-                if(argv[i][2])
+                if (argv[i][2])
                     p = &argv[i][2];
-                else if(++i < argc)
+                else if (++i < argc)
                     p = argv[i];
                 else
                     usage(argv[0]);
