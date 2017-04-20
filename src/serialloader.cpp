@@ -352,7 +352,7 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
     
     /* verify the handshake response */
     if (cnt != sizeof(rxHandshake) + 4 || memcmp(packet2, rxHandshake, sizeof(rxHandshake)) != 0) {
-        message("Handshake failed");
+        nmessage(ERROR_PROPELLER_NOT_FOUND, portName());
         return -1;
     }
     
@@ -361,7 +361,7 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
     for (i = sizeof(rxHandshake); i < cnt; ++i)
         version = ((version >> 2) & 0x3F) | ((packet2[i] & 0x01) << 6) | ((packet2[i] & 0x20) << 2);
     if (version != 1) {
-        message("Wrong propeller version");
+        nmessage(ERROR_WRONG_PROPELLER_VERSION, version);
         return -1;
     }
     
@@ -376,12 +376,14 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
     /* check for timeout */
     if (cnt <= 0) {
         message("Timeout waiting for checksum");
+        nmessage(ERROR_DOWNLOAD_FAILED);
         return -1;
     }
     
     /* verify the checksum response */
     if (packet2[0] != 0xFE) {
         message("Loader checksum failed: expected 0xFE, got %02x", packet2[0]);
+        nmessage(ERROR_DOWNLOAD_FAILED);
         return -1;
     }
        

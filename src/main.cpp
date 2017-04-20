@@ -218,6 +218,12 @@ int main(int argc, char *argv[])
                     sprintf(buf, "/dev/%s-%s", PORT_PREFIX, port);
                     port = buf;
                 }
+                if (strncmp(port, "/dev/tty.", 9) == 0) {
+                    static char buf[64];
+                    sprintf(buf, "/dev/cu.%s", &port[9]);
+                    nmessage(INFO_USING_ALTERNATE_PORT, buf, port);
+                    port = buf;
+                }
 #endif
                 useSerial = true;
                 break;

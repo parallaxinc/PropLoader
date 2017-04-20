@@ -104,18 +104,38 @@ int SerialFind(const char* prefix, int (*check)(const char* port, void* data), v
 					//printf("Device path: %s\n", pDetData->DevicePath);
 					//printf("Friendly name: %s\n", fname);
 					//printf("Description: %s\n", desc);
-					if ((comx = strrchr(fname, '(')) != NULL)
-					    ++comx;
-					else
-					    comx = fname;
-					if ((p = strchr(comx, ')')) != NULL)
-					    *p = '\0';
-                                    if ((*check)(comx, data) == 0) {
-				        rc = 0;
-				        goto done;
-				    }
-				}
 
+                    // handle a friendly name with the device name embedded in the form "(COMnn)"
+                    if ((comx = strstr(fname, "(COM")) != NULL) {
+                        if (isdigit(comx[4])) {
+                            for (p = ++comx + 4; *p != '\0' && *p != ')'; ++p) {
+                                if (!isdigit(*p))
+                                    break;
+                            }
+                            if (*p == ')') {
+                                *p = '\0';
+                                if ((*check)(comx, data) == 0) {
+				                    rc = 0;
+				                    goto done;
+				                }
+                            }
+                        }
+                    }
+
+                    // handle a friendly name of the form "COMnn"
+                    else if (strncmp(fname, "COM", 3) == 0) {
+                        for (p = fname + 3; *p != '\0'; ++p) {
+                            if (!isdigit(*p))
+                                break;
+                        }
+                        if (*p == '\0') {
+                            if ((*check)(comx, data) == 0) {
+			                    rc = 0;
+			                    goto done;
+			                }
+                        }
+                    }
+ 				}
 			}
 			else {
 				printf("error: SetupDiGetDeviceInterfaceDetail failed. (err=%lx)\n", GetLastError());

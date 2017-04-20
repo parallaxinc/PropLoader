@@ -112,7 +112,9 @@ $(OSINT)
 CFLAGS+=-I$(OBJDIR)
 CPPFLAGS=$(CFLAGS)
 
-all:	 $(BINDIR)/proploader$(EXT) $(BUILD)/blink-fast.binary $(BUILD)/blink-slow.binary $(BUILD)/toggle.elf
+all:	$(BINDIR)/proploader$(EXT) $(BUILD)/blink-fast.binary $(BUILD)/blink-slow.binary
+
+ctests:	$(BUILD)/toggle.elf
 
 $(OBJS):	$(OBJDIR)/created $(HDRS) $(OBJDIR)/IP_Loader.h Makefile
 

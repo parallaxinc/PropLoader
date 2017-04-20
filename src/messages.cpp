@@ -38,7 +38,8 @@ static const char *infoText[] = {
 "Writing '%s' to the SD card",
 "%ld bytes remaining             ",
 "%ld bytes sent                  ",
-"Setting module name to '%s'"
+"Setting module name to '%s'",
+"Using port %s instead of port %s"
 };
 
 // message codes 100 and up -- must be in the same order as the ERROR_xxx enum values in messsages.h
@@ -47,7 +48,7 @@ static const char *errorText[] = {
 "Invalid address: %s",
 "Download failed: %d",
 "Can't open file '%s'",
-"Propeller not found on port %s",
+"Propeller not found on %s",
 "Failed to enter terminal mode",
 "Unrecognized wi-fi module firmware\n\
     Version is %s but expected %s.\n\
@@ -68,7 +69,8 @@ static const char *errorText[] = {
 "Internal error",
 "Insufficient memory",
 "No reset method '%s'",
-"Reset failed"
+"Reset failed",
+"Wrong Propeller version: got %d, expected 1"
 };
 
 static void vmessage(const char *fmt, va_list ap, int eol);
@@ -127,7 +129,7 @@ void nprogress(int code, ...)
 {
     va_list ap;
     va_start(ap, code);
-    vnmessage(code, messageText(code), ap, '\n');
+    vnmessage(code, messageText(code), ap, '\r');
     va_end(ap);
 }
 

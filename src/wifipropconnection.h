@@ -14,8 +14,8 @@
 #define WIFI_PROGRAM_BAUD_RATE      115200
 
 // timeout used when making an HTTP request or connecting a telnet session
-#define CONNECT_TIMEOUT             2000
-#define RESPONSE_TIMEOUT            2000
+#define CONNECT_TIMEOUT             3000
+#define RESPONSE_TIMEOUT            3000
 #define DISCOVER_REPLY_TIMEOUT      250
 #define DISCOVER_ATTEMPTS           3
 
@@ -60,6 +60,7 @@ public:
     static int findModules(bool show, WiFiInfoList &list, int count = -1);
 private:
     int sendRequest(uint8_t *req, int reqSize, uint8_t *res, int resMax, int *pResult);
+    static uint8_t *getBody(uint8_t *msg, int msgSize, int *pBodySize);
     static void dumpHdr(const uint8_t *buf, int size);
     static void dumpResponse(const uint8_t *buf, int size);
     char *m_ipaddr;

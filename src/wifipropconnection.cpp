@@ -98,7 +98,7 @@ int WiFiPropConnection::identify(int *pVersion)
 
 int WiFiPropConnection::loadImage(const uint8_t *image, int imageSize, uint8_t *response, int responseSize)
 {
-    uint8_t buffer[1024], *packet, *p;
+    uint8_t buffer[1024], *packet, *body;
     int hdrCnt, result, cnt;
     
     /* use the initial loader baud rate */
@@ -126,22 +126,13 @@ Content-Length: %d\r\n\
     }
     
     /* find the response body */
-    p = buffer;
-    while (cnt >= 4 && (p[0] != '\r' || p[1] != '\n' || p[2] != '\r' || p[3] != '\n')) {
-        --cnt;
-        ++p;
-    }
-    
-    /* make sure we found the \r\n\r\n that terminates the header */
-    if (cnt < 4)
+    if (!(body = getBody(buffer, cnt, &cnt)))
         return -1;
-    cnt -= 4;
-    p += 4;
-    
+
     /* copy the body to the response if it fits */
-    if (cnt > responseSize)
+    if (cnt != responseSize)
         return -1;
-    memcpy(response, p, cnt);
+    memcpy(response, body, cnt);
         
     return 0;
 }
@@ -351,15 +342,15 @@ bool WiFiPropConnection::isOpen()
 
 int WiFiPropConnection::getVersion()
 {
-    uint8_t buffer[1024];
-    int hdrCnt, result, srcLen;
-    char *src, *dst;
+    uint8_t buffer[1024], *body;
+    int hdrCnt, result, cnt;
+    char *dst;
     
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
 GET /wx/setting?name=version HTTP/1.1\r\n\
 \r\n");
 
-    if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
+    if ((cnt = sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result)) == -1) {
         message("Get version failed");
         return -1;
     }
@@ -368,28 +359,23 @@ GET /wx/setting?name=version HTTP/1.1\r\n\
         return -1;
     }
     
-    src = (char *)buffer; 
-    srcLen = strlen(src);
-    
-    while (srcLen >= 4) {
-        if (src[0] == '\r' && src[1] == '\n' && src[2] == '\r' && src[3] == '\n')
-            break;
-        --srcLen;
-        ++src;
-    }
-    if (srcLen <= 4) {
+    if (!(body = getBody(buffer, cnt, &cnt)))
+        return -1;
+
+    if (cnt <= 0) {
         message("No version string");
         return -1;
     }
     
-    if (!(dst = (char *)malloc(srcLen - 4 + 1))) {
+    if (!(dst = (char *)malloc(cnt + 1))) {
         nmessage(ERROR_INSUFFICIENT_MEMORY);
         return -1;
     }
     
     if (m_version)
         free(m_version);
-    strcpy(dst, src + 4);
+    strncpy(dst, (char *)body, cnt);
+    body[cnt] = '\0';
     m_version = dst;
 
     return 0;
@@ -559,6 +545,26 @@ int WiFiPropConnection::sendRequest(uint8_t *req, int reqSize, uint8_t *res, int
     return cnt;
 }
     
+uint8_t *WiFiPropConnection::getBody(uint8_t *msg, int msgSize, int *pBodySize)
+{
+    uint8_t *p = msg;
+    int cnt = msgSize;
+
+    /* find the message body */
+    while (cnt >= 4 && (p[0] != '\r' || p[1] != '\n' || p[2] != '\r' || p[3] != '\n')) {
+        --cnt;
+        ++p;
+    }
+    
+    /* make sure we found the \r\n\r\n that terminates the header */
+    if (cnt < 4)
+        return NULL;
+
+    /* return the body */
+    *pBodySize = cnt - 4;
+    return p + 4;
+}
+
 void WiFiPropConnection::dumpHdr(const uint8_t *buf, int size)
 {
     int startOfLine = true;

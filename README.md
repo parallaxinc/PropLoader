@@ -16,3 +16,16 @@ In addition to a standard C++ toolset you also need to install OpenSpin and have
 in your path. 
 
     https://github.com/parallaxinc/OpenSpin
+
+To build the Windows version under Linux you will need the MinGW toolchain installed.
+Then type:
+
+    make CROSS=win32
+
+Output files are placed:
+
+    Macintosh:	../proploader-macosx-build/bin
+    Linux:	../proploader-linux-build/bin
+    Windows:	../proploader-msys-build/bin
+
+To build the C test programs you also need PropGCC installed an in your path.

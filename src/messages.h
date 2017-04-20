@@ -45,6 +45,7 @@ enum {
     /* 008 */ INFO_BYTES_REMAINING,
     /* 009 */ INFO_BYTES_SENT,
     /* 010 */ INFO_SETTING_MODULE_NAME,
+    /* 011 */ INFO_USING_ALTERNATE_PORT,
     MAX_INFO,
     
     MIN_ERROR                                       = 100,
