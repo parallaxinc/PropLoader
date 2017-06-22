@@ -116,11 +116,23 @@ Content-Length: %d\r\n\
     memcpy(packet,  buffer, hdrCnt);
     memcpy(&packet[hdrCnt], image, imageSize);
     
-    if ((cnt = sendRequest(packet, hdrCnt + imageSize, buffer, sizeof(buffer), &result)) == -1) {
+    if ((cnt = sendRequest(packet, hdrCnt + imageSize, buffer, sizeof(buffer) - 1, &result)) == -1) {
         message("Load request failed");
         return -1;
     }
     else if (result != 200) {
+        char *body = (char *)getBody(buffer, cnt, &cnt);
+        if (body) {
+            body[cnt] = '\0';
+            if (strncasecmp(body, "RX handshake timeout", strlen("RX handshake timeout")) == 0
+            ||  strncasecmp(body, "RX handshake failed",  strlen("RX handshake failed")) == 0) {
+                nerror(ERROR_PROPELLER_NOT_FOUND, portName());
+            }
+            else if (strncasecmp(body, "Wrong Propeller version: got ", strlen("Wrong Propeller version: got ")) == 0) {
+                int version = atoi(&body[strlen("Wrong Propeller version: got ")]);
+                nerror(ERROR_WRONG_PROPELLER_VERSION, version);
+            }
+        }
         message("Load returned %d", result);
         return -1;
     }
@@ -434,7 +446,7 @@ int WiFiPropConnection::generateResetSignal()
     int hdrCnt, result;
     
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
-POST /wx/propeller/reset?reset-pin=%d HTTP/1.1\r\n\
+POST /propeller/reset?reset-pin=%d HTTP/1.1\r\n\
 \r\n", m_resetPin);
 
     if (sendRequest(buffer, hdrCnt, buffer, sizeof(buffer), &result) == -1) {
