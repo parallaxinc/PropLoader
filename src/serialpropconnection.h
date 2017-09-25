@@ -35,7 +35,7 @@ public:
     int generateResetSignal();
     int identify(int *pVersion);
     int loadImage(const uint8_t *image, int imageSize, uint8_t *response, int responseSize);
-    int loadImage(const uint8_t *image, int imageSize, LoadType loadType = ltDownloadAndRun);
+    int loadImage(const uint8_t *image, int imageSize, LoadType loadType = ltDownloadAndRun, int info = false);
     int sendData(const uint8_t *buf, int len);
     int receiveDataTimeout(uint8_t *buf, int len, int timeout);
     int receiveDataExactTimeout(uint8_t *buf, int len, int timeout);

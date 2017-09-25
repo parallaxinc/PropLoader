@@ -149,10 +149,14 @@ Content-Length: %d\r\n\
     return 0;
 }
 
-int WiFiPropConnection::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
+int WiFiPropConnection::loadImage(const uint8_t *image, int imageSize, LoadType loadType, int info)
 {
     uint8_t buffer[1024], *packet;
     int hdrCnt, result;
+    
+    /* WX image buffer is limited to 2K */
+    if (imageSize > 2048)
+        return -1;
     
     /* use the initial loader baud rate */
     if (setBaudRate(loaderBaudRate()) != 0) 

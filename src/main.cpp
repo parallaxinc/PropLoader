@@ -67,7 +67,8 @@ Module names should only include the characters A-Z, a-z, 0-9, or '-' and should
 end with a '-'. They must also be less than 32 characters long.\n\
 \n\
 Variables that can be set with -D are:\n\
-  clkfreq clkmode baudrate reset rxpin txpin tvpin\n\
+  clkfreq clkmode reset baudrate rxpin txpin tvpin\n\
+  loader-baud-rate fast-loader-baud-rate program-baud-rate\n\
   sdspi-do sdspi-clk sdspi-di sdspi-cs\n\
   sdspi-clr sdspi-inc sdspi-start sdspi-width spdspi-addr\n\
   sdspi-config1 sdspi-config2\n\
@@ -534,7 +535,7 @@ int main(int argc, char *argv[])
     /* load a file */
     else if (file) {
         loader.setConnection(connection);
-        if (file && (sts = loader.fastLoadImage(image, imageSize, (LoadType)loadType)) != 0) {
+        if ((sts = loader.fastLoadImage(image, imageSize, (LoadType)loadType)) != 0) {
             nmessage(ERROR_DOWNLOAD_FAILED, sts);
             return 1;
         }

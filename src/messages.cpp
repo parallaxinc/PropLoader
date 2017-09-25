@@ -39,7 +39,10 @@ static const char *infoText[] = {
 "%ld bytes remaining             ",
 "%ld bytes sent                  ",
 "Setting module name to '%s'",
-"Using port %s instead of port %s"
+"Using port %s instead of port %s",
+"Stepping down to %d baud",
+"Using single-stage download",
+"Verifying EEPROM"
 };
 
 // message codes 100 and up -- must be in the same order as the ERROR_xxx enum values in messsages.h
@@ -70,7 +73,9 @@ static const char *errorText[] = {
 "Insufficient memory",
 "No reset method '%s'",
 "Reset failed",
-"Wrong Propeller version: got %d, expected 1"
+"Wrong Propeller version: got %d, expected 1",
+"RAM checksum failed: got %d, expected %d",
+"EEPROM checksum failed: got %d, expected %d"
 };
 
 static void vmessage(const char *fmt, va_list ap, int eol);

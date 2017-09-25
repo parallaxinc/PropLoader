@@ -21,7 +21,8 @@ public:
     int fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType = ltDownloadAndRun);
     static uint8_t *readFile(const char *file, int *pImageSize);
 private:
-    uint8_t *generateInitialLoaderImage(int packetID, int *pLength);
+    int fastLoadImageHelper(const uint8_t *image, int imageSize, LoadType loadType, int fastLoaderBaudRate);
+    uint8_t *generateInitialLoaderImage(int packetID, int baudRate, int *pLength);
     int transmitPacket(int id, const uint8_t *payload, int payloadSize, int *pResult, int timeout = 2000);
     static uint8_t *readSpinBinaryFile(FILE *fp, int *pImageSize);
     static uint8_t *readElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize);

@@ -315,14 +315,24 @@ fail:
     return -1;
 }
 
+/* returns:
+    0 for success
+    -1 for fatal errors
+    -2 for errors where a lower baud rate might help
+*/
 int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, uint8_t *response, int responseSize)
 {
     if (loadImage(image, imageSize, ltDownloadAndRun) != 0)
         return -1;
-    return receiveDataExactTimeout(response, responseSize, 1000) == responseSize ? 0 : -1;
+    return receiveDataExactTimeout(response, responseSize, 1000) == responseSize ? 0 : -2;
 }
 
-int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
+#define ACK_POLLING_INTERVAL        10
+#define RAM_PROGRAMMING_RETRIES     (10000 / ACK_POLLING_INTERVAL)
+#define EEPROM_PROGRAMMING_RETRIES  (5000 / ACK_POLLING_INTERVAL)
+#define EEPROM_VERIFY_RETRIES       (2000 / ACK_POLLING_INTERVAL)
+
+int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadType loadType, int info)
 {
     uint8_t packet2[MAX_BUFFER_SIZE]; // must be at least as big as maxDataSize()
     int packetSize, version, retries, cnt, i;
@@ -340,7 +350,11 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
     generateResetSignal();
     
     /* send the packet including the image */
+    if (info)
+        nmessage(INFO_DOWNLOADING, portName());
     sendData(packet, packetSize);
+    if (info)
+        nmessage(INFO_BYTES_SENT, (long)imageSize);
     free(packet);
     
     /* clock out the handshake response */
@@ -365,9 +379,12 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
         return -1;
     }
     
-    /* receive the checksum response */
+    if (info)
+        nmessage(INFO_VERIFYING_RAM);
+
+    /* receive the RAM verify response */
     packet2[0] = 0xF9;
-    retries = 1000;
+    retries = RAM_PROGRAMMING_RETRIES;
     do {
         sendData(packet2, 1);
         cnt = receiveDataExactTimeout(packet2, 1, 10);
@@ -385,6 +402,60 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
         message("Loader checksum failed: expected 0xFE, got %02x", packet2[0]);
         nmessage(ERROR_DOWNLOAD_FAILED);
         return -1;
+    }
+    
+    /* handle EEPROM programming */
+    if (loadType == ltDownloadAndProgram || loadType == ltDownloadAndProgramAndRun) {
+    
+        if (info)
+            nmessage(INFO_PROGRAMMING_EEPROM);
+
+        /* receive the EEPROM programming complete response */
+        packet2[0] = 0xF9;
+        retries = EEPROM_PROGRAMMING_RETRIES;
+        do {
+            sendData(packet2, 1);
+            cnt = receiveDataExactTimeout(packet2, 1, 10);
+        } while (cnt <= 0 && --retries > 0);
+
+        /* check for timeout */
+        if (cnt <= 0) {
+            message("Timeout waiting for checksum");
+            nmessage(ERROR_DOWNLOAD_FAILED);
+            return -1;
+        }
+    
+        /* verify the checksum response */
+        if (packet2[0] != 0xFE) {
+            message("Loader checksum failed: expected 0xFE, got %02x", packet2[0]);
+            nmessage(ERROR_DOWNLOAD_FAILED);
+            return -1;
+        }
+    
+        if (info)
+            nmessage(INFO_VERIFYING_EEPROM);
+
+        /* receive the EEPROM verify response */
+        packet2[0] = 0xF9;
+        retries = EEPROM_VERIFY_RETRIES;
+        do {
+            sendData(packet2, 1);
+            cnt = receiveDataExactTimeout(packet2, 1, 10);
+        } while (cnt <= 0 && --retries > 0);
+
+        /* check for timeout */
+        if (cnt <= 0) {
+            message("Timeout waiting for checksum");
+            nmessage(ERROR_DOWNLOAD_FAILED);
+            return -1;
+        }
+    
+        /* verify the checksum response */
+        if (packet2[0] != 0xFE) {
+            message("Loader checksum failed: expected 0xFE, got %02x", packet2[0]);
+            nmessage(ERROR_DOWNLOAD_FAILED);
+            return -1;
+        }
     }
        
     /* return successfully */

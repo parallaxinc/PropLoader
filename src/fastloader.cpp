@@ -47,7 +47,7 @@ static void setLong(uint8_t *buf, uint32_t value)
      buf[0] = value;
 }
 
-uint8_t *Loader::generateInitialLoaderImage(int packetID, int *pLength)
+uint8_t *Loader::generateInitialLoaderImage(int packetID, int fastLoaderBaudRate, int *pLength)
 {
     int initAreaOffset = sizeof(rawLoaderImage) + RAW_LOADER_INIT_OFFSET_FROM_END;
     uint8_t *loaderImage;
@@ -67,16 +67,16 @@ uint8_t *Loader::generateInitialLoaderImage(int packetID, int *pLength)
     SetHostInitializedValue(loaderImage, initAreaOffset +  4, (int)trunc(80000000.0 / m_connection->loaderBaudRate() + 0.5));
 
     // Final Bit Time.
-    SetHostInitializedValue(loaderImage, initAreaOffset +  8, (int)trunc(80000000.0 / m_connection->fastLoaderBaudRate() + 0.5));
+    SetHostInitializedValue(loaderImage, initAreaOffset +  8, (int)trunc(80000000.0 / fastLoaderBaudRate + 0.5));
     
     // 1.5x Final Bit Time minus maximum start bit sense error.
-    SetHostInitializedValue(loaderImage, initAreaOffset + 12, (int)trunc(1.5 * ClockSpeed / m_connection->fastLoaderBaudRate() - MAX_RX_SENSE_ERROR + 0.5));
+    SetHostInitializedValue(loaderImage, initAreaOffset + 12, (int)trunc(1.5 * ClockSpeed / fastLoaderBaudRate - MAX_RX_SENSE_ERROR + 0.5));
     
     // Failsafe Timeout (seconds-worth of Loader's Receive loop iterations).
     SetHostInitializedValue(loaderImage, initAreaOffset + 16, (int)trunc(2.0 * ClockSpeed / (3 * 4) + 0.5));
     
     // EndOfPacket Timeout (2 bytes worth of Loader's Receive loop iterations).
-    SetHostInitializedValue(loaderImage, initAreaOffset + 20, (int)trunc((2.0 * ClockSpeed / m_connection->fastLoaderBaudRate()) * (10.0 / 12.0) + 0.5));
+    SetHostInitializedValue(loaderImage, initAreaOffset + 20, (int)trunc((2.0 * ClockSpeed / fastLoaderBaudRate) * (10.0 / 12.0) + 0.5));
     
     // PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 24, Max(Round(ClockSpeed * SSSHTime), 14));
     // PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 28, Max(Round(ClockSpeed * SCLHighTime), 14));
@@ -130,8 +130,36 @@ int Loader::fastLoadFile(const char *file, LoadType loadType)
 
 int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType)
 {
+    int fastLoaderBaudRate = m_connection->fastLoaderBaudRate();
+    int sts;
+    
+    for (;;) {
+        if ((sts = fastLoadImageHelper(image, imageSize, loadType, fastLoaderBaudRate)) == 0)
+            return 0;
+        else if (sts == -2) {
+            if ((fastLoaderBaudRate /= 2) >= 115200)
+                nmessage(INFO_STEPPING_DOWN_BAUD_RATE, fastLoaderBaudRate);
+            else
+                break;
+        }
+        else
+            return sts;
+    }
+        
+    /* try a slow load if all baud rates failed */
+    nmessage(INFO_USING_SINGLE_STAGE_LOADER);
+    return m_connection->loadImage(image, imageSize, loadType, true);
+}
+
+/* returns:
+    0 for success
+    -1 for fatal errors
+    -2 for errors where a lower baud rate might help
+*/
+int Loader::fastLoadImageHelper(const uint8_t *image, int imageSize, LoadType loadType, int fastLoaderBaudRate)
+{
     uint8_t *loaderImage, response[8];
-    int loaderImageSize, remaining, result, i;
+    int loaderImageSize, remaining, result, sts, i;
     int32_t packetID, checksum;
     SpinHdr *hdr = (SpinHdr *)image;
 
@@ -149,25 +177,25 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     packetID = (imageSize + m_connection->maxDataSize() - 1) / m_connection->maxDataSize();
 
     /* generate a loader image */
-    loaderImage = generateInitialLoaderImage(packetID, &loaderImageSize);
+    loaderImage = generateInitialLoaderImage(packetID, fastLoaderBaudRate, &loaderImageSize);
     if (!loaderImage)
         return -1;
         
-    /* load the second-stage loader using the propeller ROM protocol */
+    /* load the second-stage loader using the Propeller ROM protocol */
     message("Delivering second-stage loader");
     result = m_connection->loadImage(loaderImage, loaderImageSize, response, sizeof(response));
     free(loaderImage);
     if (result != 0)
-        return -1;
+        return result;
 
     result = getLong(&response[0]);
     if (result != packetID) {
         message("Second-stage loader failed to start - packetID %d, result %d", packetID, result);
-        return -1;
+        return -2;
     }
 
     /* switch to the final baud rate */
-    m_connection->setBaudRate(m_connection->fastLoaderBaudRate());
+    m_connection->setBaudRate(fastLoaderBaudRate);
     
     /* open the transparent serial connection that will be used for the second-stage loader */
     if (m_connection->connect() != 0) {
@@ -183,11 +211,11 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
         nprogress(INFO_BYTES_REMAINING, (long)remaining);
         if ((size = remaining) > m_connection->maxDataSize())
             size = m_connection->maxDataSize();
-        if (transmitPacket(packetID, image, size, &result) != 0)
-            return -1;
+        if ((sts = transmitPacket(packetID, image, size, &result)) != 0)
+            return sts;
         if (result != packetID - 1) {
             message("Unexpected response: expected %d, received %d", packetID - 1, result);
-            return -1;
+            return -2;
         }
         remaining -= size;
         image += size;
@@ -212,21 +240,21 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     
     /* transmit the RAM verify packet and verify the checksum */
     nmessage(INFO_VERIFYING_RAM);
-    if (transmitPacket(packetID, verifyRAM, sizeof(verifyRAM), &result) != 0)
-        return -1;
+    if ((sts = transmitPacket(packetID, verifyRAM, sizeof(verifyRAM), &result)) != 0)
+        return sts;
     if (result != -checksum) {
-        message("Checksum error: expected %08x, got %08x", -checksum, result);
-        return -1;
+        nmessage(ERROR_RAM_CHECKSUM_FAILED, result, -checksum);
+        return -2;
     }
     packetID = -checksum;
     
     if (loadType & ltDownloadAndProgram) {
         nmessage(INFO_PROGRAMMING_EEPROM);
-        if (transmitPacket(packetID, programVerifyEEPROM, sizeof(programVerifyEEPROM), &result, 8000) != 0)
-            return -1;
+        if ((sts = transmitPacket(packetID, programVerifyEEPROM, sizeof(programVerifyEEPROM), &result, 8000)) != 0)
+            return sts;
         if (result != -checksum*2) {
-            message("EEPROM programming error: expected %08x, got %08x", -checksum*2, result);
-            return -1;
+            nmessage(ERROR_EEPROM_CHECKSUM_FAILED, result, -checksum*2);
+            return -2;
         }
         packetID = -checksum*2;
     }
@@ -234,22 +262,27 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     /* transmit the final launch packets */
     
     message("Sending readyToLaunch packet");
-    if (transmitPacket(packetID, readyToLaunch, sizeof(readyToLaunch), &result) != 0)
-        return -1;
+    if ((sts = transmitPacket(packetID, readyToLaunch, sizeof(readyToLaunch), &result)) != 0)
+        return sts;
     if (result != packetID - 1) {
         message("ReadyToLaunch failed: expected %08x, got %08x", packetID - 1, result);
-        return -1;
+        return -2;
     }
     --packetID;
     
     message("Sending launchNow packet");
-    if (transmitPacket(packetID, launchNow, sizeof(launchNow), NULL) != 0)
-        return -1;
+    if ((sts = transmitPacket(packetID, launchNow, sizeof(launchNow), NULL)) != 0)
+        return sts;
     
     /* return successfully */
     return 0;
 }
 
+/* returns:
+    0 for success
+    -1 for fatal errors
+    -2 for errors where a lower baud rate might help
+*/
 int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int *pResult, int timeout)
 {
     int packetSize = 2*sizeof(uint32_t) + payloadSize;
@@ -311,6 +344,6 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
     
     /* return timeout */
     message("transmitPacket %d failed - timeout", id);
-    return -1;
+    return -2;
 }
 
