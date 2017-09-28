@@ -49,7 +49,7 @@ static const char *infoText[] = {
 static const char *errorText[] = {
 "Option -n can only be used to name wifi modules",
 "Invalid address: %s",
-"Download failed: %d",
+"Download failed",
 "Can't open file '%s'",
 "Propeller not found on %s",
 "Failed to enter terminal mode",
@@ -74,8 +74,11 @@ static const char *errorText[] = {
 "No reset method '%s'",
 "Reset failed",
 "Wrong Propeller version: got %d, expected 1",
-"RAM checksum failed: got %d, expected %d",
-"EEPROM checksum failed: got %d, expected %d"
+"RAM checksum failed",
+"EEPROM checksum failed",
+"EEPROM verify failed",
+"Communication lost",
+"Load image failed"
 };
 
 static void vmessage(const char *fmt, va_list ap, int eol);

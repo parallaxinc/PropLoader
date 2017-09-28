@@ -339,12 +339,16 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
     uint8_t *packet;
     
     /* use the loader baud rate */
-    if (setBaudRate(loaderBaudRate()) != 0) 
+    if (setBaudRate(loaderBaudRate()) != 0) {
+        nerror(ERROR_FAILED_TO_SET_BAUD_RATE);
         return -1;
+    }
         
     /* generate a loader packet */
-    if (!(packet = GenerateLoaderPacket(image, imageSize, &packetSize, loadType)))
+    if (!(packet = GenerateLoaderPacket(image, imageSize, &packetSize, loadType))) {
+        nerror(ERROR_INTERNAL_CODE_ERROR);
         return -1;
+    }
 
     /* reset the Propeller */
     generateResetSignal();
@@ -392,15 +396,14 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
 
     /* check for timeout */
     if (cnt <= 0) {
-        message("Timeout waiting for checksum");
-        nmessage(ERROR_DOWNLOAD_FAILED);
+        nmessage(ERROR_COMMUNICATION_LOST);
         return -1;
     }
     
     /* verify the checksum response */
     if (packet2[0] != 0xFE) {
-        message("Loader checksum failed: expected 0xFE, got %02x", packet2[0]);
-        nmessage(ERROR_DOWNLOAD_FAILED);
+        //message("RAM checksum failed: expected 0xFE, got %02x", packet2[0]);
+        nmessage(ERROR_RAM_CHECKSUM_FAILED);
         return -1;
     }
     
@@ -420,15 +423,14 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
 
         /* check for timeout */
         if (cnt <= 0) {
-            message("Timeout waiting for checksum");
-            nmessage(ERROR_DOWNLOAD_FAILED);
+            nmessage(ERROR_COMMUNICATION_LOST);
             return -1;
         }
     
         /* verify the checksum response */
         if (packet2[0] != 0xFE) {
-            message("Loader checksum failed: expected 0xFE, got %02x", packet2[0]);
-            nmessage(ERROR_DOWNLOAD_FAILED);
+            //message("EEPROM checksum failed: expected 0xFE, got %02x", packet2[0]);
+            nmessage(ERROR_EEPROM_CHECKSUM_FAILED);
             return -1;
         }
     
@@ -446,14 +448,14 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
         /* check for timeout */
         if (cnt <= 0) {
             message("Timeout waiting for checksum");
-            nmessage(ERROR_DOWNLOAD_FAILED);
+            nmessage(ERROR_COMMUNICATION_LOST);
             return -1;
         }
     
         /* verify the checksum response */
         if (packet2[0] != 0xFE) {
-            message("Loader checksum failed: expected 0xFE, got %02x", packet2[0]);
-            nmessage(ERROR_DOWNLOAD_FAILED);
+            //message("EEPROM verify failed: expected 0xFE, got %02x", packet2[0]);
+            nmessage(ERROR_EEPROM_VERIFY_FAILED);
             return -1;
         }
     }

@@ -536,7 +536,7 @@ int main(int argc, char *argv[])
     else if (file) {
         loader.setConnection(connection);
         if ((sts = loader.fastLoadImage(image, imageSize, (LoadType)loadType)) != 0) {
-            nmessage(ERROR_DOWNLOAD_FAILED, sts);
+            nmessage(ERROR_DOWNLOAD_FAILED);
             return 1;
         }
         nmessage(INFO_DOWNLOAD_SUCCESSFUL);

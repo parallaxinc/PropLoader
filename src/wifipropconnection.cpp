@@ -96,6 +96,12 @@ int WiFiPropConnection::identify(int *pVersion)
     return 0;
 }
 
+static int beginsWith(const char *body, const char *str)
+{
+    int length = strlen(str);
+    return strncasecmp(body, str, length) == 0;
+}
+    
 int WiFiPropConnection::loadImage(const uint8_t *image, int imageSize, uint8_t *response, int responseSize)
 {
     uint8_t buffer[1024], *packet, *body;
@@ -122,19 +128,38 @@ Content-Length: %d\r\n\
     }
     else if (result != 200) {
         char *body = (char *)getBody(buffer, cnt, &cnt);
+        int sts = -1;
         if (body) {
             body[cnt] = '\0';
-            if (strncasecmp(body, "RX handshake timeout", strlen("RX handshake timeout")) == 0
-            ||  strncasecmp(body, "RX handshake failed",  strlen("RX handshake failed")) == 0) {
+            if (beginsWith(body, "RX handshake timeout")) {
+                nerror(ERROR_COMMUNICATION_LOST);
+            }
+            else if (beginsWith(body, "RX handshake failed")) {
                 nerror(ERROR_PROPELLER_NOT_FOUND, portName());
             }
-            else if (strncasecmp(body, "Wrong Propeller version: got ", strlen("Wrong Propeller version: got ")) == 0) {
+            else if (beginsWith(body, "Wrong Propeller version: got ")) {
                 int version = atoi(&body[strlen("Wrong Propeller version: got ")]);
                 nerror(ERROR_WRONG_PROPELLER_VERSION, version);
             }
+            else if (beginsWith(body, "Checksum timeout")) {
+                nerror(ERROR_COMMUNICATION_LOST);
+            }
+            else if (beginsWith(body, "Checksum error")) {
+                nerror(ERROR_RAM_CHECKSUM_FAILED);
+            }
+            else if (beginsWith(body, "Load image failed")) {
+                nerror(ERROR_LOAD_IMAGE_FAILED);
+            }
+            else if (beginsWith(body, "StartAck timeout")) {
+                nerror(ERROR_COMMUNICATION_LOST);
+                sts = -2;
+            }
+            else {
+                nerror(ERROR_INTERNAL_CODE_ERROR);
+            }
         }
         message("Load returned %d", result);
-        return -1;
+        return sts;
     }
     
     /* find the response body */
@@ -152,7 +177,7 @@ Content-Length: %d\r\n\
 int WiFiPropConnection::loadImage(const uint8_t *image, int imageSize, LoadType loadType, int info)
 {
     uint8_t buffer[1024], *packet;
-    int hdrCnt, result;
+    int hdrCnt, result, cnt;
     
     /* WX image buffer is limited to 2K */
     if (imageSize > 2048)
@@ -173,13 +198,40 @@ Content-Length: %d\r\n\
     memcpy(packet,  buffer, hdrCnt);
     memcpy(&packet[hdrCnt], image, imageSize);
     
-    if (sendRequest(packet, hdrCnt + imageSize, buffer, sizeof(buffer), &result) == -1) {
+    if ((cnt = sendRequest(packet, hdrCnt + imageSize, buffer, sizeof(buffer), &result)) == -1) {
         message("Load request failed");
         return -1;
     }
     else if (result != 200) {
+        char *body = (char *)getBody(buffer, cnt, &cnt);
+        int sts = -1;
+        if (body) {
+            body[cnt] = '\0';
+            if (beginsWith(body, "RX handshake timeout")) {
+                nerror(ERROR_COMMUNICATION_LOST);
+            }
+            else if (beginsWith(body, "RX handshake failed")) {
+                nerror(ERROR_PROPELLER_NOT_FOUND, portName());
+            }
+            else if (beginsWith(body, "Wrong Propeller version: got ")) {
+                int version = atoi(&body[strlen("Wrong Propeller version: got ")]);
+                nerror(ERROR_WRONG_PROPELLER_VERSION, version);
+            }
+            else if (beginsWith(body, "Checksum timeout")) {
+                nerror(ERROR_COMMUNICATION_LOST);
+            }
+            else if (beginsWith(body, "Checksum error")) {
+                nerror(ERROR_RAM_CHECKSUM_FAILED);
+            }
+            else if (beginsWith(body, "Load image failed")) {
+                nerror(ERROR_LOAD_IMAGE_FAILED);
+            }
+            else {
+                nerror(ERROR_INTERNAL_CODE_ERROR);
+            }
+        }
         message("Load returned %d", result);
-        return -1;
+        return sts;
     }
     
     return 0;

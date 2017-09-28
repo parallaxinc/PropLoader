@@ -243,7 +243,7 @@ int Loader::fastLoadImageHelper(const uint8_t *image, int imageSize, LoadType lo
     if ((sts = transmitPacket(packetID, verifyRAM, sizeof(verifyRAM), &result)) != 0)
         return sts;
     if (result != -checksum) {
-        nmessage(ERROR_RAM_CHECKSUM_FAILED, result, -checksum);
+        nmessage(ERROR_RAM_CHECKSUM_FAILED);
         return -2;
     }
     packetID = -checksum;
@@ -253,7 +253,7 @@ int Loader::fastLoadImageHelper(const uint8_t *image, int imageSize, LoadType lo
         if ((sts = transmitPacket(packetID, programVerifyEEPROM, sizeof(programVerifyEEPROM), &result, 8000)) != 0)
             return sts;
         if (result != -checksum*2) {
-            nmessage(ERROR_EEPROM_CHECKSUM_FAILED, result, -checksum*2);
+            nmessage(ERROR_EEPROM_CHECKSUM_FAILED);
             return -2;
         }
         packetID = -checksum*2;
