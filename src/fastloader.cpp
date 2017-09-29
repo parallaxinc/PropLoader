@@ -178,8 +178,11 @@ int Loader::fastLoadImageHelper(const uint8_t *image, int imageSize, LoadType lo
 
     /* generate a loader image */
     loaderImage = generateInitialLoaderImage(packetID, fastLoaderBaudRate, &loaderImageSize);
-    if (!loaderImage)
+    if (!loaderImage) {
+        message("generateInitialLoaderImage failed");
+        nerror(ERROR_INTERNAL_CODE_ERROR);
         return -1;
+    }
         
     /* load the second-stage loader using the Propeller ROM protocol */
     message("Delivering second-stage loader");
@@ -200,6 +203,7 @@ int Loader::fastLoadImageHelper(const uint8_t *image, int imageSize, LoadType lo
     /* open the transparent serial connection that will be used for the second-stage loader */
     if (m_connection->connect() != 0) {
         message("Failed to connect to target");
+        nerror(ERROR_COMMUNICATION_LOST);
         return -1;
     }
 
@@ -212,7 +216,7 @@ int Loader::fastLoadImageHelper(const uint8_t *image, int imageSize, LoadType lo
         if ((size = remaining) > m_connection->maxDataSize())
             size = m_connection->maxDataSize();
         if ((sts = transmitPacket(packetID, image, size, &result)) != 0)
-            return sts;
+            return -2;
         if (result != packetID - 1) {
             message("Unexpected response: expected %d, received %d", packetID - 1, result);
             return -2;
@@ -244,7 +248,7 @@ int Loader::fastLoadImageHelper(const uint8_t *image, int imageSize, LoadType lo
         return sts;
     if (result != -checksum) {
         nmessage(ERROR_RAM_CHECKSUM_FAILED);
-        return -2;
+        return -1;
     }
     packetID = -checksum;
     
@@ -254,7 +258,7 @@ int Loader::fastLoadImageHelper(const uint8_t *image, int imageSize, LoadType lo
             return sts;
         if (result != -checksum*2) {
             nmessage(ERROR_EEPROM_CHECKSUM_FAILED);
-            return -2;
+            return -1;
         }
         packetID = -checksum*2;
     }
@@ -266,7 +270,7 @@ int Loader::fastLoadImageHelper(const uint8_t *image, int imageSize, LoadType lo
         return sts;
     if (result != packetID - 1) {
         message("ReadyToLaunch failed: expected %08x, got %08x", packetID - 1, result);
-        return -2;
+        return -1;
     }
     --packetID;
     
@@ -291,8 +295,10 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
     int32_t tag, rtag;
     
     /* build the packet to transmit */
-    if (!(packet = (uint8_t *)malloc(packetSize)))
+    if (!(packet = (uint8_t *)malloc(packetSize))) {
+        nmessage(ERROR_INSUFFICIENT_MEMORY);
         return -1;
+    }
     setLong(&packet[0], id);
     memcpy(&packet[8], payload, payloadSize);
     
@@ -309,7 +315,7 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
         setLong(&packet[4], tag);
         //printf("transmit packet %d - tag %08x, size %d\n", id, tag, packetSize);
         if (m_connection->sendData(packet, packetSize) != packetSize) {
-            message("transmitPacket %d failed - sendData", id);
+            nmessage(ERROR_INTERNAL_CODE_ERROR);
             free(packet);
             return -1;
         }
@@ -344,6 +350,6 @@ int Loader::transmitPacket(int id, const uint8_t *payload, int payloadSize, int 
     
     /* return timeout */
     message("transmitPacket %d failed - timeout", id);
-    return -2;
+    return -1;
 }
 

@@ -163,12 +163,16 @@ Content-Length: %d\r\n\
     }
     
     /* find the response body */
-    if (!(body = getBody(buffer, cnt, &cnt)))
-        return -1;
+    if (!(body = getBody(buffer, cnt, &cnt))) {
+        nerror(ERROR_COMMUNICATION_LOST);
+        return -2;
+    }
 
     /* copy the body to the response if it fits */
-    if (cnt != responseSize)
-        return -1;
+    if (cnt != responseSize) {
+        nerror(ERROR_COMMUNICATION_LOST);
+        return -2;
+    }
     memcpy(response, body, cnt);
         
     return 0;
