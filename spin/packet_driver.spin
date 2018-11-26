@@ -75,7 +75,7 @@ PUB startx(mbox, rxpin, txpin, mode, baudrate, rxsiz, txsiz, buffs) : okay
   stopx(mbox)
 
   ' compute the ticks per bit from the baudrate
-  baudrate := clkfreq / baudrate
+  bitticks := clkfreq / baudrate
 
   ' start the driver cog
   okay := long[mbox][4] := cognew(@entry, @mbox) + 1
