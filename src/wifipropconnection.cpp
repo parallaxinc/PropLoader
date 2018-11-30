@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "wifipropconnection.h"
+#include "loader.h"
 #include "proploader.h"
 
 #define CALIBRATE_DELAY 10
@@ -16,9 +17,6 @@ WiFiPropConnection::WiFiPropConnection()
       m_telnetSocket(INVALID_SOCKET),
       m_resetPin(12)
 {
-    m_loaderBaudRate = WIFI_LOADER_BAUD_RATE;
-    m_fastLoaderBaudRate = WIFI_FAST_LOADER_BAUD_RATE;
-    m_programBaudRate = WIFI_PROGRAM_BAUD_RATE;
 }
 
 WiFiPropConnection::~WiFiPropConnection()
@@ -106,15 +104,19 @@ int WiFiPropConnection::loadImage(const uint8_t *image, int imageSize, uint8_t *
 {
     uint8_t buffer[1024], *packet, *body;
     int hdrCnt, result, cnt;
+    int loaderBaudRate;
     
+    if (!GetNumericConfigField(config(), "loader-baud-rate", &loaderBaudRate))
+        loaderBaudRate = DEF_LOADER_BAUDRATE;
+        
     /* use the initial loader baud rate */
-    if (setBaudRate(loaderBaudRate()) != 0) 
+    if (setBaudRate(loaderBaudRate) != 0) 
         return -1;
         
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
 POST /propeller/load?baud-rate=%d&reset-pin=%d&response-size=%d&response-timeout=1000 HTTP/1.1\r\n\
 Content-Length: %d\r\n\
-\r\n", loaderBaudRate(), m_resetPin, responseSize, imageSize);
+\r\n", loaderBaudRate, m_resetPin, responseSize, imageSize);
 
     if (!(packet = (uint8_t *)malloc(hdrCnt + imageSize)))
         return -1;
@@ -182,19 +184,23 @@ int WiFiPropConnection::loadImage(const uint8_t *image, int imageSize, LoadType 
 {
     uint8_t buffer[1024], *packet;
     int hdrCnt, result, cnt;
+    int loaderBaudRate;
+    
+    if (!GetNumericConfigField(config(), "loader-baud-rate", &loaderBaudRate))
+        loaderBaudRate = DEF_LOADER_BAUDRATE;
     
     /* WX image buffer is limited to 2K */
     if (imageSize > 2048)
         return -1;
     
     /* use the initial loader baud rate */
-    if (setBaudRate(loaderBaudRate()) != 0) 
+    if (setBaudRate(loaderBaudRate) != 0) 
         return -1;
         
     hdrCnt = snprintf((char *)buffer, sizeof(buffer), "\
 POST /propeller/load?baud-rate=%d HTTP/1.1\r\n\
 Content-Length: %d\r\n\
-\r\n", loaderBaudRate(), imageSize);
+\r\n", loaderBaudRate, imageSize);
 
     if (!(packet = (uint8_t *)malloc(hdrCnt + imageSize)))
         return -1;

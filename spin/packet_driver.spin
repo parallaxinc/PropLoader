@@ -75,6 +75,7 @@ PUB startx(mbox, rxpin, txpin, mode, baudrate, rxsiz, txsiz, buffs) : okay
   stopx(mbox)
 
   ' compute the ticks per bit from the baudrate
+  ' this value will be loaded into bitticks by the PASM code
   baudrate := clkfreq / baudrate
 
   ' start the driver cog

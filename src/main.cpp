@@ -397,7 +397,10 @@ int main(int argc, char *argv[])
             info = ports.front();
             port = info.port();
         }
-        if ((sts = serialConnection->open(port)) != 0) {
+        int loaderBaudRate;
+        if (!GetNumericConfigField(config, "loader-baud-rate", &loaderBaudRate))
+            loaderBaudRate = DEF_LOADER_BAUDRATE;
+        if ((sts = serialConnection->open(port, loaderBaudRate)) != 0) {
             nmessage(ERROR_UNABLE_TO_CONNECT_TO_PORT, port);
             return 1;
         }
@@ -444,15 +447,9 @@ int main(int argc, char *argv[])
         connection = wifiConnection;
     }
     
-    /* setup the baud rates */
-    int baudRate;
-    if (GetNumericConfigField(config, "loader-baud-rate", &baudRate))
-        connection->setLoaderBaudRate(baudRate);
-    if (GetNumericConfigField(config, "fast-loader-baud-rate", &baudRate))
-        connection->setFastLoaderBaudRate(baudRate);
-    if (GetNumericConfigField(config, "program-baud-rate", &baudRate))
-        connection->setProgramBaudRate(baudRate);
-
+    /* set the connection configuration */
+    connection->setConfig(config);
+    
     /* setup the reset method */
     if ((p = GetConfigField(config, "reset")) != NULL) {
         if (connection->setResetMethod(p) != 0) {
@@ -543,7 +540,10 @@ int main(int argc, char *argv[])
     }
     
     /* set the baud rate used by the program */
-    if (connection->setBaudRate(connection->programBaudRate()) != 0) {
+    int baudRate;
+    if (!GetNumericConfigField(config, "program-baud-rate", &baudRate))
+        baudRate = DEF_TERMINAL_BAUDRATE;
+    if (connection->setBaudRate(baudRate) != 0) {
         nmessage(ERROR_FAILED_TO_SET_BAUD_RATE);
         return 1;
     }

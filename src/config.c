@@ -26,6 +26,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 #include <ctype.h>
 #include <limits.h>
 
+#include "proploader.h"
 #include "config.h"
 #include "system.h"
 #include "expr.h"
@@ -58,18 +59,6 @@ typedef struct {
     char *name;
     int value;
 } ConfigSymbol;
-
-#define RCFAST      0x00
-#define RCSLOW      0x01
-#define XINPUT      0x22
-#define XTAL1       0x2a
-#define XTAL2       0x32
-#define XTAL3       0x3a
-#define PLL1X       0x41
-#define PLL2X       0x42
-#define PLL4X       0x43
-#define PLL8X       0x44
-#define PLL16X      0x45
 
 static ConfigSymbol configSymbols[] = {
 {   "RCFAST",       RCFAST      },
@@ -143,7 +132,7 @@ BoardConfig *ParseConfigurationFile(const char *name)
         return NULL;
 
     /* create a new board configuration */
-    baseConfig = config = NewBoardConfig(GetDefaultConfiguration(), name);
+    baseConfig = config = NewBoardConfig(NULL, name);
     
     /* initialize the line number */
     buf.lineNumber = 0;
@@ -222,17 +211,26 @@ BoardConfig *ParseConfigurationFile(const char *name)
     return baseConfig;
 }
 
+/* DumpBoardConfiguration1 - dump a board configuration */
+static void DumpBoardConfiguration1(BoardConfig *config, int indent)
+{
+    BoardConfig *subconfig;
+    printf("%*sBoard type '%s'\n", indent, "", config->name);
+    DumpFields(config, config->fields, indent);
+    for (subconfig = config->child; subconfig != NULL; subconfig = subconfig->sibling) {
+        printf("%*s%s\n", indent, "", subconfig->name);
+        DumpFields(subconfig, subconfig->fields, indent + 2);
+    }
+    if (config->parent) {
+        printf("%*sparent\n", indent, "");
+        DumpBoardConfiguration1(config->parent, indent + 2);
+    }
+}
+
 /* DumpBoardConfiguration - dump a board configuration */
 void DumpBoardConfiguration(BoardConfig *config)
 {
-    BoardConfig *subconfig;
-    printf("Board type '%s'\n", config->name);
-    DumpFields(config, config->fields, 0);
-    for (subconfig = config->child; subconfig != NULL; subconfig = subconfig->sibling) {
-        printf("%s\n", subconfig->name);
-        DumpFields(subconfig, subconfig->parent->fields, 2);
-        DumpFields(subconfig, subconfig->fields, 2);
-    }
+    DumpBoardConfiguration1(config, 0);
 }
 
 /* DumpFields - dump the fields of a board configuration */
@@ -321,6 +319,7 @@ static BoardConfig *GetDefaultConfiguration(void)
     static BoardConfig *defaultConfig = NULL;
     if (!defaultConfig) {
         defaultConfig = NewBoardConfig(NULL, DEF_BOARD);
+        SetConfigField(defaultConfig, "clock-settings",             "binary");
         SetConfigField(defaultConfig, "clkfreq",                    "80000000");
         SetConfigField(defaultConfig, "clkmode",                    "XTAL1+PLL16X");
         SetConfigField(defaultConfig, "baudrate",                   "115200");

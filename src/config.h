@@ -42,8 +42,8 @@ typedef unsigned char uint8_t;
 
 typedef struct BoardConfig BoardConfig;
 
-#define DEF_BOARD   "default"
-#define DEF_SUBTYPE "default"
+#define DEF_BOARD       "default"
+#define DEF_SUBTYPE     "default"
 
 BoardConfig *NewBoardConfig(BoardConfig *parent, const char *name);
 BoardConfig *ParseConfigurationFile(const char *path);

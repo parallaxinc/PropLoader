@@ -6,8 +6,6 @@
 #include "propconnection.h"
 #include "loadelf.h"
 
-#define DEFAULT_BAUDRATE    115200
-
 class Loader {
 public:
     Loader() : m_connection(0) {}
@@ -21,8 +19,8 @@ public:
     int fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType = ltDownloadAndRun);
     static uint8_t *readFile(const char *file, int *pImageSize);
 private:
-    int fastLoadImageHelper(const uint8_t *image, int imageSize, LoadType loadType, int fastLoaderBaudRate);
-    uint8_t *generateInitialLoaderImage(int packetID, int baudRate, int *pLength);
+    int fastLoadImageHelper(const uint8_t *image, int imageSize, LoadType loadType, int clockSpeed, int clockMode, int loaderBaudRate, int fastLoaderBaudRate);
+    uint8_t *generateInitialLoaderImage(int clockSpeed, int clockMode, int packetID, int loaderBaudRate, int fastLoaderBaudRate, int *pLength);
     int transmitPacket(int id, const uint8_t *payload, int payloadSize, int *pResult, int timeout = 2000);
     static uint8_t *readSpinBinaryFile(FILE *fp, int *pImageSize);
     static uint8_t *readElfFile(FILE *fp, ElfHdr *hdr, int *pImageSize);

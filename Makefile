@@ -190,6 +190,9 @@ $(OBJDIR)/%.o:	$(SRCDIR)/%.cpp $(HDRS)
 $(BINDIR)/%$(EXT):	$(TOOLDIR)/%.c
 	$(TOOLCC) $(CFLAGS) $< -o $@
 
+install:	$(BUILD)/bin/proploader$(EXT)
+	cp $(BUILD)/bin/proploader$(EXT) ~/bin
+
 clean:
 	$(RM) $(BUILD)
 

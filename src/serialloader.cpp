@@ -9,6 +9,7 @@
 #include <math.h>
 #include <unistd.h>
 #include "serialpropconnection.h"
+#include "loader.h"
 #include "proploader.h"
 
 #define MAX_BUFFER_SIZE         32768   /* The maximum buffer size. (BUG: git rid of this magic number) */
@@ -336,10 +337,14 @@ int SerialPropConnection::loadImage(const uint8_t *image, int imageSize, LoadTyp
 {
     uint8_t packet2[MAX_BUFFER_SIZE]; // must be at least as big as maxDataSize()
     int packetSize, version, retries, cnt, i;
+    int loaderBaudRate;
     uint8_t *packet;
     
+    if (!GetNumericConfigField(config(), "loader-baud-rate", &loaderBaudRate))
+        loaderBaudRate = DEF_LOADER_BAUDRATE;
+        
     /* use the loader baud rate */
-    if (setBaudRate(loaderBaudRate()) != 0) {
+    if (setBaudRate(loaderBaudRate) != 0) {
         nerror(ERROR_FAILED_TO_SET_BAUD_RATE);
         return -1;
     }

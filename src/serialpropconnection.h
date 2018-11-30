@@ -6,10 +6,6 @@
 #include "propconnection.h"
 #include "serial.h"
 
-#define SERIAL_LOADER_BAUD_RATE         115200
-#define SERIAL_FAST_LOADER_BAUD_RATE    921600
-#define SERIAL_PROGRAM_BAUD_RATE        115200
-
 class SerialInfo {
 public:
     SerialInfo() {}
@@ -26,7 +22,7 @@ class SerialPropConnection : public PropConnection
 public:
     SerialPropConnection();
     ~SerialPropConnection();
-    int open(const char *port, int baudRate = SERIAL_LOADER_BAUD_RATE);
+    int open(const char *port, int baudRate);
     bool isOpen();
     int close();
     int connect();

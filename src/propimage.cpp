@@ -36,12 +36,12 @@ void PropImage::setClkFreq(uint32_t clkFreq)
 
 uint8_t PropImage::clkMode()
 {
-    return *(uint8_t *)&((SpinHdr *)m_imageData)->clkfreq;
+    return *(uint8_t *)&((SpinHdr *)m_imageData)->clkmode;
 }
 
 void PropImage::setClkMode(uint8_t clkMode)
 {
-    *(uint8_t *)&((SpinHdr *)m_imageData)->clkfreq = clkMode;
+    *(uint8_t *)&((SpinHdr *)m_imageData)->clkmode = clkMode;
 }
 
 int PropImage::validate()

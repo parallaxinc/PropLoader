@@ -7,9 +7,6 @@
 SerialPropConnection::SerialPropConnection()
     : m_serialPort(NULL)
 {
-    m_loaderBaudRate = SERIAL_LOADER_BAUD_RATE;
-    m_fastLoaderBaudRate = SERIAL_FAST_LOADER_BAUD_RATE;
-    m_programBaudRate = SERIAL_PROGRAM_BAUD_RATE;
 }
 
 SerialPropConnection::~SerialPropConnection()

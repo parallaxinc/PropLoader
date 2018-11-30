@@ -24,8 +24,6 @@
 // Propeller ROM-based boot loader.
 #include "IP_Loader.h"
 
-double ClockSpeed = 80000000.0;
-
 static uint8_t initCallFrame[] = {0xFF, 0xFF, 0xF9, 0xFF, 0xFF, 0xFF, 0xF9, 0xFF};
 
 static void SetHostInitializedValue(uint8_t *bytes, int offset, int value)
@@ -47,12 +45,14 @@ static void setLong(uint8_t *buf, uint32_t value)
      buf[0] = value;
 }
 
-uint8_t *Loader::generateInitialLoaderImage(int packetID, int fastLoaderBaudRate, int *pLength)
+uint8_t *Loader::generateInitialLoaderImage(int clockSpeed, int clockMode, int packetID, int loaderBaudRate, int fastLoaderBaudRate, int *pLength)
 {
     int initAreaOffset = sizeof(rawLoaderImage) + RAW_LOADER_INIT_OFFSET_FROM_END;
+    double floatClockSpeed = (double)clockSpeed;
     uint8_t *loaderImage;
+    int STime, SCLHighTime, SCLLowTime;
     int checksum, i;
-
+    
     // Allocate space for the image
     if (!(loaderImage = (uint8_t *)malloc(sizeof(rawLoaderImage))))
         return NULL;
@@ -60,36 +60,56 @@ uint8_t *Loader::generateInitialLoaderImage(int packetID, int fastLoaderBaudRate
     // Make a copy of the loader template
     memcpy(loaderImage, rawLoaderImage, sizeof(rawLoaderImage));
     
+    // patch the clock frequency and mode
+    PropImage image(loaderImage, sizeof(rawLoaderImage));
+    image.setClkFreq(clockSpeed);
+    image.setClkMode(clockMode);
+
     // Clock mode
-    //SetHostInitializedValue(loaderImage, initAreaOffset +  0, 0);
+    SetHostInitializedValue(loaderImage, initAreaOffset +  0, clockMode);
 
     // Initial Bit Time.
-    SetHostInitializedValue(loaderImage, initAreaOffset +  4, (int)trunc(80000000.0 / m_connection->loaderBaudRate() + 0.5));
+    SetHostInitializedValue(loaderImage, initAreaOffset +  4, (int)trunc(floatClockSpeed/ loaderBaudRate + 0.5));
 
     // Final Bit Time.
-    SetHostInitializedValue(loaderImage, initAreaOffset +  8, (int)trunc(80000000.0 / fastLoaderBaudRate + 0.5));
+    SetHostInitializedValue(loaderImage, initAreaOffset +  8, (int)trunc(floatClockSpeed / fastLoaderBaudRate + 0.5));
     
     // 1.5x Final Bit Time minus maximum start bit sense error.
-    SetHostInitializedValue(loaderImage, initAreaOffset + 12, (int)trunc(1.5 * ClockSpeed / fastLoaderBaudRate - MAX_RX_SENSE_ERROR + 0.5));
+    SetHostInitializedValue(loaderImage, initAreaOffset + 12, (int)trunc(1.5 * floatClockSpeed / fastLoaderBaudRate - MAX_RX_SENSE_ERROR + 0.5));
     
     // Failsafe Timeout (seconds-worth of Loader's Receive loop iterations).
-    SetHostInitializedValue(loaderImage, initAreaOffset + 16, (int)trunc(2.0 * ClockSpeed / (3 * 4) + 0.5));
+    SetHostInitializedValue(loaderImage, initAreaOffset + 16, (int)trunc(2.0 * floatClockSpeed / (3 * 4) + 0.5));
     
     // EndOfPacket Timeout (2 bytes worth of Loader's Receive loop iterations).
-    SetHostInitializedValue(loaderImage, initAreaOffset + 20, (int)trunc((2.0 * ClockSpeed / fastLoaderBaudRate) * (10.0 / 12.0) + 0.5));
+    SetHostInitializedValue(loaderImage, initAreaOffset + 20, (int)trunc((2.0 * floatClockSpeed / fastLoaderBaudRate) * (10.0 / 12.0) + 0.5));
     
-    // PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 24, Max(Round(ClockSpeed * SSSHTime), 14));
-    // PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 28, Max(Round(ClockSpeed * SCLHighTime), 14));
-    // PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 32, Max(Round(ClockSpeed * SCLLowTime), 26));
+    // Minimum EEPROM Start/Stop Condition setup/hold time (1/0.6 µs); [Min 14 cycles]
+    STime = (int)trunc(floatClockSpeed * 0.0000006);
+    if (STime < 14)
+        STime = 14;
+    
+    // Minimum EEPROM SCL high time (1/0.6 µs); [Min 14 cycles]
+    SCLHighTime = (int)trunc(floatClockSpeed * 0.0000006);
+    if (SCLHighTime < 14)
+        SCLHighTime = 14;
+    
+    // Minimum EEPROM SCL low time (1/1.3 µs); [Min 26 cycles]
+    SCLLowTime = (int)trunc(floatClockSpeed * 0.0000013);
+    if (SCLLowTime < 26)
+        SCLLowTime = 26;
+    
+    SetHostInitializedValue(loaderImage, initAreaOffset + 24, STime);
+    SetHostInitializedValue(loaderImage, initAreaOffset + 28, SCLHighTime);
+    SetHostInitializedValue(loaderImage, initAreaOffset + 32, SCLLowTime);
 
     // Minimum EEPROM Start/Stop Condition setup/hold time (400 KHz = 1/0.6 µS); Minimum 14 cycles
-    //SetHostInitializedValue(loaderImage, initAreaOffset + 24, 14);
+    SetHostInitializedValue(loaderImage, initAreaOffset + 24, 14);
 
     // Minimum EEPROM SCL high time (400 KHz = 1/0.6 µS); Minimum 14 cycles
-    //SetHostInitializedValue(loaderImage, initAreaOffset + 28, 14);
+    SetHostInitializedValue(loaderImage, initAreaOffset + 28, 14);
 
     // Minimum EEPROM SCL low time (400 KHz = 1/1.3 µS); Minimum 26 cycles
-    //SetHostInitializedValue(loaderImage, initAreaOffset + 32, 26);
+    SetHostInitializedValue(loaderImage, initAreaOffset + 32, 26);
 
     // First Expected Packet ID; total packet count.
     SetHostInitializedValue(loaderImage, initAreaOffset + 36, packetID);
@@ -130,11 +150,42 @@ int Loader::fastLoadFile(const char *file, LoadType loadType)
 
 int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType)
 {
-    int fastLoaderBaudRate = m_connection->fastLoaderBaudRate();
     int sts;
     
+    // get the loader baudrates
+    int loaderBaudRate, fastLoaderBaudRate;
+    if (!GetNumericConfigField(m_connection->config(), "loader-baud-rate", &loaderBaudRate))
+        loaderBaudRate = DEF_LOADER_BAUDRATE;
+    if (!GetNumericConfigField(m_connection->config(), "fast-loader-baud-rate", &fastLoaderBaudRate))
+        fastLoaderBaudRate = DEF_FAST_LOADER_BAUDRATE;
+
+    // get the clock settings
+    PropImage img((uint8_t *)image, imageSize); // shouldn't really modify image!
+    int clockSpeed, clockMode;
+    char *clockSettings;
+    if ((clockSettings = GetConfigField(m_connection->config(), "clock-settings")) != NULL && strcmp(clockSettings, "binary") == 0) {
+    
+        // get the clock settings from the binary being loaded
+        clockSpeed = img.clkFreq();
+        clockMode = img.clkMode();
+        message("binary: clockSpeed %d, clockMode %02x", clockSpeed, clockMode);
+    }
+    else {
+    
+        // get the clock settings from the board config file
+        if (!GetNumericConfigField(m_connection->config(), "clkfreq", &clockSpeed))
+            clockSpeed = DEF_CLOCK_SPEED;
+        if (!GetNumericConfigField(m_connection->config(), "clkmode", &clockMode))
+            clockMode = DEF_CLOCK_MODE;
+            
+        // patch the board config settings into the binary being loaded
+        img.setClkFreq(clockSpeed);
+        img.setClkMode(clockMode);
+        message("config: clockSpeed %d, clockMode %02x", clockSpeed, clockMode);
+    }
+
     for (;;) {
-        if ((sts = fastLoadImageHelper(image, imageSize, loadType, fastLoaderBaudRate)) == 0)
+        if ((sts = fastLoadImageHelper(image, imageSize, loadType, clockSpeed, clockMode, loaderBaudRate, fastLoaderBaudRate)) == 0)
             return 0;
         else if (sts == -2) {
             if ((fastLoaderBaudRate /= 2) >= 115200)
@@ -156,7 +207,7 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     -1 for fatal errors
     -2 for errors where a lower baud rate might help
 */
-int Loader::fastLoadImageHelper(const uint8_t *image, int imageSize, LoadType loadType, int fastLoaderBaudRate)
+int Loader::fastLoadImageHelper(const uint8_t *image, int imageSize, LoadType loadType, int clockSpeed, int clockMode, int loaderBaudRate, int fastLoaderBaudRate)
 {
     uint8_t *loaderImage, response[8];
     int loaderImageSize, remaining, result, sts, i;
@@ -177,7 +228,7 @@ int Loader::fastLoadImageHelper(const uint8_t *image, int imageSize, LoadType lo
     packetID = (imageSize + m_connection->maxDataSize() - 1) / m_connection->maxDataSize();
 
     /* generate a loader image */
-    loaderImage = generateInitialLoaderImage(packetID, fastLoaderBaudRate, &loaderImageSize);
+    loaderImage = generateInitialLoaderImage(clockSpeed, clockMode, packetID, loaderBaudRate, fastLoaderBaudRate, &loaderImageSize);
     if (!loaderImage) {
         message("generateInitialLoaderImage failed");
         nerror(ERROR_INTERNAL_CODE_ERROR);

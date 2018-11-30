@@ -9,10 +9,6 @@
 #define WIFI_REQUIRED_MAJOR_VERSION         "v1."
 #define WIFI_REQUIRED_MAJOR_VERSION_LEGACY  "02-"
 
-#define WIFI_LOADER_BAUD_RATE       115200
-#define WIFI_FAST_LOADER_BAUD_RATE  921600
-#define WIFI_PROGRAM_BAUD_RATE      115200
-
 // timeout used when making an HTTP request or connecting a telnet session
 #define CONNECT_TIMEOUT             3000
 #define RESPONSE_TIMEOUT            3000

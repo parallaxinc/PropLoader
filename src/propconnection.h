@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include "config.h"
 
 typedef enum {
     ltShutdown = 0,
@@ -15,7 +16,7 @@ typedef enum {
 class PropConnection
 {
 public:
-    PropConnection() : m_portName(NULL) {}
+    PropConnection() : m_config(NULL), m_portName(NULL) {}
     ~PropConnection() {
         if (m_portName)
             free(m_portName);
@@ -42,18 +43,12 @@ public:
         if ((m_portName = (char *)malloc(strlen(portName) + 1)) != NULL)
             strcpy(m_portName, portName);
     }
-    int loaderBaudRate() { return m_loaderBaudRate; }
-    void setLoaderBaudRate(int baudRate) { m_loaderBaudRate = baudRate; }
-    int fastLoaderBaudRate() { return m_fastLoaderBaudRate; }
-    void setFastLoaderBaudRate(int baudRate) { m_fastLoaderBaudRate = baudRate; }
-    int programBaudRate() { return m_programBaudRate; }
-    void setProgramBaudRate(int baudRate) { m_programBaudRate = baudRate; }
+    void setConfig(BoardConfig *config) { m_config = config; }
+    BoardConfig *config() { return m_config; }
 protected:
+    BoardConfig *m_config;
     char *m_portName;
     int m_baudRate;
-    int m_loaderBaudRate;
-    int m_fastLoaderBaudRate;
-    int m_programBaudRate;
 };
 
 #endif // PROPCONNECTION_H
