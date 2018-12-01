@@ -34,7 +34,7 @@ PUB start | type, packet, len, ok
   waitcnt(CLKFREQ / 2 + CNT)
 
   ' start the packet driver
-  pkt.start(p_rxpin, p_txpin, 0, p_baudrate)
+  pkt.start(31, 30, 0, p_baudrate)
 
 #ifdef TV_DEBUG
   tv.start(p_tvpin)
@@ -144,8 +144,6 @@ DAT
 
 ' parameters filled in before downloading sd_helper.binary
 p_baudrate          long    0
-p_rxpin             byte    0
-p_txpin             byte    0
 p_tvpin             byte    0
 p_dopin             byte    0
 p_clkpin            byte    0

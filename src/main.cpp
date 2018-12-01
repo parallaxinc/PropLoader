@@ -67,9 +67,12 @@ Module names should only include the characters A-Z, a-z, 0-9, or '-' and should
 end with a '-'. They must also be less than 32 characters long.\n\
 \n\
 Variables that can be set with -D are:\n\
-  reset rxpin txpin tvpin\n\
-  clkfreq clkmode fast-loader-clkfreq fastloader-clkmode\n\
+\n\
+Used by the loader:\n\
+  reset clkfreq clkmode fast-loader-clkfreq fastloader-clkmode\n\
   baudrate loader-baud-rate fast-loader-baud-rate\n\
+\n\
+Used by the SD file writer:\n\
   sdspi-do sdspi-clk sdspi-di sdspi-cs\n\
   sdspi-clr sdspi-inc sdspi-start sdspi-width spdspi-addr\n\
   sdspi-config1 sdspi-config2\n\
@@ -671,8 +674,6 @@ extern "C" {
 /* DAT header in sd_helper.spin */
 typedef struct {
     uint32_t baudrate;
-    uint8_t rxpin;
-    uint8_t txpin;
     uint8_t tvpin;
     uint8_t dopin;
     uint8_t clkpin;
@@ -699,10 +700,6 @@ static int LoadSDHelper(BoardConfig *config, PropConnection *connection)
         hdr->clkmode = ivalue;
     if (GetNumericConfigField(config, "baudrate", &ivalue))
         dat->baudrate = ivalue;
-    if (GetNumericConfigField(config, "rxpin", &ivalue))
-        dat->rxpin = ivalue;
-    if (GetNumericConfigField(config, "txpin", &ivalue))
-        dat->txpin = ivalue;
     if (GetNumericConfigField(config, "tvpin", &ivalue))
         dat->tvpin = ivalue;
 

@@ -4,7 +4,7 @@ It supports loading over a serial link or a WiFi connection to a Parallax WiFi m
 Propeller Activity Board WX.
 
 ```
-PropLoader v1.0-38 (2018-11-30 19:31:26 g1ead541)
+PropLoader v1.0-42 (2018-12-01 08:59:39 g8b26b34)
 
 usage: proploader [options] [<file>]
 
@@ -37,9 +37,12 @@ Module names should only include the characters A-Z, a-z, 0-9, or '-' and should
 end with a '-'. They must also be less than 32 characters long.
 
 Variables that can be set with -D are:
-  reset rxpin txpin tvpin
-  clkfreq clkmode fast-loader-clkfreq fastloader-clkmode
+
+Used by the loader:
+  reset clkfreq clkmode fast-loader-clkfreq fastloader-clkmode
   baudrate loader-baud-rate fast-loader-baud-rate
+
+Used by the SD file writer:
   sdspi-do sdspi-clk sdspi-di sdspi-cs
   sdspi-clr sdspi-inc sdspi-start sdspi-width spdspi-addr
   sdspi-config1 sdspi-config2
@@ -48,7 +51,6 @@ Value expressions for -D can include:
   rcfast rcslow xinput xtal1 xtal2 xtal3 pll1x pll2x pll4x pll8x pll16x k m mhz true false
   an integer or two operands with a binary operator + - * / % & | or unary + or -
   or a parenthesized expression.
-
 ```
 
 The C++ code should be mostly generic. The platform-specific code is in the C files
