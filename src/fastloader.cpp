@@ -169,6 +169,7 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     }
     if (gotClockSpeed) {
         img.setClkFreq(clockSpeed);
+        img.updateChecksum();
     }
 
     // get the fast loader and program clock modes
@@ -184,6 +185,7 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     }
     if (gotClockMode) {
         img.setClkMode(clockMode);
+        img.updateChecksum();
     }
         
     message("fastLoaderClockSpeed %d, fastLoadClockMode %d, clockSpeed %d, clockMode %02x",

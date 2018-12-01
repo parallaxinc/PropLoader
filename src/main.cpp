@@ -69,7 +69,7 @@ end with a '-'. They must also be less than 32 characters long.\n\
 Variables that can be set with -D are:\n\
 \n\
 Used by the loader:\n\
-  reset clkfreq clkmode fast-loader-clkfreq fastloader-clkmode\n\
+  loader reset clkfreq clkmode fast-loader-clkfreq fastloader-clkmode\n\
   baudrate loader-baud-rate fast-loader-baud-rate\n\
 \n\
 Used by the SD file writer:\n\
@@ -80,7 +80,10 @@ Used by the SD file writer:\n\
 Value expressions for -D can include:\n\
   rcfast rcslow xinput xtal1 xtal2 xtal3 pll1x pll2x pll4x pll8x pll16x k m mhz true false\n\
   an integer or two operands with a binary operator + - * / %% & | or unary + or -\n\
-  or a parenthesized expression.\n", VERSION, progname);
+  or a parenthesized expression.\n\
+\n\
+Examples:\n\
+  loader=rom  to use the ROM loader instead of the fast loader\n", VERSION, progname);
     exit(1);
 }
 
@@ -92,6 +95,7 @@ static int LoadSDHelper(BoardConfig *config, PropConnection *connection);
 int main(int argc, char *argv[])
 {
     BoardConfig *config, *configSettings;
+    bool useFastLoader = true;
     bool done = false;
     bool reset = false;
     bool showPorts = false;
@@ -369,6 +373,10 @@ int main(int argc, char *argv[])
     /* override with any command line settings */
     config = MergeConfigs(config, configSettings);
     
+    /* decide whether to use the fast or rom loader */
+    if ((p = GetConfigField(config, "loader")) != NULL && strcmp(p, "rom") == 0)
+        useFastLoader = false;
+    
    /* make sure a file to load was specified */
     if (!done && !reset && !file && !terminalMode)
         usage(argv[0]);
@@ -536,9 +544,17 @@ int main(int argc, char *argv[])
     /* load a file */
     else if (file) {
         loader.setConnection(connection);
-        if ((sts = loader.fastLoadImage(image, imageSize, (LoadType)loadType)) != 0) {
-            nmessage(ERROR_DOWNLOAD_FAILED);
-            return 1;
+        if (useFastLoader) {
+            if ((sts = loader.fastLoadImage(image, imageSize, (LoadType)loadType)) != 0) {
+                nmessage(ERROR_DOWNLOAD_FAILED);
+                return 1;
+            }
+        }
+        else {
+            if ((sts = loader.loadImage(image, imageSize, (LoadType)loadType)) != 0) {
+                nmessage(ERROR_DOWNLOAD_FAILED);
+                return 1;
+            }
         }
         nmessage(INFO_DOWNLOAD_SUCCESSFUL);
     }

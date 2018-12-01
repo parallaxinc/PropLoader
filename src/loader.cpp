@@ -28,6 +28,26 @@ int Loader::loadFile(const char *file, LoadType loadType)
 
 int Loader::loadImage(const uint8_t *image, int imageSize, LoadType loadType)
 {
+    // get the binary clock settings
+    PropImage img((uint8_t *)image, imageSize); // shouldn't really modify image!
+    
+    // get the fast loader and program clock speeds
+    int clockSpeed;
+    int gotClockSpeed = GetNumericConfigField(m_connection->config(), "clkfreq", &clockSpeed);
+    if (gotClockSpeed) {
+        img.setClkFreq(clockSpeed);
+        img.updateChecksum();
+    }
+
+    // get the fast loader and program clock modes
+    int clockMode;
+    int gotClockMode = GetNumericConfigField(m_connection->config(), "clkmode", &clockMode);
+    if (gotClockMode) {
+        img.setClkMode(clockMode);
+        img.updateChecksum();
+    }
+        
+    nmessage(INFO_DOWNLOADING, m_connection->portName());
     return m_connection->loadImage(image, imageSize, loadType);
 }
 
