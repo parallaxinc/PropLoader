@@ -152,6 +152,47 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
 {
     int sts;
     
+    // get the binary clock settings
+    PropImage img((uint8_t *)image, imageSize); // shouldn't really modify image!
+    int binaryClockSpeed = img.clkFreq();
+    int binaryClockMode = img.clkMode();
+    
+    // get the fast loader and program clock speeds
+    int fastLoaderClockSpeed, clockSpeed;
+    int gotFastLoaderClockSpeed = GetNumericConfigField(m_connection->config(), "fast-loader-clkfreq", &fastLoaderClockSpeed);
+    int gotClockSpeed = GetNumericConfigField(m_connection->config(), "clkfreq", &clockSpeed);
+    
+    if (!gotFastLoaderClockSpeed) {
+        if (gotClockSpeed)
+            fastLoaderClockSpeed = clockSpeed;
+        else
+            fastLoaderClockSpeed = binaryClockSpeed;
+    }
+    if (gotClockSpeed) {
+        img.setClkFreq(clockSpeed);
+    }
+
+    // get the fast loader and program clock modes
+    int fastLoaderClockMode, clockMode;
+    int gotFastLoaderClockMode = GetNumericConfigField(m_connection->config(), "fast-loader-clkmode", &fastLoaderClockMode);
+    int gotClockMode = GetNumericConfigField(m_connection->config(), "clkmode", &clockMode);
+    
+    if (!gotFastLoaderClockMode) {
+        if (gotClockMode)
+            fastLoaderClockMode = clockMode;
+        else
+            fastLoaderClockMode = binaryClockMode;
+    }
+    if (gotClockMode) {
+        img.setClkMode(clockMode);
+    }
+        
+    message("fastLoaderClockSpeed %d, fastLoadClockMode %d, clockSpeed %d, clockMode %02x",
+            fastLoaderClockSpeed,
+            fastLoaderClockMode,
+            gotClockSpeed ? clockSpeed : binaryClockSpeed,
+            gotClockMode ? clockMode : binaryClockMode);
+    
     // get the loader baudrates
     int loaderBaudRate, fastLoaderBaudRate;
     if (!GetNumericConfigField(m_connection->config(), "loader-baud-rate", &loaderBaudRate))
@@ -159,33 +200,8 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
     if (!GetNumericConfigField(m_connection->config(), "fast-loader-baud-rate", &fastLoaderBaudRate))
         fastLoaderBaudRate = DEF_FAST_LOADER_BAUDRATE;
 
-    // get the clock settings
-    PropImage img((uint8_t *)image, imageSize); // shouldn't really modify image!
-    int clockSpeed, clockMode;
-    char *clockSettings;
-    if ((clockSettings = GetConfigField(m_connection->config(), "clock-settings")) != NULL && strcmp(clockSettings, "binary") == 0) {
-    
-        // get the clock settings from the binary being loaded
-        clockSpeed = img.clkFreq();
-        clockMode = img.clkMode();
-        message("binary: clockSpeed %d, clockMode %02x", clockSpeed, clockMode);
-    }
-    else {
-    
-        // get the clock settings from the board config file
-        if (!GetNumericConfigField(m_connection->config(), "clkfreq", &clockSpeed))
-            clockSpeed = DEF_CLOCK_SPEED;
-        if (!GetNumericConfigField(m_connection->config(), "clkmode", &clockMode))
-            clockMode = DEF_CLOCK_MODE;
-            
-        // patch the board config settings into the binary being loaded
-        img.setClkFreq(clockSpeed);
-        img.setClkMode(clockMode);
-        message("config: clockSpeed %d, clockMode %02x", clockSpeed, clockMode);
-    }
-
     for (;;) {
-        if ((sts = fastLoadImageHelper(image, imageSize, loadType, clockSpeed, clockMode, loaderBaudRate, fastLoaderBaudRate)) == 0)
+        if ((sts = fastLoadImageHelper(image, imageSize, loadType, fastLoaderClockSpeed, fastLoaderClockMode, loaderBaudRate, fastLoaderBaudRate)) == 0)
             return 0;
         else if (sts == -2) {
             if ((fastLoaderBaudRate /= 2) >= 115200)

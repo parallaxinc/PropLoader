@@ -67,8 +67,9 @@ Module names should only include the characters A-Z, a-z, 0-9, or '-' and should
 end with a '-'. They must also be less than 32 characters long.\n\
 \n\
 Variables that can be set with -D are:\n\
-  clkfreq clkmode reset baudrate rxpin txpin tvpin\n\
-  loader-baud-rate fast-loader-baud-rate program-baud-rate\n\
+  reset rxpin txpin tvpin\n\
+  clkfreq clkmode fast-loader-clkfreq fastloader-clkmode\n\
+  baudrate loader-baud-rate fast-loader-baud-rate\n\
   sdspi-do sdspi-clk sdspi-di sdspi-cs\n\
   sdspi-clr sdspi-inc sdspi-start sdspi-width spdspi-addr\n\
   sdspi-config1 sdspi-config2\n\
@@ -541,7 +542,7 @@ int main(int argc, char *argv[])
     
     /* set the baud rate used by the program */
     int baudRate;
-    if (!GetNumericConfigField(config, "program-baud-rate", &baudRate))
+    if (!GetNumericConfigField(config, "baudrate", &baudRate))
         baudRate = DEF_TERMINAL_BAUDRATE;
     if (connection->setBaudRate(baudRate) != 0) {
         nmessage(ERROR_FAILED_TO_SET_BAUD_RATE);
