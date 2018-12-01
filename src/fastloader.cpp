@@ -50,7 +50,6 @@ uint8_t *Loader::generateInitialLoaderImage(int clockSpeed, int clockMode, int p
     int initAreaOffset = sizeof(rawLoaderImage) + RAW_LOADER_INIT_OFFSET_FROM_END;
     double floatClockSpeed = (double)clockSpeed;
     uint8_t *loaderImage;
-    int STime, SCLHighTime, SCLLowTime;
     int checksum, i;
     
     // Allocate space for the image
@@ -83,6 +82,9 @@ uint8_t *Loader::generateInitialLoaderImage(int clockSpeed, int clockMode, int p
     // EndOfPacket Timeout (2 bytes worth of Loader's Receive loop iterations).
     SetHostInitializedValue(loaderImage, initAreaOffset + 20, (int)trunc((2.0 * floatClockSpeed / fastLoaderBaudRate) * (10.0 / 12.0) + 0.5));
     
+#if 0
+    int STime, SCLHighTime, SCLLowTime;
+
     // Minimum EEPROM Start/Stop Condition setup/hold time (1/0.6 µs); [Min 14 cycles]
     STime = (int)trunc(floatClockSpeed * 0.0000006);
     if (STime < 14)
@@ -110,6 +112,20 @@ uint8_t *Loader::generateInitialLoaderImage(int clockSpeed, int clockMode, int p
 
     // Minimum EEPROM SCL low time (400 KHz = 1/1.3 µS); Minimum 26 cycles
     SetHostInitializedValue(loaderImage, initAreaOffset + 32, 26);
+#else
+    // PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 24, Max(Round(ClockSpeed * SSSHTime), 14));
+    // PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 28, Max(Round(ClockSpeed * SCLHighTime), 14));
+    // PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 32, Max(Round(ClockSpeed * SCLLowTime), 26));
+
+    // Minimum EEPROM Start/Stop Condition setup/hold time (400 KHz = 1/0.6 µS); Minimum 14 cycles
+    //SetHostInitializedValue(loaderImage, initAreaOffset + 24, 14);
+
+    // Minimum EEPROM SCL high time (400 KHz = 1/0.6 µS); Minimum 14 cycles
+    //SetHostInitializedValue(loaderImage, initAreaOffset + 28, 14);
+
+    // Minimum EEPROM SCL low time (400 KHz = 1/1.3 µS); Minimum 26 cycles
+    //SetHostInitializedValue(loaderImage, initAreaOffset + 32, 26);
+#endif
 
     // First Expected Packet ID; total packet count.
     SetHostInitializedValue(loaderImage, initAreaOffset + 36, packetID);
