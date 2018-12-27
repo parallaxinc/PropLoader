@@ -16,17 +16,17 @@
 #include "wifipropconnection.h"
 #include "config.h"
 
-/* port prefix */
+/* default port name prefix if only a partial name is specified */
 #if defined(CYGWIN) || defined(WIN32) || defined(MINGW)
-  #define PORT_PREFIX ""
+  #define PORT_PREFIX "COM"
 #elif defined(LINUX)
   #ifdef RASPBERRY_PI
-    #define PORT_PREFIX "ttyAMA"
+    #define PORT_PREFIX "/dev/ttyAMA"
   #else
-    #define PORT_PREFIX "ttyUSB"
+    #define PORT_PREFIX "/dev/ttyUSB"
   #endif
 #elif defined(MACOSX)
-  #define PORT_PREFIX "cu.usbserial-"
+  #define PORT_PREFIX "/dev/cu.usbserial-"
 #else
   #define PORT_PREFIX ""
 #endif
@@ -87,7 +87,7 @@ Examples:\n\
     exit(1);
 }
 
-static void ShowPorts(const char *prefix, bool check);
+static void ShowPorts(bool check);
 static void ShowWiFiModules(bool check);
 static int WriteFileToSDCard(BoardConfig *config, PropConnection *connection, const char *path, const char *target);
 static int LoadSDHelper(BoardConfig *config, PropConnection *connection);
@@ -209,24 +209,19 @@ int main(int argc, char *argv[])
                     usage(argv[0]);
 #if defined(CYGWIN) || defined(WIN32) || defined(LINUX)
                 if (isdigit((int)port[0])) {
-#if defined(CYGWIN) || defined(WIN32)
-                    static char buf[10];
-                    sprintf(buf, "COM%d", atoi(port));
-                    port = buf;
-#endif
-#if defined(LINUX)
                     static char buf[64];
-                    sprintf(buf, "/dev/%s%d", PORT_PREFIX, atoi(port));
+                    sprintf(buf, "%s%d", PORT_PREFIX, atoi(port));
                     port = buf;
+                }
 #endif
+#if defined(MACOSX) || defined(LINUX)
+                if (port[0] != '/') {
+                    static char buf[64];
+                    sprintf(buf, "%s%s", PORT_PREFIX, port);
+                    port = buf;
                 }
 #endif
 #if defined(MACOSX)
-                if (port[0] != '/') {
-                    static char buf[64];
-                    sprintf(buf, "/dev/%s-%s", PORT_PREFIX, port);
-                    port = buf;
-                }
                 if (strncmp(port, "/dev/tty.", 9) == 0) {
                     static char buf[64];
                     sprintf(buf, "/dev/cu.%s", &port[9]);
@@ -280,7 +275,7 @@ int main(int argc, char *argv[])
 
     /* show ports if requested */
     if (showPorts) {
-        ShowPorts(PORT_PREFIX, false);
+        ShowPorts(false);
         done = true;
     }
     
@@ -398,7 +393,7 @@ int main(int argc, char *argv[])
         }
         if (!port) {
             SerialInfoList ports;
-            if (SerialPropConnection::findPorts(PORT_PREFIX, true, ports) != 0) {
+            if (SerialPropConnection::findPorts(true, ports) != 0) {
                 nmessage(ERROR_SERIAL_PORT_DISCOVERY_FAILED);
                 return 1;
             }
@@ -594,10 +589,10 @@ finish:
     return 0;
 }
 
-static void ShowPorts(const char *prefix, bool check)
+static void ShowPorts(bool check)
 {
     SerialInfoList ports;
-    if (SerialPropConnection::findPorts(prefix, check, ports) == 0) {
+    if (SerialPropConnection::findPorts(check, ports) == 0) {
         SerialInfoList::iterator i = ports.begin();
         while (i != ports.end()) {
             std::cout << i->port() << std::endl;

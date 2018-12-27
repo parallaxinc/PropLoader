@@ -45,6 +45,8 @@ static void setLong(uint8_t *buf, uint32_t value)
      buf[0] = value;
 }
 
+double ClockSpeed = 80000000.0;
+
 uint8_t *Loader::generateInitialLoaderImage(int clockSpeed, int clockMode, int packetID, int loaderBaudRate, int fastLoaderBaudRate, int *pLength)
 {
     int initAreaOffset = sizeof(rawLoaderImage) + RAW_LOADER_INIT_OFFSET_FROM_END;
@@ -64,11 +66,24 @@ uint8_t *Loader::generateInitialLoaderImage(int clockSpeed, int clockMode, int p
     image.setClkFreq(clockSpeed);
     image.setClkMode(clockMode);
 
+/*
+      PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset +  0, ClockMode and $07);                                  {Booter's clock selection bits}
+      PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset +  4, Round(ClockSpeed / InitialBaud));                    {Initial Bit Time}
+      PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset +  8, Round(ClockSpeed / FinalBaud));                      {Final Bit Time}
+      PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 12, Round(((1.5 * ClockSpeed) / FinalBaud) - MaxRxSenseError));  {1.5x Final Bit Time minus maximum start bit sense error}
+      PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 16, 2 * ClockSpeed div (3 * 4));                         {Failsafe Timeout (seconds-worth of Loader's Receive loop iterations)}
+      PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 20, Round(2 * ClockSpeed / FinalBaud * 10 / 12));        {EndOfPacket Timeout (2 bytes worth of Loader's Receive loop iterations)}
+      PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 24, Max(Round(ClockSpeed * SSSHTime), 14));              {Minimum EEPROM Start/Stop Condition setup/hold time (400 KHz = 1/0.6 µS); Minimum 14 cycles}
+      PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 28, Max(Round(ClockSpeed * SCLHighTime), 14));           {Minimum EEPROM SCL high time (400 KHz = 1/0.6 µS); Minimum 14 cycles}
+      PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 32, Max(Round(ClockSpeed * SCLLowTime), 26));            {Minimum EEPROM SCL low time (400 KHz = 1/1.3 µS); Minimum 26 cycles}
+      PatchLoaderLongValue(RawSize*4+RawLoaderInitOffset + 36, PacketID);                                           {First Expected Packet ID; total packet count}
+*/
+
     // Clock mode
-    SetHostInitializedValue(loaderImage, initAreaOffset +  0, clockMode);
+    SetHostInitializedValue(loaderImage, initAreaOffset +  0, clockMode & 0x07);
 
     // Initial Bit Time.
-    SetHostInitializedValue(loaderImage, initAreaOffset +  4, (int)trunc(floatClockSpeed/ loaderBaudRate + 0.5));
+    SetHostInitializedValue(loaderImage, initAreaOffset +  4, (int)trunc(floatClockSpeed / loaderBaudRate + 0.5));
 
     // Final Bit Time.
     SetHostInitializedValue(loaderImage, initAreaOffset +  8, (int)trunc(floatClockSpeed / fastLoaderBaudRate + 0.5));
@@ -80,24 +95,24 @@ uint8_t *Loader::generateInitialLoaderImage(int clockSpeed, int clockMode, int p
     SetHostInitializedValue(loaderImage, initAreaOffset + 16, (int)trunc(2.0 * floatClockSpeed / (3 * 4) + 0.5));
     
     // EndOfPacket Timeout (2 bytes worth of Loader's Receive loop iterations).
-    SetHostInitializedValue(loaderImage, initAreaOffset + 20, (int)trunc((2.0 * floatClockSpeed / fastLoaderBaudRate) * (10.0 / 12.0) + 0.5));
+    SetHostInitializedValue(loaderImage, initAreaOffset + 20, (int)trunc(2.0 * floatClockSpeed / fastLoaderBaudRate * 10.0 / 12.0 + 0.5));
     
     const double SSSHTime    = 0.0000006;
     const double SCLHighTime = 0.0000006;
     const double SCLLowTime  = 0.0000013;
 
     // Minimum EEPROM Start/Stop Condition setup/hold time (1/0.6 µs); [Min 14 cycles]
-    int SSSHTicks = (int)trunc(floatClockSpeed * SSSHTime);
+    int SSSHTicks = (int)trunc(floatClockSpeed * SSSHTime + 0.5);
     if (SSSHTicks < 14)
         SSSHTicks = 14;
     
     // Minimum EEPROM SCL high time (1/0.6 µs); [Min 14 cycles]
-    int SCLHighTicks = (int)trunc(floatClockSpeed * SCLHighTime);
+    int SCLHighTicks = (int)trunc(floatClockSpeed * SCLHighTime + 0.5);
     if (SCLHighTicks < 14)
         SCLHighTicks = 14;
     
     // Minimum EEPROM SCL low time (1/1.3 µs); [Min 26 cycles]
-    int SCLLowTicks = (int)trunc(floatClockSpeed * SCLLowTime);
+    int SCLLowTicks = (int)trunc(floatClockSpeed * SCLLowTime + 0.5);
     if (SCLLowTicks < 26)
         SCLLowTicks = 26;
     
@@ -188,7 +203,7 @@ int Loader::fastLoadImage(const uint8_t *image, int imageSize, LoadType loadType
         img.updateChecksum();
     }
         
-    message("fastLoaderClockSpeed %d, fastLoadClockMode %d, clockSpeed %d, clockMode %02x",
+    message("fastLoaderClockSpeed %d, fastLoadClockMode %02x, clockSpeed %d, clockMode %02x",
             fastLoaderClockSpeed,
             fastLoaderClockMode,
             gotClockSpeed ? clockSpeed : binaryClockSpeed,

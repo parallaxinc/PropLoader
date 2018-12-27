@@ -38,7 +38,7 @@ public:
     int setBaudRate(int baudRate);
     int maxDataSize() { return 1024; }
     int terminal(bool checkForExit, bool pstMode);
-    static int findPorts(const char *prefix, bool check, SerialInfoList &list, int count = -1);
+    static int findPorts(bool check, SerialInfoList &list, int count = -1);
 private:
     int receiveChecksumAck(int byteCount, int delay);
     static int addPort(const char *port, void *data);

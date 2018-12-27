@@ -55,7 +55,7 @@ int main(void)
 }
 #endif
 
-int SerialFind(const char* prefix, int (*check)(const char* port, void* data), void* data)
+int SerialFind(int (*check)(const char* port, void* data), void* data)
 {
 	GUID *guidDev = (GUID *) &GUID_CLASS_COMPORT;
 	HDEVINFO hDevInfo = INVALID_HANDLE_VALUE;

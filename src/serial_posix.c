@@ -436,10 +436,24 @@ int ReceiveSerialDataExactTimeout(SERIAL *serial, void *buf, int len, int timeou
     return len;
 }
 
-int SerialFind(const char *prefix, int (*check)(const char *port, void *data), void *data)
+static int CheckPrefix(const char *prefix)
+{
+#if defined(LINUX)
+  #ifdef RASPBERRY_PI
+    return strncmp(prefix, "ttyAMA", 6) == 0;
+  #else
+    return strncmp(prefix, "ttyUSB", 6) == 0;
+  #endif
+#elif defined(MACOSX)
+    return strncmp(prefix, "cu.", 3) == 0 && strstr(prefix, "Bluetooth") == NULL;
+#else
+    return 1;
+#endif
+}
+
+int SerialFind(int (*check)(const char *port, void *data), void *data)
 {
     char path[PATH_MAX];
-    int prefixlen = strlen(prefix);
     struct dirent *entry;
     DIR *dirp;
     
@@ -447,7 +461,7 @@ int SerialFind(const char *prefix, int (*check)(const char *port, void *data), v
         return -1;
     
     while ((entry = readdir(dirp)) != NULL) {
-        if (strncmp(entry->d_name, prefix, prefixlen) == 0) {
+        if (CheckPrefix(entry->d_name)) {
             sprintf(path, "/dev/%s", entry->d_name);
             if ((*check)(path, data) == 0) {
                 closedir(dirp);

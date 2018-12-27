@@ -32,12 +32,12 @@ int SerialPropConnection::addPort(const char *port, void *data)
     return state->count < 0 || --state->count > 0;
 }
 
-int SerialPropConnection::findPorts(const char *prefix, bool check, SerialInfoList &list, int count)
+int SerialPropConnection::findPorts(bool check, SerialInfoList &list, int count)
 {
     FindState state;
     state.list = &list;
     state.count = count;
-    SerialFind(prefix, addPort, &state);
+    SerialFind(addPort, &state);
     return 0;
 }
 
