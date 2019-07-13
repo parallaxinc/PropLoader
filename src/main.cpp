@@ -69,8 +69,8 @@ end with a '-'. They must also be less than 32 characters long.\n\
 Variables that can be set with -D are:\n\
 \n\
 Used by the loader:\n\
-  loader reset clkfreq clkmode fast-loader-clkfreq fastloader-clkmode\n\
-  baudrate loader-baud-rate fast-loader-baud-rate\n\
+  loader reset clkfreq clkmode fast-loader-clkfreq fast-loader-clkmode\n\
+  baud-rate loader-baud-rate fast-loader-baud-rate\n\
 \n\
 Used by the SD file writer:\n\
   sdspi-do sdspi-clk sdspi-di sdspi-cs\n\
@@ -556,7 +556,8 @@ int main(int argc, char *argv[])
     
     /* set the baud rate used by the program */
     int baudRate;
-    if (!GetNumericConfigField(config, "baudrate", &baudRate))
+    if (!GetNumericConfigField(config, "baud-rate", &baudRate)
+    &&  !GetNumericConfigField(config, "baudrate", &baudRate)) // for backwards compatibility
         baudRate = DEF_TERMINAL_BAUDRATE;
     if (connection->setBaudRate(baudRate) != 0) {
         nmessage(ERROR_FAILED_TO_SET_BAUD_RATE);
@@ -709,7 +710,9 @@ static int LoadSDHelper(BoardConfig *config, PropConnection *connection)
         hdr->clkfreq = ivalue;
     if (GetNumericConfigField(config, "clkmode", &ivalue))
         hdr->clkmode = ivalue;
-    if (GetNumericConfigField(config, "baudrate", &ivalue))
+    if (GetNumericConfigField(config, "baudrate", &ivalue)) // for backwards compatibility
+        dat->baudrate = ivalue;
+    if (GetNumericConfigField(config, "baud-rate", &ivalue))
         dat->baudrate = ivalue;
     if (GetNumericConfigField(config, "tvpin", &ivalue))
         dat->tvpin = ivalue;
