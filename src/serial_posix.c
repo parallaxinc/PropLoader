@@ -44,11 +44,14 @@
 #include <dirent.h>
 #include <limits.h>
 #include <signal.h>
+#include <ctype.h>
 
 #include "serial.h"
 #include "proploader.h"
 #ifdef RASPBERRY_PI
 #include "gpio_sysfs.h"
+#define DEFAULT_GPIO_PIN    17
+#define DEFAULT_GPIO_LEVEL  0
 #endif
 struct SERIAL {
     struct termios oldParams;
@@ -81,24 +84,47 @@ int SerialUseResetMethod(SERIAL *serial, const char *method)
     else if (strncasecmp(method, "gpio", 4) == 0)
     {
         serial->resetMethod = RESET_WITH_GPIO;
+        serial->resetGpioPin = DEFAULT_GPIO_PIN;
+        serial->resetGpioLevel = DEFAULT_GPIO_LEVEL;
 
-        char *token;
-        token = strtok(method, ",");
-        if (token)
+        char *writeableMethod = strdup(method);
+        if (!writeableMethod)
         {
-            token = strtok(NULL, ",");
+            printf("insufficient memory to parse gpio option\n");
+            return -1;
+        }
+        
+        char *token;
+        if (isdigit(writeableMethod[4]))
+        {
+            serial->resetGpioPin = atoi(&writeableMethod[4]);
+            token = strtok(writeableMethod, ","); // skip over 'gpio'
             if (token)
             {
-                serial->resetGpioPin = atoi(token);
-            }
-            token = strtok(NULL, ",");
-            if (token)
-            {
-                serial->resetGpioLevel = atoi(token); 
+                token = strtok(NULL, "");
             }
         }
+        else {
+            token = strtok(writeableMethod, ","); // skip over 'gpio'
+            if (token)
+            {
+                token = strtok(NULL, ",");
+                if (token)
+                {
+                    serial->resetGpioPin = atoi(token);
+                    token = strtok(NULL, "");
+                }
+            }
+        }
+        
+        if (token)
+        {
+            serial->resetGpioLevel = atoi(token); 
+        }
+        
+        free(writeableMethod);
 
-        printf ("Using GPIO pin %d as Propeller reset (%s)\n", serial->resetGpioPin, serial->resetGpioLevel ? "HIGH" : "LOW");
+        printf ("Using GPIO pin %d as Propeller reset, active %s\n", serial->resetGpioPin, serial->resetGpioLevel ? "HIGH" : "LOW");
         gpio_export(serial->resetGpioPin);
         gpio_write(serial->resetGpioPin, serial->resetGpioLevel ^ 1);
         gpio_direction(serial->resetGpioPin, 1);
@@ -122,10 +148,12 @@ int OpenSerial(const char *port, int baud, SERIAL **pSerial)
         
     /* initialize the state structure */
     memset(serial, 0, sizeof(SERIAL));
-    serial->resetMethod = RESET_WITH_DTR;
 #ifdef RASPBERRY_PI
-    serial->resetGpioPin = 17;
-    serial->resetGpioLevel = 0;
+    serial->resetMethod = RESET_WITH_GPIO;
+    serial->resetGpioPin = DEFAULT_GPIO_PIN;
+    serial->resetGpioLevel = DEFAULT_GPIO_LEVEL;
+#else
+    serial->resetMethod = RESET_WITH_DTR;
 #endif
     serial->fd = -1;
         
