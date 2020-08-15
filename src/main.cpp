@@ -21,7 +21,7 @@
   #define PORT_PREFIX "COM"
 #elif defined(LINUX)
   #ifdef RASPBERRY_PI
-    #define PORT_PREFIX "/dev/ttyAMA"
+    #define PORT_PREFIX "/dev/serial"
   #else
     #define PORT_PREFIX "/dev/ttyUSB"
   #endif

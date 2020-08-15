@@ -468,7 +468,7 @@ static int CheckPrefix(const char *prefix)
 {
 #if defined(LINUX)
   #ifdef RASPBERRY_PI
-    return strncmp(prefix, "ttyAMA", 6) == 0;
+    return strncmp(prefix, "serial", 6) == 0;
   #else
     return strncmp(prefix, "ttyUSB", 6) == 0;
   #endif
