@@ -195,7 +195,7 @@ int OpenSerial(const char *port, int baud, SERIAL **pSerial)
     sparams = serial->oldParams;
     
     /* set raw input */
-#ifdef MACOSX
+#if defined(MACOSX) || defined(RASPBERRY_PI)
     cfmakeraw(&sparams);
     sparams.c_cc[VTIME] = 0;
     sparams.c_cc[VMIN] = 1;
@@ -305,7 +305,7 @@ int SetSerialBaud(SERIAL *serial, int baud)
     chk("tcgetattr", tcgetattr(serial->fd, &sparams));
     
     /* set raw input */
-#ifdef MACOSX
+#if defined(MACOSX) || defined(RASPBERRY_PI)
     chk("cfsetspeed", cfsetspeed(&sparams, tbaud));
 #else
     chk("cfsetispeed", cfsetispeed(&sparams, tbaud));
