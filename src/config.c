@@ -321,7 +321,11 @@ static BoardConfig *GetDefaultConfiguration(void)
         defaultConfig = NewBoardConfig(NULL, DEF_BOARD);
         SetConfigField(defaultConfig, "baudrate",                   "115200");
         SetConfigField(defaultConfig, "loader-baud-rate",           "115200");
+#ifdef RASPBERRY_PI
+        SetConfigField(defaultConfig, "fast-loader-baud-rate",      "1000000");
+#else
         SetConfigField(defaultConfig, "fast-loader-baud-rate",      "921600");
+#endif
         SetConfigField(defaultConfig, "rxpin",                      "31");
         SetConfigField(defaultConfig, "txpin",                      "30");
         SetConfigField(defaultConfig, "sdspi-do",                   "22");
